@@ -1,3 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.json">
+<title>StoreWell Command Center</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#050810;font-family:'Share Tech Mono',monospace;color:#c0dce8}
+#bg{position:fixed;inset:0;background:url('storewell-command-deck.webp') center center/cover no-repeat;z-index:0;will-change:transform}
+#monitor{position:fixed;z-index:1;
+  top:5%;left:50%;transform:translateX(-50%);
+  width:54%;height:62%;
+  display:flex;flex-direction:column;
+  background:rgba(4,8,18,0.88);
+  border:2px solid rgba(0,220,255,0.45);
+  border-radius:6px;
+  box-shadow:0 0 30px rgba(0,220,255,0.25),0 0 80px rgba(0,220,255,0.08),inset 0 0 40px rgba(0,220,255,0.04);
+  overflow:hidden;
+}
+#monitor::before{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,220,255,0.015) 2px,rgba(0,220,255,0.015) 4px);
+  pointer-events:none;z-index:100}
+#monitor::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(170deg,rgba(120,200,255,0.04) 0%,transparent 40%,transparent 80%,rgba(0,180,255,0.02) 100%);
+  pointer-events:none;z-index:101}
+
+/* Header */
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;
+  border-bottom:1px solid rgba(0,220,255,0.2);flex-shrink:0;gap:8px}
+#hdr h1{font-family:'Orbitron',monospace;font-size:clamp(10px,1.6vw,18px);color:#00dcff;
+  text-shadow:0 0 10px rgba(0,220,255,0.5);letter-spacing:2px;white-space:nowrap}
+#clock{color:#ff9f1c;font-size:clamp(9px,1.1vw,13px)}
+#staff-btn{background:rgba(0,220,255,0.12);border:1px solid rgba(0,220,255,0.3);color:#00dcff;
+  padding:3px 10px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:11px}
+#staff-btn:hover{background:rgba(0,220,255,0.25)}
+
+/* Filter bar */
+#filters{display:flex;flex-wrap:wrap;gap:4px;padding:5px 10px;border-bottom:1px solid rgba(0,220,255,0.12);flex-shrink:0}
+.fpill{font-size:10px;padding:2px 8px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);
+  background:rgba(255,255,255,0.05);color:#99b5c4;white-space:nowrap;font-family:inherit;transition:all .15s}
+.fpill.active,.fpill:hover{background:rgba(0,220,255,0.15);border-color:#00dcff;color:#00dcff}
+.fpill .cnt{color:#ff9f1c;margin-left:3px}
+
+/* Stats bar */
+#stats{display:flex;gap:10px;padding:4px 10px;border-bottom:1px solid rgba(0,220,255,0.08);flex-shrink:0;overflow-x:auto}
+.stat{font-size:10px;color:#667;white-space:nowrap}
+.stat b{color:#ff9f1c}
+
+/* Main area: grid + side panel */
+#main{display:flex;flex:1;overflow:hidden;min-height:0}
+#grid-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 10px 6px 10px;scrollbar-width:thin;scrollbar-color:rgba(0,220,255,0.2) transparent}
+.zone-label{font-family:'Orbitron',monospace;font-size:10px;color:#ff9f1c;margin:6px 0 3px;
+  border-bottom:1px solid rgba(255,159,28,0.15);padding-bottom:2px;letter-spacing:1px}
+.zone-grid{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px}
+.utile{width:44px;height:28px;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;font-size:8px;line-height:1.1;border:1px solid rgba(255,255,255,0.1);transition:all .12s;position:relative}
+.utile:hover{transform:scale(1.15);z-index:5;box-shadow:0 0 8px currentColor}
+.utile.selected{outline:2px solid #00dcff;outline-offset:1px}
+.utile .sz{font-size:6px;opacity:0.7}
+
+/* Side panel */
+#side{width:0;overflow:hidden;transition:width .2s;border-left:1px solid rgba(0,220,255,0.15);flex-shrink:0;display:flex;flex-direction:column}
+#side.open{width:180px}
+#side-inner{padding:8px;display:flex;flex-direction:column;gap:6px;overflow-y:auto}
+#sel-label{font-family:'Orbitron',monospace;font-size:14px;color:#00dcff;text-align:center}
+#sel-size{font-size:10px;color:#667;text-align:center}
+#sel-status{font-size:10px;text-align:center;margin:2px 0}
+.sbtn{font-size:9px;padding:4px;border:1px solid rgba(255,255,255,0.15);border-radius:3px;
+  cursor:pointer;font-family:inherit;text-align:center;transition:all .12s}
+.sbtn:hover{opacity:0.85;transform:scale(1.03)}
+#side-close{background:none;border:none;color:#ff4444;cursor:pointer;font-size:14px;align-self:flex-end;font-family:inherit}
+
+/* Activity feed */
+#feed{border-top:1px solid rgba(0,220,255,0.12);padding:4px 10px;flex-shrink:0;max-height:60px;overflow-y:auto;scrollbar-width:thin}
+#feed .fe{font-size:9px;color:#556;line-height:1.5}
+#feed .fe b{color:#ff9f1c}
+#feed-title{font-size:9px;color:#00dcff;margin-bottom:2px}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center}
+.modal{background:#0a0e1a;border:1px solid rgba(0,220,255,0.3);border-radius:6px;padding:20px;max-width:340px;width:90%;
+  box-shadow:0 0 40px rgba(0,220,255,0.15)}
+.modal h3{font-family:'Orbitron',monospace;color:#00dcff;margin-bottom:12px;font-size:14px}
+.modal input{width:100%;padding:8px;background:#0d1220;border:1px solid rgba(0,220,255,0.2);color:#c0dce8;
+  font-family:inherit;border-radius:3px;margin-bottom:8px}
+.modal button{padding:6px 16px;border:1px solid rgba(0,220,255,0.3);background:rgba(0,220,255,0.1);
+  color:#00dcff;cursor:pointer;font-family:inherit;border-radius:3px;margin-right:6px}
+
+/* Flashing */
+@keyframes flashR{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes flashG{0%,100%{opacity:1}50%{opacity:0.3}}
+.flash-red{animation:flashR 0.6s infinite}
+.flash-green{animation:flashG 0.6s infinite}
+
+/* Report modal */
+#report-btn{position:fixed;bottom:8px;right:8px;z-index:10;background:rgba(0,220,255,0.1);
+  border:1px solid rgba(0,220,255,0.3);color:#00dcff;padding:4px 10px;border-radius:3px;
+  cursor:pointer;font-family:inherit;font-size:10px}
+
+/* Responsive */
+@media(max-width:800px){
+  #monitor{width:96%;height:88%;top:2%;border-radius:4px}
+  .utile{width:36px;height:24px;font-size:7px}
+  .utile .sz{font-size:5px}
+  #side.open{width:150px}
+  #hdr h1{font-size:10px;letter-spacing:1px}
+}
+@media(max-width:500px){
+  #monitor{width:100%;height:96%;top:1%;border-radius:0}
+  .utile{width:32px;height:22px}
+  #side.open{width:130px}
+  #filters{gap:2px;padding:3px 6px}
+  .fpill{font-size:8px;padding:1px 5px}
+  #grid-wrap{padding:4px 6px}
+}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="monitor">
+  <div id="hdr">
+    <h1>STOREWELL COMMAND CENTER</h1>
+    <span id="clock"></span>
+    <button id="staff-btn" onclick="showLogin()">LOGIN</button>
+  </div>
+  <div id="filters"></div>
+  <div id="stats"></div>
+  <div id="main">
+    <div id="grid-wrap"></div>
+    <div id="side">
+      <div id="side-inner">
+        <button id="side-close" onclick="closeSide()">&times;</button>
+        <div id="sel-label"></div>
+        <div id="sel-size"></div>
+        <div id="sel-status"></div>
+        <div id="status-btns"></div>
+      </div>
+    </div>
+  </div>
+  <div id="feed"><div id="feed-title">ACTIVITY LOG</div><div id="feed-entries"></div></div>
+</div>
+<button id="report-btn" onclick="showReport()">REPORT</button>
+
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
+import{getDatabase,ref,set,push,get,onValue}from'https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js';
+
+const firebaseConfig={apiKey:"AIzaSyBdYyhNaNJs-Xv8Fe4bOuAoXWNOb_1D_94",authDomain:"storewell-3d.firebaseapp.com",databaseURL:"https://storewell-3d-default-rtdb.firebaseio.com",projectId:"storewell-3d",storageBucket:"storewell-3d.firebasestorage.app",messagingSenderId:"1093355976155",appId:"1:1093355976155:web:33b21794eaf968d006e3fe"};
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
+
+const COLORS={blue:'#00aaff',red:'#ff1111',white:'#ffffff',black:'#222222',green:'#00ff44',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44'};
+const LABELS={green:'Available',red:'Rented',blue:'Reserved',white:'Vacant',black:'Out of Service',yellow:'Past Due',flashred:'LOCK IT',flashgreen:'LOCK OFF'};
+const STAFF=['Kevin','Mike','Brad'];
+
+function r(a,b){let o=[];for(let i=a;i<=b;i++)o.push(String(i));return o}
+
+const ZONES=[
+  {name:'Zone 1 (C/G)',units:[
+    ...['G1','G2','G3','G4','C18','C19'].map(u=>({id:u,sz:'10x20'})),
+    ...['C1','C2','C3','C5'].map(u=>({id:u,sz:'10x10'})),
+    {id:'C4',sz:'7x9'},{id:'C20',sz:'30x30'}
+  ]},
+  {name:'Zone 2 (D)',units:[
+    ...['D1','D2','D3','D10','D11','D12'].map(u=>({id:u,sz:'10x10'})),
+    ...['D4','D6','D7','D8','D9','D6-1','D6-2','D6-3','D6-4'].map(u=>({id:u,sz:'5x10'})),
+    {id:'D5',sz:'10x30'}
+  ]},
+  {name:'Zone 3 (C-back)',units:[
+    ...['C6','C7','C8','C9','C10','C11','C12','C13','C14','C15','C16','C17','C11-1'].map(u=>({id:u,sz:'10x10'})),
+    ...['C11-2','C11-3','C11-4'].map(u=>({id:u,sz:'5x10'}))
+  ]},
+  {name:'Zone 4 (J)',units:[
+    ...['J1','J2','J3','J4','J5','J6','J7','J8'].map(u=>({id:u,sz:'10x20'}))
+  ]},
+  {name:'Zone 5 (E)',units:[
+    ...['E1','E2','E3','E4','E5','E6','E7'].map(u=>({id:u,sz:'10x20'})),
+    ...['E8','E9','E10','E11','E12','E13','E21','E22','E23','E24','E25','E26'].map(u=>({id:u,sz:'5x10'})),
+    ...['E14','E15','E16','E17','E18','E19','E20'].map(u=>({id:u,sz:'10x10'}))
+  ]},
+  {name:'Zone 6 (H)',units:[
+    ...['H1','H2','H3'].map(u=>({id:u,sz:'10x20'})),
+    ...['H4','H5','H6','H7','H8','H9'].map(u=>({id:u,sz:'10x10'}))
+  ]},
+  {name:'Zone 7 (F/B/numbers)',units:[
+    ...['F1','F2','F3','F12','F13','F14'].map(u=>({id:u,sz:'10x20'})),
+    ...['F4','F5','F6','F7','F8','F9','F10','F11'].map(u=>({id:u,sz:'5x10'})),
+    ...['B1','B2','B3','B6'].map(u=>({id:u,sz:'10x20'})),
+    ...['B4','B7','B8','B9'].map(u=>({id:u,sz:'10x10'})),
+    ...r(25,36).map(u=>({id:u,sz:'10x10'})),
+    ...['361','362','363','364'].map(u=>({id:u,sz:'10x10'}))
+  ]},
+  {name:'Zone 8 (numbers)',units:[
+    ...r(1,12).map(u=>({id:u,sz:'10x20'})),
+    ...['12-1','12-2'].map(u=>({id:u,sz:'10x20'})),
+    ...['12-3','12-4'].map(u=>({id:u,sz:'10x10'})),
+    ...r(13,24).map(u=>({id:u,sz:'10x10'}))
+  ]},
+  {name:'Zone 9',units:[
+    ...['49','50'].map(u=>({id:u,sz:'10x20'})),
+    ...r(37,48).map(u=>({id:u,sz:'10x26'}))
+  ]}
+];
+
+const DEFAULT_STATUS={};
+['E5'].forEach(u=>DEFAULT_STATUS[u]='blue');
+['13','20','21','E12','C8','D9','E4','H2','12','F6','F8','33','H7','G1','C2','D2','41','43','49','C4'].forEach(u=>DEFAULT_STATUS[u]='red');
+['E8','26'].forEach(u=>DEFAULT_STATUS[u]='white');
+
+let allUnits=[];
+ZONES.forEach(z=>z.units.forEach(u=>{u.zone=z.name;allUnits.push(u)}));
+
+let overrides={};
+let selected=null;
+let activeFilter='all';
+let sessionLog=[];
+let logEntries=[];
+
+function getStatus(id){return overrides[id]||DEFAULT_STATUS[id]||'green'}
+function getKey(id){return id.replace(/[.#$/[\]]/g,'_')}
+
+// Firebase listeners
+const ovRef=ref(db,'lockOverrides');
+onValue(ovRef,snap=>{overrides=snap.val()||{};render()});
+
+const logRef=ref(db,'lockLog');
+onValue(logRef,snap=>{
+  const d=snap.val();
+  if(!d){logEntries=[];renderFeed();return}
+  logEntries=Object.values(d).sort((a,b)=>(b.t||0)-(a.t||0)).slice(0,30);
+  renderFeed();
+});
+
+function render(){
+  renderGrid();renderFilters();renderStats();
+  if(selected)renderSide();
+}
+
+function renderGrid(){
+  const gw=document.getElementById('grid-wrap');
+  gw.innerHTML='';
+  ZONES.forEach(z=>{
+    const filtered=z.units.filter(u=>activeFilter==='all'||getStatus(u.id)===activeFilter);
+    if(!filtered.length)return;
+    const lbl=document.createElement('div');lbl.className='zone-label';lbl.textContent=z.name;gw.appendChild(lbl);
+    const g=document.createElement('div');g.className='zone-grid';
+    filtered.forEach(u=>{
+      const s=getStatus(u.id);const c=COLORS[s]||COLORS.green;
+      const t=document.createElement('div');t.className='utile';
+      if(s==='flashred')t.classList.add('flash-red');
+      if(s==='flashgreen')t.classList.add('flash-green');
+      if(selected===u.id)t.classList.add('selected');
+      t.style.background=hexToRgba(c,0.18);t.style.borderColor=hexToRgba(c,0.5);t.style.color=c;
+      t.innerHTML=`<span>${u.id}</span><span class="sz">${u.sz}</span>`;
+      t.onclick=()=>selectUnit(u.id);
+      g.appendChild(t);
+    });
+    gw.appendChild(g);
+  });
+}
+
+function renderFilters(){
+  const fb=document.getElementById('filters');fb.innerHTML='';
+  const counts={all:allUnits.length};
+  Object.keys(LABELS).forEach(k=>counts[k]=0);
+  allUnits.forEach(u=>{const s=getStatus(u.id);counts[s]=(counts[s]||0)+1});
+  [['all','All'],['green','Avail'],['red','Rented'],['blue','Rsrvd'],['white','Vacant'],['yellow','Due'],['black','OOS'],['flashred','LOCK IT'],['flashgreen','LOCK OFF']].forEach(([k,l])=>{
+    const p=document.createElement('button');p.className='fpill'+(activeFilter===k?' active':'');
+    p.innerHTML=`${l}<span class="cnt">${counts[k]||0}</span>`;
+    p.onclick=()=>{activeFilter=k;render()};
+    fb.appendChild(p);
+  });
+}
+
+function renderStats(){
+  const sb=document.getElementById('stats');
+  const counts={};allUnits.forEach(u=>{const s=getStatus(u.id);counts[s]=(counts[s]||0)+1});
+  sb.innerHTML=Object.entries(LABELS).map(([k,l])=>`<span class="stat">${l}: <b style="color:${COLORS[k]}">${counts[k]||0}</b></span>`).join('');
+}
+
+function selectUnit(id){
+  selected=id;
+  document.getElementById('side').classList.add('open');
+  renderSide();renderGrid();
+}
+function closeSide(){selected=null;document.getElementById('side').classList.remove('open');renderGrid()}
+
+function renderSide(){
+  const u=allUnits.find(x=>x.id===selected);if(!u)return;
+  const s=getStatus(u.id);
+  document.getElementById('sel-label').textContent=u.id;
+  document.getElementById('sel-size').textContent=u.sz;
+  document.getElementById('sel-status').innerHTML=`<span style="color:${COLORS[s]}">${LABELS[s]||s}</span>`;
+  const bb=document.getElementById('status-btns');bb.innerHTML='';
+  Object.entries(LABELS).forEach(([k,l])=>{
+    if(k===s)return;
+    const b=document.createElement('button');b.className='sbtn';
+    b.style.background=hexToRgba(COLORS[k],0.15);b.style.borderColor=hexToRgba(COLORS[k],0.4);b.style.color=COLORS[k];
+    b.textContent=l;
+    b.onclick=()=>changeStatus(u.id,k);
+    bb.appendChild(b);
+  });
+}
+
+async function changeStatus(id,newStatus){
+  const who=localStorage.getItem('sw_staff_name')||'Unknown';
+  const old=getStatus(id);
+  const key=getKey(id);
+  try{
+    await set(ref(db,'lockOverrides/'+key),newStatus);
+    await push(ref(db,'lockLog'),{label:id,from:old,to:newStatus,who,t:Date.now()});
+    sessionLog.push({label:id,from:old,to:newStatus,who,t:Date.now()});
+    if(newStatus==='flashred'||newStatus==='flashgreen'){
+      try{
+        const snap=await get(ref(db,'staffConfig'));
+        const cfg=snap.val();
+        if(cfg){
+          const msg=`${newStatus==='flashred'?'LOCK IT':'LOCK OFF'}: Unit ${id} by ${who}`;
+          alert(msg+'\nStaff notified.');
+        }
+      }catch(e){console.warn('Staff config fetch failed',e)}
+    }
+  }catch(e){console.error('Status change failed',e);alert('Error: '+e.message)}
+}
+
+function renderFeed(){
+  const fe=document.getElementById('feed-entries');
+  fe.innerHTML=logEntries.slice(0,12).map(e=>{
+    const d=e.t?new Date(e.t).toLocaleTimeString():'';
+    return `<div class="fe"><b>${e.label}</b> ${LABELS[e.from]||e.from} &rarr; ${LABELS[e.to]||e.to} &middot; ${e.who} &middot; ${d}</div>`;
+  }).join('');
+}
+
+// Clock
+function tickClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent=now.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tickClock,1000);tickClock();
+
+// Login
+window.showLogin=function(){
+  const existing=document.querySelector('.modal-bg');if(existing)existing.remove();
+  const cur=localStorage.getItem('sw_staff_name');
+  const m=document.createElement('div');m.className='modal-bg';
+  m.innerHTML=`<div class="modal"><h3>STAFF LOGIN</h3>
+    ${cur?`<p style="font-size:11px;margin-bottom:8px">Logged in: <b style="color:#ff9f1c">${cur}</b></p>`:''}
+    <input id="login-name" placeholder="Enter staff name" value="${cur||''}" autofocus>
+    <div><button onclick="doLogin()">LOGIN</button><button onclick="this.closest('.modal-bg').remove()">CANCEL</button>
+    ${cur?'<button onclick="doLogout()" style="color:#ff4444;border-color:#ff4444">LOGOUT</button>':''}</div></div>`;
+  document.body.appendChild(m);
+  m.querySelector('input').focus();
+};
+window.doLogin=function(){
+  const v=document.getElementById('login-name').value.trim();
+  if(!v)return;
+  localStorage.setItem('sw_staff_name',v);
+  document.querySelector('.modal-bg').remove();
+  document.getElementById('staff-btn').textContent=v.toUpperCase();
+};
+window.doLogout=function(){
+  localStorage.removeItem('sw_staff_name');
+  document.querySelector('.modal-bg').remove();
+  document.getElementById('staff-btn').textContent='LOGIN';
+};
+
+// Report
+window.showReport=function(){
+  const existing=document.querySelector('.modal-bg');if(existing)existing.remove();
+  const m=document.createElement('div');m.className='modal-bg';
+  const rows=sessionLog.map(e=>`${e.label}: ${e.from} -> ${e.to} (${e.who})`).join('\n')||'No changes this session.';
+  m.innerHTML=`<div class="modal"><h3>SESSION REPORT</h3>
+    <pre style="font-size:10px;max-height:200px;overflow:auto;background:#0d1220;padding:8px;border-radius:3px;white-space:pre-wrap">${rows}</pre>
+    <div style="margin-top:10px">
+    <button onclick="sendReport()">SAVE &amp; NOTIFY</button>
+    <button onclick="this.closest('.modal-bg').remove()">CLOSE</button></div></div>`;
+  document.body.appendChild(m);
+};
+window.sendReport=async function(){
+  if(!sessionLog.length){alert('No changes to report.');return}
+  const who=localStorage.getItem('sw_staff_name')||'Unknown';
+  try{
+    const snap=await get(ref(db,'staffConfig'));
+    const cfg=snap.val()||{};
+    const body=sessionLog.map(e=>`${e.label}: ${LABELS[e.from]||e.from} -> ${LABELS[e.to]||e.to}`).join('<br>');
+    const to=Object.values(cfg).filter(s=>s.email&&s.pref!=='none').map(s=>({email:s.email,name:s.name||'Staff'}));
+    if(!to.length){alert('No staff emails configured.');return}
+    await fetch('/email',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to,subject:`StoreWell Lock Report - ${who}`,html:`<h3>Lock Changes by ${who}</h3><p>${body}</p><p>${new Date().toLocaleString()}</p>`})
+    });
+    alert('Report sent!');
+  }catch(e){console.error(e);alert('Send failed: '+e.message)}
+};
+
+// Restore login
+const savedName=localStorage.getItem('sw_staff_name');
+if(savedName)document.getElementById('staff-btn').textContent=savedName.toUpperCase();
+
+// Parallax
+let px=0,py=0;
+document.addEventListener('mousemove',e=>{
+  const cx=e.clientX/window.innerWidth-0.5;
+  const cy=e.clientY/window.innerHeight-0.5;
+  px+=(cx-px)*0.1;py+=(cy-py)*0.1;
+});
+function animBg(){
+  document.getElementById('bg').style.transform=`translate(${px*-8}px,${py*-6}px) scale(1.02)`;
+  requestAnimationFrame(animBg);
+}
+animBg();
+
+// PWA
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}
+
+function hexToRgba(hex,a){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+render();
+</script>
+</body>
+</html>
 Warning: truncated output (original token count: 38312)
 Total output lines: 1100
 
