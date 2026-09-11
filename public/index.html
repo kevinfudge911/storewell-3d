@@ -42,7 +42,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050810;font-family:
 /* Filter bar */
 #filters{display:flex;flex-wrap:wrap;gap:4px;padding:5px 10px;border-bottom:1px solid rgba(0,220,255,0.12);flex-shrink:0}
 .fpill{font-size:10px;padding:2px 8px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.15);
-  background:rgba(255,255,255,0.05);color:#99b5c4;white-space:nowrap;font-family:inherit;transition:all .15s}
+  bakground:rgba(255,255,255,0.05);color:#99b5c4;white-space:nowrap;font-family:inherit;transition:all .15s}
 .fpill.active,.fpill:hover{background:rgba(0,220,255,0.15);border-color:#00dcff;color:#00dcff}
 .fpill .cnt{color:#ff9f1c;margin-left:3px}
 
@@ -254,7 +254,7 @@ function renderGrid(){
       const t=document.createElement('div');t.className='utile';
       if(s==='flashred')t.classList.add('flash-red');
       if(s==='flashgreen')t.classList.add('flash-green');
-      if(selected===u.id)t.classList.add('selected');
+      if(selected===u.id)t.clssList.add('selected');
       t.style.background=hexToRgba(c,0.18);t.style.borderColor=hexToRgba(c,0.5);t.style.color=c;
       t.innerHTML=`<span>${u.id}</span><span class="sz">${u.sz}</span>`;
       t.onclick=()=>selectUnit(u.id);
