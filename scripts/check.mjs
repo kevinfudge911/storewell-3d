@@ -80,7 +80,11 @@ click('[data-view="center"]');assert(!w.document.querySelector('#sw-deck').class
 Object.defineProperty(w,'innerWidth',{configurable:true,value:393});w.dispatchEvent(new w.Event('resize'));
 assert(w.document.querySelector('.mobile-dock .command-screen'),'Phone controls move into responsive dock');
 click('[data-view="look"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Look around restores the 3D display');
+for(let i=0;i<15;i++)w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+await new Promise(resolve=>setTimeout(resolve,1400));
+assert.equal(w.document.querySelector('.command-screen').style.display,'none','Looking away hides the display behind the camera');
 click('[data-view="center"]');assert(w.document.querySelector('.mobile-dock .command-screen'),'Center restores usable phone controls');
+assert.notEqual(w.document.querySelector('.mobile-dock .command-screen').style.display,'none','Phone controls become visible again after looking away');
 // Exercise the actual save boundary with a fake identity and fake network, never production.
 app.state.editMode=true;w.__swCheckLogin=()=> 'Offline test';
 const original=app._statusOf('G2');w.fetch=async()=>({ok:false});

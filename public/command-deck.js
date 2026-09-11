@@ -310,7 +310,7 @@
   function resize(){
     if(!camera||deck.classList.contains('is-fallback'))return;
     camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer?.setSize(innerWidth,innerHeight);cssRenderer.setSize(innerWidth,innerHeight);
-    if(mobile()&&view!=='look'){if(board.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);}else if(!board.parent)cssScene.add(board);
+    if(mobile()&&view!=='look'){if(board.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);screen.style.display='';}else if(!board.parent)cssScene.add(board);
     renderCss();
   }
   function animate(now=0){
@@ -324,7 +324,7 @@
     renderer?.render(room,camera);renderCss();
   }
   function fallback(){
-    deck.classList.add('is-fallback');if(board?.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);
+    deck.classList.add('is-fallback');if(board?.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);screen.style.display='';
     deck.querySelector('.room-canvas').style.display='none';deck.querySelector('.room-ui').style.display='none';
     deck.querySelectorAll('[data-view="look"],[data-view="room"]').forEach(b=>b.disabled=true);
     toast('Room controls are available. This browser could not start the 3D view.');
