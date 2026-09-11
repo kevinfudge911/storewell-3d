@@ -1,0 +1,78 @@
+// Offline regression checks. All network calls are intercepted; no production records change.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { JSDOM, VirtualConsole } from 'jsdom';
+import { transform } from 'esbuild';
+const root=path.resolve(import.meta.dirname,'..');
+const read=f=>fs.readFileSync(path.join(root,'public',f),'utf8');
+const html=read('index.html');
+assert(!/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(html),'No corrupted control characters');
+const sourceDom=new JSDOM(html);
+for(const script of sourceDom.window.document.querySelectorAll('script')){
+  if(script.src){const p=new URL(script.src,'https://storewell.test').pathname;assert(fs.existsSync(path.join(root,'public',p)),`Local script exists: ${p}`);continue;}
+  if(script.type==='module')await transform(script.textContent,{loader:'js'});
+  else new vm.Script(script.textContent);
+}
+for(const f of ['command-deck.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
+for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-deck.css','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
+assert(html.includes('this.buildScene()')&&html.includes('buildZone9()'),'Complete property model is restored');
+const logs=[], requests=[];
+const vc=new VirtualConsole();vc.on('jsdomError',e=>logs.push(e.message));vc.on('error',e=>logs.push(String(e)));
+const dom=new JSDOM(html,{url:'https://storewell.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc});
+const w=dom.window;
+const ctx=new Proxy({measureText:t=>({width:String(t).length*9}),createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}}),getImageData:()=>({data:new Uint8ClampedArray(4)})},{get:(o,k)=>k in o?o[k]:()=>{}});
+w.HTMLCanvasElement.prototype.getContext=function(){return ctx;};w.HTMLCanvasElement.prototype.toDataURL=()=>'';
+w.matchMedia=q=>({matches:false,addEventListener(){}});w.alert=()=>{};
+w.EventSource=class{addEventListener(){}close(){}};
+w.fetch=async(url,opts={})=>{requests.push({url:String(url),opts});return {ok:true,json:async()=>({E5:'blue',E8:'white',G1:'red',D1:'flashgreen'}),text:async()=>html};};
+w.AbortSignal.timeout=()=>undefined;
+for(const f of ['vendor/three.min.js','vendor/OrbitControls.js','vendor/CSS3DRenderer.js','vendor/react.production.min.js','vendor/react-dom.production.min.js'])w.eval(read(f));
+// A software DOM cannot create a GPU context; keep real scene geometry and stub only rendering.
+w.THREE.WebGLRenderer=class{constructor(){this.domElement=w.document.createElement('canvas');this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}dispose(){}};
+w.eval(read('vendor/dc-runtime.js'));
+await new Promise(resolve=>setTimeout(resolve,200));
+const app=w.__swApp;
+assert(app,'Original property application boots');
+assert(app.scene?.isScene,'Original Three.js scene exists');
+assert(Object.keys(app._locks||{}).length>=160,'Property has the full unit inventory');
+console.log('Size catalog entries without a modeled door:',Object.keys(app._unitSize()).filter(k=>!app._locks[k]).join(', ')||'none');
+assert.equal(app._statusOf('G2'),'green');
+assert.equal(app._statusLabel('green'),'Rented');
+assert.equal(app._statusOf('E5'),'blue');
+assert.equal(app._statusOf('E8'),'white');
+w.eval(read('command-deck.js'));
+await new Promise(resolve=>setTimeout(resolve,50));
+assert.equal(w.__swDeckVisible,true,'Command center opens first');
+const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.click();};
+click('[data-action="find"]');
+assert(w.document.querySelectorAll('.unit-grid .unit').length>=160,'Find unit lists full catalog');
+const search=w.document.querySelector('#deck-find');search.value='c11-2';search.dispatchEvent(new w.Event('input'));
+assert.equal(w.document.querySelectorAll('.unit-grid .unit').length,1,'Search normalizes hyphens');
+click('[data-unit="C112"]');
+assert(w.document.querySelector('#deck-dialog-title').textContent.replace(/[-\s]/g,'').includes('C112'),w.document.querySelector('#deck-dialog-title').textContent);
+const before=requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length;
+click('#deck-edit');await new Promise(resolve=>setTimeout(resolve,0));
+assert.equal(requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length,before,'Unauthenticated UI cannot write');
+click('#deck-locate');assert.equal(w.__swDeckVisible,false,'Find on property exits command room');
+assert(app._marker?.visible,'Unit location marker appears in original model');
+w.__swCommandCenter();assert.equal(w.__swDeckVisible,true,'Can return to command room');
+click('[data-action="green"]');assert(w.document.querySelector('#deck-dialog-title').textContent==='Rented');
+assert([...w.document.querySelectorAll('.unit-grid .unit span')].every(e=>e.textContent==='Rented'));
+click('.close-dialog');click('[data-action="report"]');assert(w.document.querySelector('#deck-download'));
+click('.close-dialog');click('[data-view="look"]');assert(w.document.querySelector('#sw-deck').classList.contains('exploring'));
+click('[data-view="center"]');assert(!w.document.querySelector('#sw-deck').classList.contains('exploring'));
+Object.defineProperty(w,'innerWidth',{configurable:true,value:393});w.dispatchEvent(new w.Event('resize'));
+assert(w.document.querySelector('.mobile-dock .command-screen'),'Phone controls move into responsive dock');
+click('[data-view="look"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Look around restores the 3D display');
+click('[data-view="center"]');assert(w.document.querySelector('.mobile-dock .command-screen'),'Center restores usable phone controls');
+// Exercise the actual save boundary with a fake identity and fake network, never production.
+app.state.editMode=true;w.__swCheckLogin=()=> 'Offline test';
+const original=app._statusOf('G2');w.fetch=async()=>({ok:false});
+assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original,'Rejected save leaves unit status intact');
+let writes=0;w.fetch=async(url,opts)=>{if(String(url).includes('/lockOverrides/')&&opts?.method==='PUT')writes++;return {ok:true,json:async()=>({})};};
+await app.setStatus('G2','black');assert.equal(app._statusOf('G2'),'black');assert.equal(writes,1,'Successful status update uses one shared write');
+assert(!logs.some(x=>/SyntaxError|ReferenceError|TypeError/.test(x)),logs.join('\n'));
+console.log(`PASS: ${Object.keys(app._locks).length} modeled units; syntax/assets; original boot; search and filters; map route; mobile dock; save failure and success. No production writes.`);
+dom.window.close();sourceDom.window.close();

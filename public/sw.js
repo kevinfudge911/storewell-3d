@@ -1,6 +1,6 @@
 // StoreWell service worker v2 (safe) - GET-only caching + push notifications.
 // Never touches POST/PUT requests, so it can never break lock saves or reports.
-const CACHE = 'storewell-v2';
+const CACHE = 'storewell-command-bridge-v3';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
     e.waitUntil(caches.keys()
@@ -13,8 +13,8 @@ self.addEventListener('fetch', e => {
     const url = new URL(req.url);
     if (url.origin !== self.location.origin) return;
     e.respondWith(
-          fetch(req).then(r => { const c = r.clone(); caches.open(CACHE).then(x => x.put(req, c)).catch(()=>{}); return r; })
-            .catch(() => caches.match(req))
+          fetch(req).then(r => { if(r.ok){ const c = r.clone(); caches.open(CACHE).then(x => x.put(req, c)).catch(()=>{}); } return r; })
+            .catch(async () => (await caches.match(req)) || new Response('StoreWell is offline. Reconnect and reload.', {status:503,headers:{'Content-Type':'text/plain'}}))
         );
 });
 self.addEventListener('push', e => {
