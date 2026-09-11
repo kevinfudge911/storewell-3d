@@ -18,6 +18,7 @@ for(const script of sourceDom.window.document.querySelectorAll('script')){
 for(const f of ['command-deck.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
 for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-deck.css','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
 assert(html.includes('this.buildScene()')&&html.includes('buildZone9()'),'Complete property model is restored');
+async function verifyContext(noGpu){
 const logs=[], requests=[];
 const vc=new VirtualConsole();vc.on('jsdomError',e=>logs.push(e.message));vc.on('error',e=>logs.push(String(e)));
 const dom=new JSDOM(html,{url:'https://storewell.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc});
@@ -30,12 +31,13 @@ w.fetch=async(url,opts={})=>{requests.push({url:String(url),opts});return {ok:tr
 w.AbortSignal.timeout=()=>undefined;
 for(const f of ['vendor/three.min.js','vendor/OrbitControls.js','vendor/CSS3DRenderer.js','vendor/react.production.min.js','vendor/react-dom.production.min.js'])w.eval(read(f));
 // A software DOM cannot create a GPU context; keep real scene geometry and stub only rendering.
-w.THREE.WebGLRenderer=class{constructor(){this.domElement=w.document.createElement('canvas');this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}dispose(){}};
+w.THREE.WebGLRenderer=class{constructor(){if(noGpu)throw new Error('GPU context unavailable');this.domElement=w.document.createElement('canvas');this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}dispose(){}};
 w.eval(read('vendor/dc-runtime.js'));
 await new Promise(resolve=>setTimeout(resolve,200));
 const app=w.__swApp;
 assert(app,'Original property application boots');
 assert(app.scene?.isScene,'Original Three.js scene exists');
+assert.equal(app._webglAvailable,!noGpu,'GPU availability is recorded independently of inventory');
 assert(Object.keys(app._locks||{}).length>=160,'Property has the full unit inventory');
 console.log('Size catalog entries without a modeled door:',Object.keys(app._unitSize()).filter(k=>!app._locks[k]).join(', ')||'none');
 assert.equal(app._statusOf('G2'),'green');
@@ -55,8 +57,18 @@ assert(w.document.querySelector('#deck-dialog-title').textContent.replace(/[-\s]
 const before=requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length;
 click('#deck-edit');await new Promise(resolve=>setTimeout(resolve,0));
 assert.equal(requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length,before,'Unauthenticated UI cannot write');
-click('#deck-locate');assert.equal(w.__swDeckVisible,false,'Find on property exits command room');
-assert(app._marker?.visible,'Unit location marker appears in original model');
+click('#deck-locate');
+if(noGpu){
+  assert.equal(w.__swDeckVisible,true,'Keep usable command room open when GPU is unavailable');
+  assert.equal(w.document.querySelectorAll('[data-plan-unit]').length,Object.keys(app._locks).length,'Property plan preserves every modeled unit');
+  assert(w.document.querySelector('#deck-dialog-title').textContent.replace(/[-\s]/g,'').includes('C112'),'Plan highlights the searched unit');
+  click('#deck-return');
+  assert.equal(w.document.querySelectorAll('.panorama-panel').length,32,'The CSS room wraps all the way around');
+  assert(!w.document.querySelector('[data-view="look"]').disabled,'Look around remains available without WebGL');
+}else{
+  assert.equal(w.__swDeckVisible,false,'Find on property exits command room');
+  assert(app._marker?.visible,'Unit location marker appears in original model');
+}
 w.__swCommandCenter();assert.equal(w.__swDeckVisible,true,'Can return to command room');
 click('[data-action="green"]');assert(w.document.querySelector('#deck-dialog-title').textContent==='Rented');
 assert([...w.document.querySelectorAll('.unit-grid .unit span')].every(e=>e.textContent==='Rented'));
@@ -74,5 +86,9 @@ assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf
 let writes=0;w.fetch=async(url,opts)=>{if(String(url).includes('/lockOverrides/')&&opts?.method==='PUT')writes++;return {ok:true,json:async()=>({})};};
 await app.setStatus('G2','black');assert.equal(app._statusOf('G2'),'black');assert.equal(writes,1,'Successful status update uses one shared write');
 assert(!logs.some(x=>/SyntaxError|ReferenceError|TypeError/.test(x)),logs.join('\n'));
-console.log(`PASS: ${Object.keys(app._locks).length} modeled units; syntax/assets; original boot; search and filters; map route; mobile dock; save failure and success. No production writes.`);
-dom.window.close();sourceDom.window.close();
+console.log(`PASS (${noGpu?'no GPU':'GPU renderer'}): ${Object.keys(app._locks).length} modeled units; original boot; search and filters; property location; room controls; mobile dock; save failure and success. No production writes.`);
+dom.window.close();
+}
+await verifyContext(false);
+await verifyContext(true);
+sourceDom.window.close();

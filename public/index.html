@@ -357,7 +357,7 @@ class Component extends DCLogic {
     }
   }
 
-  componentDidMount(){ this._tries=0; this.waitForThree(); window.__swApp=this; if(window.__swSetup) window.__swSetup(this); }
+  componentDidMount(){ window.__swApp=this; this._tries=0; this.waitForThree(); if(window.__swSetup) window.__swSetup(this); }
   componentWillUnmount(){
     if(this._raf) cancelAnimationFrame(this._raf);
     if(this._onResize) window.removeEventListener('resize', this._onResize);
@@ -387,7 +387,15 @@ class Component extends DCLogic {
     camera.position.set(38, 27, 46);
     this.camera = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    // Unit records and synchronization must also boot without a GPU context.
+    let renderer;
+    this._webglAvailable=true;
+    try{ renderer=new THREE.WebGLRenderer({ antialias:true }); }
+    catch(error){
+      this._webglAvailable=false;
+      renderer={domElement:document.createElement('canvas'),shadowMap:{},setPixelRatio(){},setSize(){},render(){},dispose(){}};
+      console.warn('Property graphics unavailable; inventory and property plan remain available.');
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(W, H);
     renderer.shadowMap.enabled = true;
@@ -574,7 +582,7 @@ class Component extends DCLogic {
 
     const loop = ()=>{
       this._raf=requestAnimationFrame(loop);
-      if (window.__swDeckVisible || document.hidden) return;
+      if (!this._webglAvailable || window.__swDeckVisible || document.hidden) return;
       for(const rec of this.openables){
         if(Math.abs(rec.cur-rec.target)>0.003){
           rec.cur += (rec.target-rec.cur)*0.16;

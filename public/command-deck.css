@@ -7,6 +7,7 @@ body.storewell-deck-open #sw-sens-ctrl,body.storewell-deck-open #sw-ward-btn,bod
 #sw-deck .room-canvas,#sw-deck .room-ui{position:absolute;inset:0}
 #sw-deck .room-ui{pointer-events:none}
 #sw-deck .room-ui>div{pointer-events:none!important}
+#sw-deck .panorama-panel,#sw-deck .room-front{pointer-events:none!important;backface-visibility:hidden}
 #sw-deck .room-vignette{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 100px #0009}
 #sw-deck button,#sw-deck-dialog button{font:inherit;cursor:pointer;color:inherit}
 #sw-deck button:focus-visible,#sw-deck-dialog :focus-visible{outline:3px solid white;outline-offset:3px}
@@ -79,7 +80,14 @@ body.storewell-deck-open #sw-sens-ctrl,body.storewell-deck-open #sw-ward-btn,bod
 #sw-deck-dialog .status-options button{background:#102b40;border:1px solid #496879;border-left:5px solid var(--unit-color);text-align:left;border-radius:8px;min-height:48px;padding:10px;font-size:14px}
 #sw-deck-dialog .status-options button[aria-pressed=true]{outline:2px solid #a6d2e6;outline-offset:1px}
 #sw-deck-dialog .muted{color:#a0bccd;line-height:1.6;font-size:14px}
+#sw-deck-dialog .property-plan{overflow:auto;border:1px solid #3c6a80;border-radius:10px;background:#071a2b}
+#sw-deck-dialog .property-plan svg{width:100%;min-width:620px;height:auto;min-height:380px;stroke:none;fill:currentColor}
+#sw-deck-dialog .plan-unit{cursor:pointer;outline:none}
+#sw-deck-dialog .plan-unit text{font:1.65px Arial;fill:#d5e8f2;pointer-events:none}
+#sw-deck-dialog .plan-unit:focus circle,#sw-deck-dialog .plan-unit:hover circle{stroke:white;stroke-width:.8}
 @media(max-width:700px){
+ #sw-deck.is-fallback .mobile-dock{inset:max(12px,env(safe-area-inset-top)) 12px 91px}
+ #sw-deck.is-fallback .command-screen{min-height:0}
  #sw-deck .mobile-dock{display:block;position:absolute;inset:max(12px,env(safe-area-inset-top)) 12px 91px;pointer-events:none}
  #sw-deck .mobile-dock .command-screen{width:100%;height:100%;max-height:700px;overflow-y:auto;pointer-events:auto;gap:10px;padding:14px 10px;background:linear-gradient(150deg,#06233bed,#03121cef);border:1px solid #36bce3;border-radius:15px;box-shadow:0 0 0 4px #213d4f,0 0 0 6px #09131f,0 0 35px #17c1ff44;transform:none!important}
  #sw-deck.exploring .mobile-dock{display:none}

@@ -98,12 +98,25 @@
   }
   function exitDeck(unit) {
     if(!app?.scene) return toast('The property model is still loading. Please try again in a moment.');
+    if(app._webglAvailable===false) return showPropertyPlan(unit);
     closeDialog(); deck.hidden = true; window.__swDeckVisible = false;
     document.body.classList.remove('storewell-deck-open');
     app.keys={}; app._kt={}; app.lookYaw=0; app.lookPitch=0;
     if(unit) { app.locate(unit.id); app.setState({showSearch:false,pickUnit:null}); }
     else { app.setMode('orbit'); app._goHome(); }
     window.dispatchEvent(new Event('resize'));
+  }
+  function showPropertyPlan(selected) {
+    const rows=units().map(u=>({...u,pos:app._locks[u.id].pos}));
+    const minX=Math.min(...rows.map(u=>u.pos.x))-5,minZ=Math.min(...rows.map(u=>u.pos.z))-5;
+    const width=Math.max(...rows.map(u=>u.pos.x))-minX+5,height=Math.max(...rows.map(u=>u.pos.z))-minZ+5;
+    const pins=rows.map(u=>`<g class="plan-unit" role="button" tabindex="0" aria-label="Unit ${escape(u.label)} · ${STATUS[u.status][0]}" data-plan-unit="${escape(u.id)}"><circle cx="${u.pos.x}" cy="${u.pos.z}" r="${u.id===selected?.id?2:1.2}" fill="${STATUS[u.status][1]}" ${u.id===selected?.id?'stroke="white" stroke-width=".7"':''}/><text x="${u.pos.x}" y="${u.pos.z-1.8}" text-anchor="middle">${escape(u.label)}</text></g>`).join('');
+    showDialog(selected?`Property · Unit ${selected.label}`:'StoreWell property',`<p class="muted">Your browser cannot start the 3D property view. This plan shows the same unit locations. Select a unit for its details.</p><div class="property-plan"><svg viewBox="${minX} ${minZ} ${width} ${height}" aria-label="Storage unit locations">${pins}</svg></div><div class="dialog-actions"><button class="action-button" id="deck-return">Return to command center</button>${routeQueue.length?'<button class="action-button" id="deck-route-next">Next route unit</button>':''}</div>`);
+    const select=e=>{const id=e.target.closest('[data-plan-unit]')?.dataset.planUnit;if(id)showUnit(rows.find(u=>u.id===id));};
+    content.querySelector('.property-plan').onclick=select;
+    content.querySelector('.property-plan').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e);}};
+    content.querySelector('#deck-return').onclick=()=>{closeDialog();openDeck();};
+    const next=content.querySelector('#deck-route-next');if(next)next.onclick=()=>{routeCursor=(routeCursor+1)%routeQueue.length;showPropertyPlan(routeQueue[routeCursor]);};
   }
   function showInventory(filter = 'all', route = false) {
     activeFilter = filter;
@@ -223,10 +236,12 @@
     if(!window.THREE?.CSS3DRenderer) return fallback();
     const T=window.THREE;
     try {
-      renderer=new T.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputEncoding=T.sRGBEncoding;
-      deck.querySelector('.room-canvas').append(renderer.domElement);
+      try{renderer=new T.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputEncoding=T.sRGBEncoding;deck.querySelector('.room-canvas').append(renderer.domElement);}
+      catch{renderer=null;deck.classList.add('css-room');}
       cssRenderer=new T.CSS3DRenderer();deck.querySelector('.room-ui').append(cssRenderer.domElement);
       room=new T.Scene();room.background=new T.Color('#030a11');cssScene=new T.Scene();camera=new T.PerspectiveCamera(48,innerWidth/innerHeight,.1,200);camera.rotation.order='YXZ';
+      if(!renderer) setupCssScenery(T);
+      if(renderer){
       const loader=new T.TextureLoader();
       loader.load('/storewell-bridge-panorama.webp',texture=>{
         texture.encoding=T.sRGBEncoding;
@@ -236,7 +251,6 @@
         texture.encoding=T.sRGBEncoding;
         const front=new T.Mesh(new T.PlaneGeometry(32,18),new T.MeshBasicMaterial({map:texture}));front.position.set(0,0,-20);room.add(front);
       },undefined,()=>fallback());
-      board=new T.CSS3DObject(screen);board.position.set(0,2.36,-19.92);board.scale.setScalar(.016);cssScene.add(board);
       // Separate metal console wings give the seated view real perspective and parallax.
       const metal=new T.MeshStandardMaterial({color:'#14212c',roughness:.48,metalness:.75});
       const cyan=new T.MeshBasicMaterial({color:'#26bde8'}),amber=new T.MeshBasicMaterial({color:'#f4b854'});
@@ -248,15 +262,28 @@
         for(let n=0;n<7;n++){const strip=new T.Mesh(new T.BoxGeometry(.07,.07,.5),n%3?cyan:amber);strip.position.set(side*1.38,.67,n-3);wing.add(strip);}
         const rail=new T.Mesh(new T.BoxGeometry(.05,.06,9.5),amber);rail.position.set(-side*1.5,.6,0);wing.add(rail);room.add(wing);
       }
-      renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();fallback();});
-      renderer.domElement.addEventListener('pointerdown',pointerDown);
-      renderer.domElement.addEventListener('pointermove',pointerMove);
-      renderer.domElement.addEventListener('pointerup',pointerUp);renderer.domElement.addEventListener('pointercancel',pointerUp);
-      renderer.domElement.style.touchAction='none';resize();animate();
+      renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();renderer.domElement.remove();renderer=null;deck.classList.add('css-room');setupCssScenery(T);resize();});
+      }
+      board=new T.CSS3DObject(screen);board.position.set(0,2.36,-19.92);board.scale.setScalar(.016);cssScene.add(board);
+      deck.addEventListener('pointerdown',pointerDown);
+      deck.addEventListener('pointermove',pointerMove);
+      deck.addEventListener('pointerup',pointerUp);deck.addEventListener('pointercancel',pointerUp);
+      deck.querySelector('.room-canvas').style.touchAction='none';resize();animate();
     }catch(error){console.warn('Room rendering unavailable',error);fallback();}
   }
+  function setupCssScenery(T){
+    // A ring of perspective panels keeps the entire room navigable without WebGL.
+    const count=32,radius=65,scale=.08,panelWidth=2*radius*Math.tan(Math.PI/count)/scale,panelHeight=Math.PI*radius/scale;
+    for(let i=0;i<count;i++){
+      const angle=i/count*Math.PI*2,element=document.createElement('div');element.className='panorama-panel';
+      element.style.cssText=`width:${panelWidth+1}px;height:${panelHeight}px;background-image:url('/storewell-bridge-panorama.webp');background-size:${panelWidth*count}px ${panelHeight}px;background-position:${-(i+count/2)%count*panelWidth}px 0;`;
+      const panel=new T.CSS3DObject(element);panel.scale.setScalar(scale);panel.position.set(Math.sin(angle)*radius,0,-Math.cos(angle)*radius);panel.rotation.y=-angle;cssScene.add(panel);
+    }
+    const front=document.createElement('div');front.className='room-front';front.style.cssText="width:1600px;height:900px;background:url('/storewell-command-deck.webp') center/100% 100%;";
+    const face=new T.CSS3DObject(front);face.scale.setScalar(.02);face.position.z=-20;cssScene.add(face);
+  }
   let drag;
-  function pointerDown(e){if(view!=='look')return;drag={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}
+  function pointerDown(e){if(view!=='look'||e.target.closest('.bridge-nav,.command-screen'))return;drag={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}
   function pointerMove(e){if(!drag)return;targetYaw-=(e.clientX-drag.x)*.004;targetPitch=Math.max(-.6,Math.min(.6,targetPitch-(e.clientY-drag.y)*.003));drag={x:e.clientX,y:e.clientY};}
   function pointerUp(){drag=null;}
   function setView(next){
@@ -274,7 +301,7 @@
   });
   function resize(){
     if(!camera||deck.classList.contains('is-fallback'))return;
-    camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);cssRenderer.setSize(innerWidth,innerHeight);
+    camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer?.setSize(innerWidth,innerHeight);cssRenderer.setSize(innerWidth,innerHeight);
     if(mobile()&&view!=='look'){if(board.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);}else if(!board.parent)cssScene.add(board);
     cssRenderer.render(cssScene,camera);
   }
@@ -286,7 +313,7 @@
     yaw+=(targetYaw-yaw)*motion;pitch+=(targetPitch-pitch)*motion;
     camera.rotation.set(pitch,yaw,0,'YXZ');
     const seated=view==='desk'||view==='look';camera.position.y+=((seated?1.85:0)-camera.position.y)*motion;camera.position.z+=((seated?-4.8:0)-camera.position.z)*motion;
-    renderer.render(room,camera);cssRenderer.render(cssScene,camera);
+    renderer?.render(room,camera);cssRenderer.render(cssScene,camera);
   }
   function fallback(){
     deck.classList.add('is-fallback');if(board?.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);
