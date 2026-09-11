@@ -1052,13 +1052,13 @@ class SWNet{
     // Remove stale entries with same name from other sessions before joining
     fetch('https://storewell-3d-default-rtdb.firebaseio.com/players.json').then(r=>r.json()).then(pl=>{Object.entries(pl||{}).forEach(([u,p])=>{if(u!==this.uid&&p.name===name){remove(ref(_db,'players/'+u)).catch(()=>{});}});}).catch(()=>{});
     const _char=window._swGetChar?window._swGetChar():{};
-    set(pr,{name,x:0,y:0,z:0,h:0,t:Date.now(),char:_char});onDisconnect(pr).remove();
+    set(pr,{name,x:0,y:0,z:0,h:0,t:Date.now(),char:_char}).catch(()=>{clearInterval(this._iv);this._iv=null;});onDisconnect(pr).remove().catch(()=>{});
     onValue(ref(_db,'players'),snap=>{const pl=snap.val()||{};try{this.comp.setState({online:Object.entries(pl).map(([u,p])=>({name:p.name,me:u===this.uid}))});}catch(e){}this._sync(pl);});
     onValue(ref(_db,'messages'),snap=>{const m=snap.val()||{};Object.values(m).filter(x=>x.t>this._lastMsgT&&x.uid!==this.uid).sort((a,b)=>a.t-b.t).forEach(x=>{this._lastMsgT=x.t;try{this.comp._pushMsg(x.name,x.text);}catch(e){}});});
     this._iv=setInterval(()=>this._pos(),150);}
   send(t){push(ref(_db,'messages'),{uid:this.uid,name:this.name,text:t,t:Date.now()});try{this.comp._pushMsg(this.name,t);}catch(e){}}
   notify(){}
-  _pos(){const w=this.comp.walker;if(!w||!w.g)return;const p=w.g.position;const _char=window._swGetChar?window._swGetChar():{};update(ref(_db,'players/'+this.uid),{x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,z:Math.round(p.z*10)/10,h:Math.round((w.h||0)*100)/100,t:Date.now(),char:_char});}
+  _pos(){if(window.__swDeckVisible||document.hidden)return;const w=this.comp.walker;if(!w||!w.g)return;const p=w.g.position;const _char=window._swGetChar?window._swGetChar():{};update(ref(_db,'players/'+this.uid),{x:Math.round(p.x*10)/10,y:Math.round(p.y*10)/10,z:Math.round(p.z*10)/10,h:Math.round((w.h||0)*100)/100,t:Date.now(),char:_char}).catch(()=>{clearInterval(this._iv);this._iv=null;});}
   _sync(pl){const sc=this.comp.scene,T=window.THREE;if(!sc||!T)return;
     for(const[uid,p]of Object.entries(pl)){
       if(uid===this.uid)continue;
@@ -1072,7 +1072,7 @@ class SWNet{
       if(p.x!==undefined){av.position.set(p.x,p.y||0,p.z);av.rotation.y=p.h||0;}
     }
     for(const uid of Object.keys(this.avatars)){if(!pl[uid]){sc.remove(this.avatars[uid]);delete this.avatars[uid];delete this._avatarHash[uid];}}}
-  destroy(){clearInterval(this._iv);remove(ref(_db,'players/'+this.uid));}
+  destroy(){clearInterval(this._iv);remove(ref(_db,'players/'+this.uid)).catch(()=>{});}
 }
 window.__swSetup=function(comp){
   // Skip Firebase anonymous auth — use stable local device ID

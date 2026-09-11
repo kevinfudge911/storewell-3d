@@ -904,7 +904,10 @@ class Component extends DCLogic {
   _statusOf(label){ const k=(label||'').replace(/[-\s]/g,'').toUpperCase();
     const aliases=this._overrides||{};
     const alias=aliases[k]?k:Object.keys(aliases).find(key=>key.replace(/[-\s]/g,'').toUpperCase()===k);
-    return aliases[k] || aliases[alias] || this._unitStatus()[k] || 'green'; }
+    const status=aliases[k] || aliases[alias] || this._unitStatus()[k] || 'green';
+    // The newer command screen saved Ready as purple; the property uses white.
+    // Normalize only when reading, leaving existing shared records unchanged.
+    return status==='purple'?'white':status; }
   _refreshInvCircles(){
     const sc={blue:'#00aaff',red:'#ff1111',green:'#00ff44',white:'#ffffff',black:'#aaaaaa',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44'};
     Object.keys(this._locks||{}).forEach(k=>{

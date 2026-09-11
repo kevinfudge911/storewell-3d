@@ -27,7 +27,7 @@ const ctx=new Proxy({measureText:t=>({width:String(t).length*9}),createLinearGra
 w.HTMLCanvasElement.prototype.getContext=function(){return ctx;};w.HTMLCanvasElement.prototype.toDataURL=()=>'';
 w.matchMedia=q=>({matches:false,addEventListener(){}});w.alert=()=>{};
 w.EventSource=class{addEventListener(){}close(){}};
-w.fetch=async(url,opts={})=>{requests.push({url:String(url),opts});return {ok:true,json:async()=>({E5:'blue',E8:'white',G1:'red',D1:'flashgreen'}),text:async()=>html};};
+w.fetch=async(url,opts={})=>{requests.push({url:String(url),opts});return {ok:true,json:async()=>({E5:'blue',E8:'white',G1:'red',D1:'flashgreen',E10:'purple'}),text:async()=>html};};
 w.AbortSignal.timeout=()=>undefined;
 for(const f of ['vendor/three.min.js','vendor/OrbitControls.js','vendor/CSS3DRenderer.js','vendor/react.production.min.js','vendor/react-dom.production.min.js'])w.eval(read(f));
 // A software DOM cannot create a GPU context; keep real scene geometry and stub only rendering.
@@ -47,6 +47,8 @@ assert.equal(app._statusOf('E8'),'white');
 w.eval(read('command-deck.js'));
 await new Promise(resolve=>setTimeout(resolve,50));
 assert.equal(w.__swDeckVisible,true,'Command center opens first');
+assert.equal(app._statusOf('E10'),'white','Saved purple Ready status is understood by the restored property');
+assert.equal(app._overrides.E10,'purple','Compatibility does not rewrite stored statuses');
 const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.click();};
 click('[data-action="find"]');
 assert(w.document.querySelectorAll('.unit-grid .unit').length>=160,'Find unit lists full catalog');
