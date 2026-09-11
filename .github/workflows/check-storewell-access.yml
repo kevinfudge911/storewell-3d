@@ -1,0 +1,68 @@
+name: Check StoreWell Cloudflare access
+
+on:
+  push:
+    branches:
+      - codex/storewell-access-check-20260911
+    paths:
+      - .github/workflows/check-storewell-access.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check-access:
+    name: Read-only Cloudflare access check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify configured account and access to StoreWell
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node <<'NODE'
+          (async () => {
+            const token = process.env.CLOUDFLARE_API_TOKEN || '';
+            const account = process.env.CLOUDFLARE_ACCOUNT_ID || '';
+            function stop(message) {
+              console.error('::error::' + message);
+              process.exit(1);
+            }
+            if (!token) stop('CLOUDFLARE_API_TOKEN is missing.');
+            if (!account) stop('CLOUDFLARE_ACCOUNT_ID is missing.');
+            if (token !== token.trim() || /[\s\\]/.test(token)) {
+              stop('The stored API token contains whitespace or a backslash. Its value was not printed.');
+            }
+            if (!/^[a-f0-9]{32}$/i.test(account)) {
+              stop('The stored account ID is not a 32-character Cloudflare account ID.');
+            }
+            console.log('Both repository secrets are present and have clean formatting.');
+            const expectedAccount = '86e18b73222d2807ad14e2e89bce7365';
+            if (account !== expectedAccount) {
+              stop('The account ID does not match the account shown in the StoreWell project reference.');
+            }
+            console.log('The configured account ID matches the StoreWell project reference.');
+            const response = await fetch(
+              'https://api.cloudflare.com/client/v4/accounts/' + account + '/pages/projects/storewell-3d',
+              {
+                headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+                redirect: 'error',
+                signal: AbortSignal.timeout(20000)
+              }
+            );
+            const data = await response.json();
+            if (!response.ok || data.success !== true) {
+              const codes = (data.errors || []).map(e => Number(e.code)).filter(Number.isFinite);
+              stop('Cloudflare rejected the current repository token for StoreWell. HTTP ' +
+                response.status + '; API codes: ' + codes.join(', ') +
+                '. No deployment was attempted and no secrets were printed.');
+            }
+            if (data.result?.name !== 'storewell-3d') stop('Unexpected project returned; stopped.');
+            console.log('SUCCESS: The current repository secrets can read the existing StoreWell Pages project.');
+            console.log('This was a read-only check. No site content, credentials, or Cloudflare settings were changed.');
+          })().catch(() => {
+            console.error('::error::The access check could not complete. No response body or credentials were printed.');
+            process.exit(1);
+          });
+          NODE
