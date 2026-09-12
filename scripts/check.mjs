@@ -77,7 +77,7 @@ assert(app._siteWalls.length>30,'Outdoor plan uses actual model building edges')
 if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,false,'No-GPU startup is the outdoor property plan');
 assert.equal(app._statusOf('E10'),'purple','The upgraded Ready status remains purple');
 assert.equal(app._overrides.E10,'purple','Compatibility does not rewrite stored statuses');
-const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.click();};
+const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.dispatchEvent(new w.MouseEvent('pointerdown',{bubbles:true,button:0}));el.dispatchEvent(new w.MouseEvent('pointerup',{bubbles:true,button:0}));el.click();};
 let adminSession=false;w.__swCheckLogin=()=>adminSession?'Offline admin':null;w.__swLoginGate=async()=>null;
 const enter=async()=>{
   if(noGpu)click('[data-property="command"]');
@@ -94,6 +94,8 @@ if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,t
 click('[data-action="exit"]');assert.equal(w.__swDeckVisible,false,'Exit returns outside');
 await enter();assert.equal(renderers,1,'Room re-entry reuses its existing renderer');
 click('[data-action="find"]');
+assert.equal(w.document.activeElement.id,'deck-dialog-title','Opening inventory focuses its heading, so the phone keyboard stays closed');
+assert(w.document.querySelector('#sw-deck-dialog').open,'Command windows open in a dialog independent of the 3D room');
 assert(w.document.querySelectorAll('.unit-grid .unit').length>=160,'Find unit lists full catalog');
 const search=w.document.querySelector('#deck-find');search.value='c11-2';search.dispatchEvent(new w.Event('input'));
 assert.equal(w.document.querySelectorAll('.unit-grid .unit').length,1,'Search normalizes hyphens');
@@ -185,6 +187,35 @@ assert(Number(deck.dataset.bridgeX)>3&&Number(deck.dataset.bridgeZ)>16,'Walking 
 click('[data-view="history"]');assert.equal(w.document.querySelector('#deck-dialog-title').textContent,'Lock activity history');
 assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('1 saved changes'),'Existing admin session loads actual lock history automatically');assert(!w.document.querySelector('[data-full-lock-history]').textContent.includes('sign in'),'History does not request another sign-in');click('.close-dialog');
 click('[data-view="room"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Bridge overview remains spatial on phones');
+// Two-finger zoom works over the main-board tiles without activating a tile or tilting the camera.
+const touch=(type,x,y,id,target=deck)=>{const event=new w.MouseEvent(type,{clientX:x,clientY:y,bubbles:true,cancelable:true,button:0});Object.defineProperties(event,{pointerId:{value:id},pointerType:{value:'touch'}});target.dispatchEvent(event);};
+const tile=w.document.querySelector('[data-action="all"]'),beforePinch={x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.dataset.bridgeYaw,pitch:deck.dataset.bridgePitch};
+touch('pointerdown',150,250,21,tile);touch('pointerdown',250,250,22,tile);touch('pointermove',350,250,22);
+assert(Number(deck.dataset.bridgeZoom)>1.8,'Spreading two fingers zooms toward the board');tile.click();assert(w.document.querySelector('#sw-deck-dialog').hidden,'A pinch never accidentally opens an inventory tile');
+touch('pointermove',225,250,22);assert(Number(deck.dataset.bridgeZoom)<1,'Bringing two fingers together zooms out');
+assert.deepEqual({x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.dataset.bridgeYaw,pitch:deck.dataset.bridgePitch},beforePinch,'Pinch changes magnification without moving or tilting the player');
+touch('pointercancel',150,250,21);touch('pointerup',225,250,22);
+touch('pointerdown',200,300,23);touch('pointermove',270,300,23);touch('pointerup',270,300,23);await new Promise(r=>setTimeout(r,30));
+assert(Number(deck.dataset.bridgeYaw)<Number(beforePinch.yaw)-.1,'Single-finger looking resumes after a pinch is cancelled');
+touch('pointerdown',200,300,24,tile);touch('pointerup',200,300,24,tile);tile.click();assert(!w.document.querySelector('#sw-deck-dialog').hidden,'The next deliberate tap opens its window normally');
+const beforeWindowClose={x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.dataset.bridgeYaw};
+click('.expand-dialog');assert(w.document.querySelector('#sw-deck-dialog').classList.contains('is-expanded'),'A command window can expand');
+w.document.querySelector('#sw-deck-dialog').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+assert(w.document.querySelector('#sw-deck-dialog').hidden);assert.deepEqual({x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.dataset.bridgeYaw},beforeWindowClose,'Closing a window does not reset the room or move the camera');
+click('[data-view="room"]');assert.equal(Number(deck.dataset.bridgeZoom),1,'Bridge restores normal magnification');
+assert.equal(w.document.querySelectorAll('.bridge-observation .space-scene').length,10,'All exterior wall panels have space behind observation glass');
+assert([...w.document.querySelectorAll('.bridge-window')].every(el=>el.querySelector('.space-stars')),'Every forward window also has moving space');
+// The rear doorway opens two leaves, permits passage, and retains the outdoor location.
+const doorLocation=app.walker.g.position.clone();
+click('[data-station="door"]');assert.equal(deck.dataset.bridgeDoor,'opening');assert.equal(w.document.querySelectorAll('.airlock-leaf').length,2);assert(w.document.querySelector('.airlock-trigger').disabled,'Door waits for its opening animation before exit');
+await new Promise(r=>setTimeout(r,810));assert.equal(deck.dataset.bridgeDoor,'open');click('[data-station="door"]');assert.equal(w.__swDeckVisible,false,'Tapping the open doorway returns to the property');assert(app.walker.g.position.equals(doorLocation));
+await enter();assert.equal(deck.dataset.bridgeDoor,'closed','Re-entering resets the doorway');
+w._swWalkSpd=.5;
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'d',bubbles:true}));await new Promise(r=>setTimeout(r,560));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'d',bubbles:true}));
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await new Promise(r=>setTimeout(r,750));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));
+assert(['opening','open'].includes(deck.dataset.bridgeDoor),'Approaching the doorway opens it automatically');await new Promise(r=>setTimeout(r,800));
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await new Promise(r=>setTimeout(r,750));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));w._swWalkSpd=0;
+assert.equal(w.__swDeckVisible,false,'Walking through the open doorway exits the room');assert(app.walker.g.position.equals(doorLocation),'The animated exit preserves the outdoor position');await enter();
 // A remembered app login restores full control without showing another credential form.
 const loginSource=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
 const loginStart=loginSource.indexOf('window.__swCheckLogin=function(){');

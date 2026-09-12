@@ -55,10 +55,10 @@
     <footer class="screen-footer"><div class="mini-radar" aria-hidden="true"></div><div class="telemetry"><span class="connection" role="status">Connecting to unit inventory…</span><span>STORE · TRACK · PROTECT</span></div><button class="key" data-action="report">${icon('save')}Save &amp; report</button></footer>`;
   deck.querySelector('.mobile-dock').append(screen);
   document.body.append(deck);
-  const dialog = document.createElement('section');
+  const dialog = document.createElement('dialog');
   dialog.id = 'sw-deck-dialog'; dialog.hidden = true;
   dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'deck-dialog-title');
-  dialog.innerHTML = '<div class="dialog-box"><header class="dialog-head"><h2 id="deck-dialog-title"></h2><button class="close-dialog" aria-label="Close dialog">×</button></header><div class="dialog-body"></div></div>';
+  dialog.innerHTML = '<div class="dialog-box"><header class="dialog-head"><div class="window-heading"><span>STOREWELL · COMMAND CENTER</span><h2 id="deck-dialog-title" tabindex="-1"></h2></div><div class="window-actions"><button class="expand-dialog" aria-label="Expand window" aria-pressed="false">⛶</button><button class="close-dialog" aria-label="Close dialog"><span aria-hidden="true">×</span> Close</button></div></header><div class="dialog-body"></div></div>';
   document.body.append(dialog);
   const content = dialog.querySelector('.dialog-body');
   let app, bridge, roomStarted = false;
@@ -76,23 +76,36 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 5000);
   }
   function showDialog(title, html) {
-    bridge?.stop(); lastFocus = document.activeElement;
+    bridge?.stop(); if(dialog.hidden)lastFocus = document.activeElement;
     content.onclick = null;
     dialog.querySelector('h2').textContent = title; content.innerHTML = html;
+    const palette=Object.values(STATUS).find(([label])=>title===label||title===label+' route');
+    dialog.style.setProperty('--window-accent',palette?.[1]||'#65d7ef');
     dialog.hidden = false; deck.inert = true;
     if(propertyPlan) propertyPlan.inert = true;
-    (content.querySelector('input') || dialog.querySelector('.close-dialog')).focus();
+    if(typeof dialog.showModal==='function'){if(!dialog.open)dialog.showModal();}else dialog.setAttribute('open','');
+    content.scrollTop=0;
+    // Opening a unit list should not bring up the phone keyboard or scroll the 3D scene.
+    dialog.querySelector('h2').focus({preventScroll:true});
   }
-  function closeDialog() { dialog.hidden = true; deck.inert = false; if(propertyPlan) propertyPlan.inert = false; if(lastFocus?.isConnected) lastFocus.focus(); }
+  function closeDialog() {
+    const wasOpen=!dialog.hidden;dialog.hidden=true;
+    if(typeof dialog.close==='function'&&dialog.open)dialog.close();else dialog.removeAttribute('open');
+    deck.inert=false;if(propertyPlan)propertyPlan.inert=false;
+    dialog.classList.remove('is-expanded');dialog.querySelector('.expand-dialog').setAttribute('aria-label','Expand window');dialog.querySelector('.expand-dialog').setAttribute('aria-pressed','false');
+    if(wasOpen&&lastFocus?.isConnected)lastFocus.focus({preventScroll:true});
+  }
   dialog.querySelector('.close-dialog').onclick = closeDialog;
+  dialog.querySelector('.expand-dialog').onclick=()=>{const expanded=dialog.classList.toggle('is-expanded');dialog.querySelector('.expand-dialog').setAttribute('aria-label',expanded?'Restore window':'Expand window');dialog.querySelector('.expand-dialog').setAttribute('aria-pressed',String(expanded));};
+  dialog.addEventListener('cancel',e=>{e.preventDefault();closeDialog();});
   dialog.addEventListener('click', e => { if(e.target === dialog) closeDialog(); });
   dialog.addEventListener('keydown', e => {
-    if(e.key === 'Escape') { e.preventDefault(); closeDialog(); }
+    if(e.key === 'Escape') { e.preventDefault();e.stopPropagation();closeDialog(); }
     if(e.key !== 'Tab') return;
     const nodes = [...dialog.querySelectorAll('button,input,select,a[href]')].filter(x => !x.disabled && x.offsetParent !== null);
     const first = nodes[0], last = nodes.at(-1);
-    if(e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    if(e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus({preventScroll:true}); }
+    else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus({preventScroll:true}); }
   });
   async function openDeck() {
     if(!await login())return;

@@ -2,6 +2,8 @@
 
 Production is https://storewell-3d.pages.dev, served by the existing Cloudflare Pages project `storewell-3d`. The app must open OUTSIDE in the latest upgraded Three.js facility model. Only the Command Center button opens the spaceship command room after the existing admin/staff sign-in gate; sign in at app entry and remember the existing admin session for every admin; entering the room and loading lock history must not require another sign-in; Exit returns outside without resetting the visitor’s location. Preserve the September 8 deployment’s outdoor buildings, GLB characters, uniforms, movement, vehicles, walking paths, whole-door status indicators, rounds, sounds, units and staff features. The early GitHub upload contained an older July build and must not be used as a restoration baseline. See RECOVERY.md for provenance. The no-WebGL property plan is an outdoor fallback, never a spaceship dashboard. Gear must retain access to the original activity log, team, chat, character editor and help.
 
+Keep the approved navy, cyan and gold command-room design. Exterior wall panels are observation windows with gently moving space. Movement controls remain bottom right; support two-finger room zoom. Main-board tiles open readable command windows without automatically opening the phone keyboard. The rear exit is a working sliding double door that returns to the existing property.
+
 ## Deployment continuity
 
 - Changes to `main` run `.github/workflows/deploy-storewell.yml`, which builds, checks, and deploys the `public` directory with the existing Pages functions.
