@@ -2,9 +2,13 @@
 import{initializeApp}from"firebase/app";
 import{getDatabase,ref,set,update,push,remove,get,onValue,onDisconnect}from"firebase/database";
 import{getAuth,signInAnonymously}from"firebase/auth";
+import{createDatabaseSession}from"./database-session.js";
 const _app=initializeApp({apiKey:"AIzaSyBdYyhNaNJs-Xv8Fe4bOuAoXWNOb_1D_94",authDomain:"storewell-3d.firebaseapp.com",databaseURL:"https://storewell-3d-default-rtdb.firebaseio.com",projectId:"storewell-3d",storageBucket:"storewell-3d.firebasestorage.app",messagingSenderId:"1093355976155",appId:"1:1093355976155:web:33b21794eaf968d006e3fe"});
 const _db=getDatabase(_app),_auth=getAuth(_app);
-signInAnonymously(_auth).catch(e=>console.warn('Firebase anon sign-in failed',e));
+const _session=createDatabaseSession({auth:_auth,signInAnonymously,db:_db,ref,push,update});
+window.__swEnsureFirebase=_session.ensureAuth;window.__swCommitLockChange=_session.saveChange;
+_session.ensureAuth().catch(e=>console.warn('Database connection not ready',e.code));
+window.addEventListener('online',()=>_session.ensureAuth().catch(()=>{}));
 window._swDB=_db; window._swAuth=_auth;
 // Expose Firebase DB fns so code in the (non-module) React/babel scripts can use realtime sync too.
 window._swRef=ref; window._swOnValue=onValue; window._swUpdate=update; window._swSet=set; window._swPush=push; window._swRemove=remove; window._swGet=get; window._swOnDisconnect=onDisconnect;
@@ -27,6 +31,7 @@ window.__swMobileLook=(function(){
   },300);
   let lookId=null, lx=0, ly=0;
   document.addEventListener('touchstart',e=>{
+    if(window.__swDeckVisible)return;
     for(const t of e.changedTouches){
       // Only track touches on the RIGHT half of screen, not on the joystick
       const joy=document.getElementById('sw-joy-wrap');
@@ -37,6 +42,7 @@ window.__swMobileLook=(function(){
     }
   },{passive:true});
   document.addEventListener('touchmove',e=>{
+    if(window.__swDeckVisible){lookId=null;return;}
     if(e.touches&&e.touches.length>=2){ lookId=null; return; } // two fingers = let the browser pinch-zoom
     for(const t of e.changedTouches){
       if(t.identifier!==lookId) continue;

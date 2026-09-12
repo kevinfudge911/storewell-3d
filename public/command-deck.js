@@ -38,10 +38,10 @@
   deck.innerHTML = `<div class="fallback-room"></div><div class="room-canvas"></div><div class="room-ui"></div><div class="room-vignette"></div><div class="mobile-dock"></div>
     <div class="view-help" hidden>Drag to look around · Arrow keys to turn · Center to return</div>
     <nav class="bridge-nav" aria-label="Room view">
-      <button data-view="room" aria-pressed="true">${icon('units')}Bridge</button>
       <button data-view="desk" aria-pressed="false">${icon('desk')}Main screen</button>
-      <button data-view="walk" aria-pressed="false">${icon('route')}Walk around</button><button data-view="look" aria-pressed="false">${icon('eye')}Look around</button>
-      <button data-view="history">${icon('clock')}Lock log</button><button data-view="exit">${icon('exit')}Outside</button><button data-view="center" hidden>Center</button>
+      <button data-view="room" aria-pressed="true">${icon('units')}Bridge</button>
+      <button data-view="history">${icon('clock')}Lock log</button>
+      <button data-view="exit">${icon('exit')}Outside</button>
     </nav><div class="toast" role="status" hidden></div>`;
   const screen = document.createElement('main');
   screen.className = 'command-screen';
@@ -192,7 +192,9 @@
         const status=button.dataset.status;
         if(status===app._statusOf(unit.label)) return;
         const buttons=[...slot.querySelectorAll('button')]; buttons.forEach(b=>b.disabled=true);
+        const originalText=button.textContent;button.textContent='Saving…';
         const result = await app.setStatus(unit.label,status);
+        button.textContent=originalText;
         if(result === false) { buttons.forEach(b=>b.disabled=false); return; }
         refresh(); showUnit({...unit,status});
       };

@@ -8,6 +8,10 @@
   Cache-Control: no-cache
 /command-deck.css
   Cache-Control: no-cache
+/bridge-room.js
+  Cache-Control: no-cache
+/bridge-light.css
+  Cache-Control: no-cache
 /exterior-characters.js
   Cache-Control: no-cache
 /exterior-controls.js

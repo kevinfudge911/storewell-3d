@@ -10,6 +10,7 @@
     deck.querySelector('.room-ui').append(renderer.domElement);
     deck.classList.add('walkable-bridge');
     const faces = [], obstacles = [], keys = new Set();
+    const joystick={id:null,x:0,y:0};
     let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .07, unsubscribe, authUnsubscribe, history = [], historyState = 'Connecting to saved lock history…', watched = false;
     const normal = new T.Vector3(), toCamera = new T.Vector3();
     const phone = () => innerWidth <= 700;
@@ -39,6 +40,9 @@
     plane('bridge-bulkhead',44,12,0,6,24,Math.PI);
     plane('bridge-bulkhead',44,12,0,6,-24);
     for (const z of [-20,-8,4,16]) box('bridge-overhead',0,11.6,z,43,.7,.6);
+    for(const x of [-12,12])plane('bridge-light-strip',1.2,43,x,11.15,0,0,Math.PI/2);
+    for(const side of [-1,1])plane('bridge-wall-wash',46,.35,side*21.2,10.8,0,-side*Math.PI/2);
+    plane('bridge-wall-wash',42,.4,0,11.4,-23.4);
     plane('bridge-front-frame',23.8,11.25,0,6.35,-23.72);
     const board = new T.CSS3DObject(screen); board.scale.setScalar(.02); board.position.set(0,6.65,-23.5); scene.add(board); faces.push(board);
     const station = (cls,title,sub,w,h,x,y,z,ry,html) => plane('bridge-station '+cls,w,h,x,y,z,ry,0,
@@ -57,20 +61,21 @@
       plane('bridge-console-top',w,d,x,1.94,z,0,-1.32,instrument);
       obstacles.push({x,z,w:w+1,d:d+1});
     }
-    consoleDesk(-4.7,-10,7.5,3.8); consoleDesk(4.7,-10,7.5,3.8);
-    for (const side of [-1,1]) { consoleDesk(side*16,-11,5.5,8); consoleDesk(side*16,10,5.5,6); }
-    // The chair is furniture you can circle, with a clear route on both sides.
-    box('bridge-chair',0,.75,1,2.3,1.5,2.5);
-    box('bridge-chair chair-back',0,2.25,2.05,2.4,3,.55);
-    for (const x of [-1.45,1.45]) box('bridge-chair chair-arm',x,1.35,1,.55,1.6,2.9);
-    obstacles.push({x:0,z:1,w:4.2,d:4});
+    consoleDesk(-7.5,-10,7,3.8); consoleDesk(7.5,-10,7,3.8);
+    for (const side of [-1,1]) { consoleDesk(side*17,-12,4.5,7); consoleDesk(side*17,11,4.5,6); }
+    // Keep the chair behind the entry position and a six-metre center aisle clear to the display.
+    box('bridge-chair',0,.75,14,2.3,1.5,2.5);
+    box('bridge-chair chair-back',0,2.25,15.05,2.4,3,.55);
+    for (const x of [-1.45,1.45]) box('bridge-chair chair-arm',x,1.35,14,.55,1.6,2.9);
+    obstacles.push({x:0,z:14,w:4.2,d:4});
     // A low dais and floor lights mark the command station without blocking movement.
-    plane('bridge-dais',12,11,0,.012,-1,0,-Math.PI/2);
-    const controls = document.createElement('div'); controls.className='bridge-walk-controls'; controls.hidden=true;
-    controls.setAttribute('aria-label','Walk around the bridge');
-    controls.innerHTML='<button data-move="turnleft" aria-label="Turn left">↶</button><button data-move="forward" aria-label="Walk forward">↑</button><button data-move="turnright" aria-label="Turn right">↷</button><button data-move="left" aria-label="Walk left">←</button><button data-move="back" aria-label="Walk backward">↓</button><button data-move="right" aria-label="Walk right">→</button>';
-    deck.append(controls);
-    function stop() { keys.clear(); drag=null; controls.querySelectorAll('button').forEach(b=>b.classList.remove('held')); }
+    plane('bridge-dais',11,9,0,.012,14,0,-Math.PI/2);
+    plane('bridge-aisle',6,32,0,.025,-5,0,-Math.PI/2);
+    const controls=document.createElement('div');controls.className='bridge-joystick';
+    controls.innerHTML='<span class="joystick-caption">MOVE / TURN</span><button class="joystick-pad" aria-label="Bridge joystick" aria-describedby="bridge-joystick-help"><span class="joystick-ring"></span><span class="joystick-stick"><i></i></span></button><span id="bridge-joystick-help">Drag to walk &amp; steer</span>';
+    deck.append(controls);const pad=controls.querySelector('.joystick-pad'),stick=controls.querySelector('.joystick-stick');
+    function releaseJoystick(){const id=joystick.id;joystick.id=null;if(id!==null&&pad.hasPointerCapture?.(id))pad.releasePointerCapture(id);joystick.x=joystick.y=0;stick.style.transform='translate(0px,0px)';pad.classList.remove('held');}
+    function stop(){keys.clear();drag=null;releaseJoystick();}
     function blocked() { return !active || deck.inert || !document.getElementById('sw-deck-dialog').hidden || !!document.querySelector('#sw-cmd-panel,#sw-help-modal,#sw-wardrobe,#sw-pref-panel,#sw-save-report-modal'); }
     function canStand(x,z) { return Math.abs(x)<20.5 && z>-21.5 && z<21.8 && !obstacles.some(o=>Math.abs(x-o.x)<o.w/2&&Math.abs(z-o.z)<o.d/2); }
     function move(dx,dz) { const x=camera.position.x+dx,z=camera.position.z+dz; if(canStand(x,camera.position.z))camera.position.x=x; if(canStand(camera.position.x,z))camera.position.z=z; }
@@ -78,7 +83,7 @@
       const aspect=innerWidth/innerHeight;
       // Hold the horizontal field of view on portrait phones so the front screen is never cropped.
       camera.aspect=aspect; camera.fov=2*Math.atan(Math.tan(74*Math.PI/360)/aspect)*180/Math.PI; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight);
-      const focus=phone()&&view==='desk'; deck.classList.toggle('screen-focused',focus);
+      const focus=phone()&&view==='desk'; deck.classList.toggle('screen-focused',focus);controls.hidden=focus;
       if(focus) {scene.remove(board); deck.querySelector('.mobile-dock').append(screen); screen.style.display='';}
       else if(!board.parent)scene.add(board);
       render();
@@ -88,13 +93,13 @@
       if(next==='history') { camera.position.set(-10,3.3,2); yaw=Math.PI/2; pitch=.15; view='walk'; openHistory(); }
       else {
         view=next;
-        if(next==='room') {camera.position.set(0,5.2,10);yaw=0;pitch=.035;}
+        if(next==='room') {camera.position.set(0,5.2,2);yaw=0;pitch=.055;}
         if(next==='desk') {camera.position.set(0,4.7,-5);yaw=0;pitch=.105;}
         if(next==='walk' && !canStand(camera.position.x,camera.position.z))camera.position.set(0,3.2,10);
       }
       deck.dataset.bridgeView=view; deck.classList.toggle('exploring',view==='walk'||view==='look');
-      controls.hidden=!(view==='walk'||view==='look');
-      const help=deck.querySelector('.view-help'); help.hidden=view==='desk'; help.textContent=view==='room'?'Command bridge · Main screen to focus · Walk around to explore':'WASD to walk · Drag to look · Arrows to turn';
+      controls.hidden=phone()&&view==='desk';
+      const help=deck.querySelector('.view-help'); help.hidden=view==='desk'; help.textContent=view==='room'?'Command bridge · Main screen to work · Joystick to explore':'Joystick to walk & steer · Drag the room to look around';
       deck.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view)));
       resize();
     }
@@ -112,11 +117,12 @@
       const dt=Math.min(.05,(now-lastTime)/1000||0);lastTime=now;
       if(document.hidden||blocked()){stop();return;}
       if(view==='walk'||view==='look') {
-        const speed=5*dt;
-        yaw+=((keys.has('turnleft')?1:0)-(keys.has('turnright')?1:0))*1.25*dt;
+        const speed=5*dt*Math.max(.4,Math.min(2.5,(window._swWalkSpd||.2)/.2));
+        const turn=1.25*Math.max(.4,Math.min(2.5,(window._swTurnSpd||.006)/.006));
+        yaw+=((keys.has('turnleft')?1:0)-(keys.has('turnright')?1:0)-joystick.x)*turn*dt;
         pitch=Math.max(-.7,Math.min(.7,pitch+((keys.has('up')?1:0)-(keys.has('down')?1:0))*dt));
-        let forward=(keys.has('forward')?1:0)-(keys.has('back')?1:0),side=(keys.has('right')?1:0)-(keys.has('left')?1:0);
-        const length=Math.hypot(forward,side)||1;forward/=length;side/=length;
+        let forward=(keys.has('forward')?1:0)-(keys.has('back')?1:0)-joystick.y,side=(keys.has('right')?1:0)-(keys.has('left')?1:0);
+        const length=Math.max(1,Math.hypot(forward,side));forward/=length;side/=length;
         move((-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed,(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed);
       }
       render();
@@ -129,11 +135,21 @@
       if(view!=='walk'&&view!=='look')setView('walk');keys.add(key);e.preventDefault();
     });
     document.addEventListener('keyup',e=>keys.delete(keyMap[e.key]||keyMap[e.key.toLowerCase()]));
-    controls.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-move]');if(!b||blocked())return;e.preventDefault();b.setPointerCapture(e.pointerId);keys.add(b.dataset.move);b.classList.add('held');});
-    const release=e=>{const b=e.target.closest('[data-move]');if(b){keys.delete(b.dataset.move);b.classList.remove('held');}};
-    controls.addEventListener('pointerup',release);controls.addEventListener('pointercancel',stop);controls.addEventListener('lostpointercapture',release);
-    deck.addEventListener('pointerdown',e=>{if(blocked()||e.target.closest('button,input,select,.command-screen,.bridge-station,.bridge-nav')||view==='desk')return; if(view==='room')setView('look');drag={id:e.pointerId,x:e.clientX,y:e.clientY};deck.setPointerCapture(e.pointerId);});
-    deck.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;yaw-=(e.clientX-drag.x)*.004;pitch=Math.max(-.7,Math.min(.7,pitch-(e.clientY-drag.y)*.003));drag={id:e.pointerId,x:e.clientX,y:e.clientY};});
+    function joystickMove(e){
+      if(joystick.id!==e.pointerId)return;
+      const rect=pad.getBoundingClientRect(),radius=rect.width*.32;
+      let x=(e.clientX-rect.left-rect.width/2)/radius,y=(e.clientY-rect.top-rect.height/2)/radius;
+      const magnitude=Math.hypot(x,y);if(magnitude>1){x/=magnitude;y/=magnitude;}
+      const amount=Math.min(1,magnitude),gain=amount>.13?(amount-.13)/(.87*amount):0;
+      joystick.x=x*gain;joystick.y=y*gain;
+      stick.style.transform=`translate(${x*radius}px,${y*radius}px)`;
+    }
+    pad.addEventListener('pointerdown',e=>{if(blocked()||joystick.id!==null||e.button>0)return;e.preventDefault();e.stopPropagation();if(view!=='walk')setView('walk');joystick.id=e.pointerId;pad.setPointerCapture?.(e.pointerId);pad.classList.add('held');joystickMove(e);});
+    pad.addEventListener('pointermove',e=>{if(joystick.id===e.pointerId){e.preventDefault();e.stopPropagation();joystickMove(e);}});
+    const release=e=>{if(joystick.id===e.pointerId){releaseJoystick();if(pad.hasPointerCapture?.(e.pointerId))pad.releasePointerCapture(e.pointerId);}};
+    pad.addEventListener('pointerup',release);pad.addEventListener('pointercancel',release);pad.addEventListener('lostpointercapture',release);
+    deck.addEventListener('pointerdown',e=>{if(blocked()||e.target.closest('button,input,select,.command-screen,.bridge-station,.bridge-nav,.bridge-joystick')||view==='desk')return; if(view==='room')setView('look');drag={id:e.pointerId,x:e.clientX,y:e.clientY};deck.setPointerCapture(e.pointerId);});
+    deck.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const sens=Math.max(.001,Math.min(.012,window._swLookSens||.002));yaw-=(e.clientX-drag.x)*sens*2;pitch=Math.max(-.7,Math.min(.7,pitch-(e.clientY-drag.y)*sens*1.5));drag={id:e.pointerId,x:e.clientX,y:e.clientY};});
     deck.addEventListener('pointerup',()=>drag=null);deck.addEventListener('pointercancel',stop);
     window.addEventListener('blur',stop);document.addEventListener('visibilitychange',stop);window.addEventListener('resize',resize);
     function rowsHtml(rows) {return rows.map(r=>`<div class="bridge-history-entry"><strong>${escape(r.label||r.unit||'Unit')}</strong><span>${escape(r.from||'—')} → <b>${escape(r.to||r.status||'—')}</b></span><small>${escape(r.who||r.staff||'Staff')} · ${escape(new Date(Number(r.t)||0).toLocaleString())}</small></div>`).join('');}

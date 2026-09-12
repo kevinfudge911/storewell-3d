@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {createDatabaseSession} from '../src/database-session.js';
+let resume,signIns=0,refreshes=0,sequence=0,updates=[];
+const ready=new Promise(r=>resume=r),user={getIdToken:async(force)=>{assert(force);refreshes++;return 'offline-token';}};
+const auth={currentUser:null,authStateReady:()=>ready};
+let failFirst=false;
+const session=createDatabaseSession({auth,db:{},isOnline:()=>true,signInAnonymously:async()=>{signIns++;auth.currentUser=user;return {user};},ref:(db,key)=>key||'root',push:()=>({key:'history-'+(++sequence)}),update:async(key,data)=>{assert.equal(key,'root');updates.push(data);if(failFirst){failFirst=false;throw Object.assign(new Error('expired session'),{code:'PERMISSION_DENIED'});}}});
+const save=session.saveChange('E7','flashgreen',{label:'E7',who:'Offline test',type:'lock',t:123});
+const connection=session.ensureAuth();await Promise.resolve();assert.equal(updates.length,0,'No unauthenticated write while the saved database session is loading');resume();await Promise.all([save,connection]);
+assert.equal(signIns,1,'Concurrent actions share one connection attempt');assert.equal(updates.length,1);assert.equal(updates[0]['lockOverrides/E7'],'flashgreen');assert.equal(updates[0]['lockLog/history-1'].label,'E7','Status and audit history are written atomically');
+failFirst=true;await session.saveChange('22','flashred',{label:'22',type:'lock',t:124});assert.equal(refreshes,1);assert.deepEqual(updates[1],updates[2],'Token refresh retries the same history key, without a duplicate log');assert.equal(sequence,2);
+const offline=createDatabaseSession({auth,db:{},isOnline:()=>false,signInAnonymously:()=>{throw new Error('Unexpected sign-in');},ref:()=>'',push:()=>{throw new Error('Offline change must not queue');},update:()=>{throw new Error('Offline change must not write');}});
+await assert.rejects(offline.saveChange('23','flashgreen',{}),{code:'database/offline'});
+const offlineStartup=createDatabaseSession({auth:{authStateReady:()=>{throw new Error('Offline save must not wait for sign-in');}},isOnline:()=>false});
+await assert.rejects(offlineStartup.saveChange('23','flashgreen',{}),{code:'database/offline'});
+console.log('PASS: wait for remembered Firebase session, share reconnects, refresh stale tokens once, save lock and history together, and reject offline writes before queuing. No production requests.');

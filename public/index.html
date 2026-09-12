@@ -15,6 +15,7 @@
 <script src="/vendor/dc-runtime.js"></script>
 <link rel="stylesheet" href="/exterior.css">
 <link rel="stylesheet" href="/command-deck.css">
+<link rel="stylesheet" href="/bridge-light.css">
 <style>
 @keyframes sw-flash-red{0%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}50%{background:#ff4444;box-shadow:0 0 0 2px #ff000022,0 0 12px #ff000066;}100%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}}
 @keyframes sw-flash-green{0%{background:#00ff44;box-shadow:0 0 0 8px #00ff4455,0 0 50px #00ff44,0 0 100px #00ff4488;}50%{background:#44ff88;box-shadow:0 0 0 2px #00ff4422,0 0 12px #00ff4466;}100%{background:#00ff44;box-shadow:0 0 0 8px #00ff4455,0 0 50px #00ff44,0 0 100px #00ff4488;}}
@@ -1151,31 +1152,24 @@ class Component extends DCLogic {
     if(!this._locks[k] || !Object.hasOwn(this._LC(),st))return false;
     const prev=this._statusOf(label);
     if(prev===st)return true;
+    const who=this.state.staffName||'Staff';
+    const entry={label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now(),type:'lock'};
     try{
-      if(window._swAuth?.currentUser && window._swSet && window._swRef){
-        await window._swSet(window._swRef(window._swDB,'lockOverrides/'+k),st);
-      }else{
-        const response=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides/'+k+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(st),signal:AbortSignal.timeout(12000)});
-        if(!response.ok)throw new Error('Save failed');
-      }
-    }catch(e){alert('The status could not be saved. The unit has not been changed. Please check your connection and try again.');return false;}
+      if(!window.__swCommitLockChange)throw new Error('Database services are still loading');
+      // Wait for the restored database session, then save the status and history together.
+      await window.__swCommitLockChange(k,st,entry);
+    }catch(e){
+      console.warn('Shared status save failed',e.code||'connection-unavailable');
+      alert(/permission.?denied/i.test(String(e.code||e.message))?'StoreWell rejected this save. The unit has not changed. Please reload the app and try again.':'StoreWell could not connect to save this change. Your unit has not changed. Reconnect and try again; your staff login is still remembered.');
+      return false;
+    }
     this._overrides[k]=st;
     if(prev!==st){ const log=(this.state.sessionLog||[]).concat([{label, from:this._statusLabel(prev), to:this._statusLabel(st), t:Date.now()}]); this.setState({sessionLog:log}); try{ if(window._swPlaySound) window._swPlaySound(st); }catch(e){} }
     try{ localStorage.setItem('sw_locks', JSON.stringify(this._overrides)); }catch(e){}
     // Sync only this key to Firebase using the authenticated SDK (REST fetch fails auth rules)
     if(!this._pendingWrites) this._pendingWrites={};
     this._pendingWrites[k]={st,t:Date.now()};
-    const who=this.state.staffName||'Staff';
-    const entry={label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now(),type:'lock'};
-    // The history collection requires the same authenticated SDK as the lock save.
-    try{
-      if(!window._swAuth?.currentUser || !window._swPush)throw new Error('Sign in required for history');
-      await window._swPush(window._swRef(window._swDB,'lockLog'),entry);
-      window.dispatchEvent(new CustomEvent('sw-lock-history',{detail:entry}));
-    }catch(e){
-      console.warn('Status saved but history could not be recorded');
-      alert('The unit status was saved, but its history entry could not be recorded. Please check your connection.');
-    }
+    window.dispatchEvent(new CustomEvent('sw-lock-history',{detail:entry}));
     // SDK writes do not pass through fetch. Notify explicitly, only after a confirmed save.
     window.__swNotifyStatus?.(st,label,who).catch(()=>{});
     const rec=this._locks[k]; if(rec){ const c=this._LC()[st]||'#1f9d4d';
@@ -1189,6 +1183,7 @@ class Component extends DCLogic {
     // Refresh inventory circles immediately
     this._refreshInvCircles();
     this.setState({pickStatus:st});
+    return true;
   }
   // ---- unit sizes (from the hand-drawn layout sheets) ----
   _unitSize(){
