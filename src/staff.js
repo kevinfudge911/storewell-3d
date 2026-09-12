@@ -349,7 +349,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
 
     <div style="flex-shrink:0;border-top:1px solid #eef1f5;background:#fff;padding:10px 12px;display:flex;gap:8px;box-shadow:0 -3px 12px rgba(0,0,0,.06);">
       <button id="sw-send-report" style="flex:1;border:none;cursor:pointer;background:linear-gradient(135deg,#FF6B6B,#ee0979);color:#fff;font:800 14px Segoe UI;padding:13px;border-radius:11px;box-shadow:0 3px 10px rgba(238,9,121,.3);">📤 Save &amp; Report</button>
-      <button id="sw-logout-btn" style="border:2px solid #eee;cursor:pointer;background:#f8f9fa;color:#666;font:700 13px Segoe UI;padding:13px 16px;border-radius:11px;">Exit</button>
+      <button id="sw-operations-close" style="border:2px solid #eee;cursor:pointer;background:#f8f9fa;color:#666;font:700 13px Segoe UI;padding:13px 16px;border-radius:11px;">Close window</button>
     </div>
   `;
 
@@ -458,11 +458,9 @@ window.__swOperationsOpen=async function(initialTab='overview'){
   }
   document.getElementById('sw-send-report').onclick=()=>{ panel.remove(); if(window.__swSaveReport) window.__swSaveReport(); };
 
-  // ── Logout ──
-  document.getElementById('sw-logout-btn').onclick=()=>{
-    panel.remove();
-    if(app&&app.setState){ try{localStorage.removeItem('sw_staff_name');localStorage.removeItem('sw_user');}catch(e){} app.setState({editMode:false,staffName:'',pickUnit:null,showInv:false}); }
-  };
+  // Closing an operations window must preserve the current staff session and room.
+  // Explicit sign-out remains available through Switch staff member.
+  document.getElementById('sw-operations-close').onclick=()=>panel.remove();
 
   // ── Save contacts ──
   document.getElementById('sw-save-contacts').onclick=async()=>{

@@ -68,6 +68,13 @@
   let appLoginStarted = false;
   let live = false, lastSync = 0, lastFocus, activeFilter = 'all', toastTimer, installPrompt;
   let routeQueue = [], routeCursor = 0;
+  let inventoryDownloadUrl;
+  function releaseInventoryDownload() {
+    if(!inventoryDownloadUrl)return;
+    const url=inventoryDownloadUrl;inventoryDownloadUrl=null;
+    // Give a just-clicked browser download time to start before releasing its URL.
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
   window.__swDeckVisible = false;
   const mobile = () => window.innerWidth <= 700;
   const units = () => Object.entries(app?._locks || {}).map(([id, rec]) => ({ id, label: rec.label, size: app._sizeOf(rec.label), status: app._statusOf(rec.label) })).sort((a,b) => a.label.localeCompare(b.label, undefined, {numeric:true}));
@@ -77,6 +84,7 @@
   }
   function showDialog(title, html) {
     bridge?.stop(); if(dialog.hidden)lastFocus = document.activeElement;
+    releaseInventoryDownload();
     content.onclick = null;
     dialog.querySelector('h2').textContent = title; content.innerHTML = html;
     const palette=Object.values(STATUS).find(([label])=>title===label||title===label+' route');
@@ -89,6 +97,7 @@
     dialog.querySelector('h2').focus({preventScroll:true});
   }
   function closeDialog() {
+    releaseInventoryDownload();
     const wasOpen=!dialog.hidden;dialog.hidden=true;
     if(typeof dialog.close==='function'&&dialog.open)dialog.close();else dialog.removeAttribute('open');
     deck.inert=false;if(propertyPlan)propertyPlan.inert=false;
@@ -243,13 +252,14 @@
     };
   }
   function report() {
-    showDialog('Save & report', '<p class="muted">Download the current unit inventory, or open the existing staff report to review session changes and choose recipients.</p><div class="dialog-actions"><button class="action-button" id="deck-download">Download inventory</button><button class="action-button" id="deck-staff-report">Staff report</button></div>');
-    content.querySelector('#deck-download').onclick=()=>{
-      const rows=units(); if(!rows.length)return;
+    showDialog('Save & report', '<p class="muted">Download the current unit inventory, or open the existing staff report to review session changes and choose recipients.</p><div class="dialog-actions"><a class="action-button" id="deck-download">Download inventory</a><button class="action-button" id="deck-staff-report">Staff report</button></div>');
+    const rows=units(),download=content.querySelector('#deck-download');
+    if(rows.length){
       const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
       const csv=['Unit,Size,Status',...rows.map(u=>[u.label,u.size,STATUS[u.status]?.[0]||u.status].map(csvCell).join(','))].join('\r\n');
-      const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); const a=document.createElement('a');a.href=url;a.download='storewell-inventory-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    };
+      inventoryDownloadUrl=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+      download.href=inventoryDownloadUrl;download.download='storewell-inventory-'+new Date().toISOString().slice(0,10)+'.csv';
+    }else{download.textContent='Inventory is still loading';download.setAttribute('aria-disabled','true');}
     content.querySelector('#deck-staff-report').onclick=async()=>{if(await login()){closeDialog();if(window.__swSaveReport)window.__swSaveReport();else toast('The report system is still loading.');}};
   }
   async function alerts() {

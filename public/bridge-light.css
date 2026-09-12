@@ -149,6 +149,8 @@ body:not(.storewell-deck-open) #sw-deck .space-planet,body:not(.storewell-deck-o
 #sw-deck-dialog .unit strong{font-size:22px}
 #sw-deck-dialog .unit small,#sw-deck-dialog .unit span{font-size:14px;line-height:1.4}
 #sw-deck-dialog .action-button{font-size:16px;background:linear-gradient(#186185,#123d5b);border-color:#83d3ee}
+#sw-deck-dialog a.action-button{display:inline-flex;align-items:center;color:#e6f7ff;text-decoration:none}
+#sw-deck-dialog a.action-button[aria-disabled=true]{opacity:.65;cursor:wait}
 #sw-deck-dialog .muted{font-size:16px;color:#c7dce9}
 #sw-deck-dialog.is-expanded{padding:12px}
 #sw-deck-dialog.is-expanded .dialog-box{width:100%;height:100%;max-height:100%;border-radius:10px}
