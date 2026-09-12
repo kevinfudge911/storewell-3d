@@ -11,9 +11,10 @@
     deck.classList.add('walkable-bridge');
     const faces = [], obstacles = [], keys = new Set();
     const joystick={id:null,x:0,y:0};
-    let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .07, unsubscribe, authUnsubscribe, history = [], historyState = 'Connecting to saved lock history…', watched = false;
+    const renderedPose={x:NaN,z:NaN,yaw:NaN,pitch:NaN};
+    let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .04, unsubscribe, history = [], historyState = 'Connecting to saved lock history…', watched = false;
+    const limitPitch = value => Math.max(-.25,Math.min(.22,value));
     const normal = new T.Vector3(), toCamera = new T.Vector3();
-    const phone = () => innerWidth <= 700;
     const plane = (name,w,h,x,y,z,ry=0,rx=0,html='') => {
       const el = document.createElement('div'); el.className = 'bridge-surface '+name;
       el.style.width = w*50+'px'; el.style.height = h*50+'px'; el.innerHTML = html;
@@ -40,7 +41,7 @@
     plane('bridge-bulkhead',44,12,0,6,24,Math.PI);
     plane('bridge-bulkhead',44,12,0,6,-24);
     for (const z of [-20,-8,4,16]) box('bridge-overhead',0,11.6,z,43,.7,.6);
-    for(const x of [-12,12])plane('bridge-light-strip',1.2,43,x,11.15,0,0,Math.PI/2);
+    for(const x of [-12,12])plane('bridge-light-strip',.4,43,x,11.15,0,0,Math.PI/2);
     for(const side of [-1,1])plane('bridge-wall-wash',46,.35,side*21.2,10.8,0,-side*Math.PI/2);
     plane('bridge-wall-wash',42,.4,0,11.4,-23.4);
     plane('bridge-front-frame',23.8,11.25,0,6.35,-23.72);
@@ -72,35 +73,37 @@
     plane('bridge-dais',11,9,0,.012,14,0,-Math.PI/2);
     plane('bridge-aisle',6,32,0,.025,-5,0,-Math.PI/2);
     const controls=document.createElement('div');controls.className='bridge-joystick';
-    controls.innerHTML='<span class="joystick-caption">MOVE / TURN</span><button class="joystick-pad" aria-label="Bridge joystick" aria-describedby="bridge-joystick-help"><span class="joystick-ring"></span><span class="joystick-stick"><i></i></span></button><span id="bridge-joystick-help">Drag to walk &amp; steer</span>';
+    controls.innerHTML='<span class="joystick-caption">MOVE / TURN</span><button class="joystick-pad" aria-label="Bridge joystick" aria-describedby="bridge-joystick-help"><span class="joystick-ring"></span><span class="joystick-direction north" aria-hidden="true">↑</span><span class="joystick-direction south" aria-hidden="true">↓</span><span class="joystick-direction west" aria-hidden="true">↶</span><span class="joystick-direction east" aria-hidden="true">↷</span><span class="joystick-stick"><i></i></span></button><span id="bridge-joystick-help">Drag up or down to walk. Drag left or right to turn.</span><button class="level-view" type="button">Level view</button>';
     deck.append(controls);const pad=controls.querySelector('.joystick-pad'),stick=controls.querySelector('.joystick-stick');
     function releaseJoystick(){const id=joystick.id;joystick.id=null;if(id!==null&&pad.hasPointerCapture?.(id))pad.releasePointerCapture(id);joystick.x=joystick.y=0;stick.style.transform='translate(0px,0px)';pad.classList.remove('held');}
-    function stop(){keys.clear();drag=null;releaseJoystick();}
-    function blocked() { return !active || deck.inert || !document.getElementById('sw-deck-dialog').hidden || !!document.querySelector('#sw-cmd-panel,#sw-help-modal,#sw-wardrobe,#sw-pref-panel,#sw-save-report-modal'); }
+    function releaseLook(){const id=drag?.id;drag=null;if(id!==undefined&&deck.hasPointerCapture?.(id))deck.releasePointerCapture(id);}
+    function stop(){keys.clear();releaseLook();releaseJoystick();}
+    function blocked() { return !active || deck.inert || !document.getElementById('sw-deck-dialog').hidden || !!document.querySelector('#sw-cmd-panel,#sw-help-modal,#sw-wardrobe,#sw-pref-panel,#sw-save-report-modal,#sw-rounds-modal,#sw-login-overlay') || document.getElementById('sw-sens-panel')?.style.display==='block'; }
     function canStand(x,z) { return Math.abs(x)<20.5 && z>-21.5 && z<21.8 && !obstacles.some(o=>Math.abs(x-o.x)<o.w/2&&Math.abs(z-o.z)<o.d/2); }
     function move(dx,dz) { const x=camera.position.x+dx,z=camera.position.z+dz; if(canStand(x,camera.position.z))camera.position.x=x; if(canStand(camera.position.x,z))camera.position.z=z; }
     function resize() {
-      const aspect=innerWidth/innerHeight;
-      // Hold the horizontal field of view on portrait phones so the front screen is never cropped.
-      camera.aspect=aspect; camera.fov=2*Math.atan(Math.tan(74*Math.PI/360)/aspect)*180/Math.PI; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight);
-      const focus=phone()&&view==='desk'; deck.classList.toggle('screen-focused',focus);controls.hidden=focus;
+      const width=deck.clientWidth||innerWidth,height=deck.clientHeight||innerHeight;
+      // A normal vertical lens keeps the ceiling from filling a portrait phone.
+      camera.aspect=width/height; camera.fov=width<=700?78:58; camera.updateProjectionMatrix(); renderer.setSize(width,height);
+      const focus=view==='desk'; deck.classList.toggle('screen-focused',focus);controls.hidden=focus;
       if(focus) {scene.remove(board); deck.querySelector('.mobile-dock').append(screen); screen.style.display='';}
       else if(!board.parent)scene.add(board);
       render();
     }
-    function setView(next) {
-      stop(); if(next==='center')next='room';
-      if(next==='history') { camera.position.set(-10,3.3,2); yaw=Math.PI/2; pitch=.15; view='walk'; openHistory(); }
+    function setView(next,keepInput=false) {
+      if(!keepInput)stop(); if(next==='center')next='room';
+      if(next==='level'){pitch=0;render();return;}
+      if(next==='history') { camera.position.set(-10,5.2,2); yaw=Math.PI/2; pitch=.04; view='walk'; openHistory(); }
       else {
         view=next;
-        if(next==='room') {camera.position.set(0,5.2,2);yaw=0;pitch=.055;}
+        if(next==='room') {camera.position.set(0,5.2,10);yaw=0;pitch=.04;}
         if(next==='desk') {camera.position.set(0,4.7,-5);yaw=0;pitch=.105;}
-        if(next==='walk' && !canStand(camera.position.x,camera.position.z))camera.position.set(0,3.2,10);
+        if(next==='walk' && !canStand(camera.position.x,camera.position.z))camera.position.set(0,5.2,10);
       }
       deck.dataset.bridgeView=view; deck.classList.toggle('exploring',view==='walk'||view==='look');
-      controls.hidden=phone()&&view==='desk';
-      const help=deck.querySelector('.view-help'); help.hidden=view==='desk'; help.textContent=view==='room'?'Command bridge · Main screen to work · Joystick to explore':'Joystick to walk & steer · Drag the room to look around';
-      deck.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view)));
+      controls.hidden=view==='desk';
+      const help=deck.querySelector('.view-help'); help.hidden=view==='desk'; help.textContent='Drag to look · Joystick to walk';
+      deck.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view||(b.dataset.view==='room'&&(view==='walk'||view==='look')))));
       resize();
     }
     function render() {
@@ -110,7 +113,8 @@
         face.visible=normal.dot(toCamera)>.015;
       }
       renderer.render(scene,cssCamera);
-      deck.dataset.bridgeX=camera.position.x.toFixed(2);deck.dataset.bridgeZ=camera.position.z.toFixed(2);deck.dataset.bridgeYaw=yaw.toFixed(3);
+      Object.assign(renderedPose,{x:camera.position.x,z:camera.position.z,yaw,pitch});
+      deck.dataset.bridgeX=camera.position.x.toFixed(2);deck.dataset.bridgeZ=camera.position.z.toFixed(2);deck.dataset.bridgeYaw=yaw.toFixed(3);deck.dataset.bridgePitch=pitch.toFixed(3);deck.dataset.bridgeFov=String(camera.fov);
     }
     function frame(now) {
       if(!active){raf=0;return;} raf=requestAnimationFrame(frame);
@@ -120,17 +124,18 @@
         const speed=5*dt*Math.max(.4,Math.min(2.5,(window._swWalkSpd||.2)/.2));
         const turn=1.25*Math.max(.4,Math.min(2.5,(window._swTurnSpd||.006)/.006));
         yaw+=((keys.has('turnleft')?1:0)-(keys.has('turnright')?1:0)-joystick.x)*turn*dt;
-        pitch=Math.max(-.7,Math.min(.7,pitch+((keys.has('up')?1:0)-(keys.has('down')?1:0))*dt));
         let forward=(keys.has('forward')?1:0)-(keys.has('back')?1:0)-joystick.y,side=(keys.has('right')?1:0)-(keys.has('left')?1:0);
+        if(Math.abs(forward)+Math.abs(side)>.05&&!drag)pitch+=(.04-pitch)*Math.min(1,dt*6);
         const length=Math.max(1,Math.hypot(forward,side));forward/=length;side/=length;
         move((-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed,(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed);
       }
-      render();
+      if(camera.position.x!==renderedPose.x||camera.position.z!==renderedPose.z||yaw!==renderedPose.yaw||pitch!==renderedPose.pitch)render();
     }
-    const keyMap={w:'forward',s:'back',a:'left',d:'right',q:'turnleft',e:'turnright',ArrowLeft:'turnleft',ArrowRight:'turnright',ArrowUp:'up',ArrowDown:'down'};
+    const keyMap={w:'forward',s:'back',a:'left',d:'right',q:'turnleft',e:'turnright',ArrowLeft:'turnleft',ArrowRight:'turnright',ArrowUp:'forward',ArrowDown:'back'};
     document.addEventListener('keydown',e=>{
       if(blocked()||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)||e.target.isContentEditable)return;
       if(e.key==='Escape'){setView('room');return;}
+      if(view==='desk')return;
       const key=keyMap[e.key]||keyMap[e.key.toLowerCase()];if(!key)return;
       if(view!=='walk'&&view!=='look')setView('walk');keys.add(key);e.preventDefault();
     });
@@ -144,14 +149,17 @@
       joystick.x=x*gain;joystick.y=y*gain;
       stick.style.transform=`translate(${x*radius}px,${y*radius}px)`;
     }
-    pad.addEventListener('pointerdown',e=>{if(blocked()||joystick.id!==null||e.button>0)return;e.preventDefault();e.stopPropagation();if(view!=='walk')setView('walk');joystick.id=e.pointerId;pad.setPointerCapture?.(e.pointerId);pad.classList.add('held');joystickMove(e);});
+    pad.addEventListener('pointerdown',e=>{if(blocked()||joystick.id!==null||e.button>0)return;e.preventDefault();e.stopPropagation();if(view!=='walk')setView('walk',true);joystick.id=e.pointerId;pad.setPointerCapture?.(e.pointerId);pad.classList.add('held');joystickMove(e);});
     pad.addEventListener('pointermove',e=>{if(joystick.id===e.pointerId){e.preventDefault();e.stopPropagation();joystickMove(e);}});
     const release=e=>{if(joystick.id===e.pointerId){releaseJoystick();if(pad.hasPointerCapture?.(e.pointerId))pad.releasePointerCapture(e.pointerId);}};
     pad.addEventListener('pointerup',release);pad.addEventListener('pointercancel',release);pad.addEventListener('lostpointercapture',release);
-    deck.addEventListener('pointerdown',e=>{if(blocked()||e.target.closest('button,input,select,.command-screen,.bridge-station,.bridge-nav,.bridge-joystick')||view==='desk')return; if(view==='room')setView('look');drag={id:e.pointerId,x:e.clientX,y:e.clientY};deck.setPointerCapture(e.pointerId);});
-    deck.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const sens=Math.max(.001,Math.min(.012,window._swLookSens||.002));yaw-=(e.clientX-drag.x)*sens*2;pitch=Math.max(-.7,Math.min(.7,pitch-(e.clientY-drag.y)*sens*1.5));drag={id:e.pointerId,x:e.clientX,y:e.clientY};});
-    deck.addEventListener('pointerup',()=>drag=null);deck.addEventListener('pointercancel',stop);
+    controls.querySelector('.level-view').onclick=()=>setView('level');
+    deck.addEventListener('pointerdown',e=>{if(blocked()||drag||e.button>0||e.target.closest('button,input,select,.command-screen,.bridge-station,.bridge-nav,.bridge-joystick')||view==='desk')return; if(view==='room')setView('look');drag={id:e.pointerId,x:e.clientX,y:e.clientY};deck.setPointerCapture?.(e.pointerId);});
+    deck.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const sens=Math.max(.001,Math.min(.004,window._swLookSens||.002));yaw-=(e.clientX-drag.x)*sens*1.4;pitch=limitPitch(pitch-(e.clientY-drag.y)*sens*.55);drag={id:e.pointerId,x:e.clientX,y:e.clientY};});
+    const endLook=e=>{if(drag?.id===e.pointerId)releaseLook();};
+    deck.addEventListener('pointerup',endLook);deck.addEventListener('pointercancel',endLook);deck.addEventListener('lostpointercapture',endLook);
     window.addEventListener('blur',stop);document.addEventListener('visibilitychange',stop);window.addEventListener('resize',resize);
+    window.visualViewport?.addEventListener('resize',resize);
     function rowsHtml(rows) {return rows.map(r=>`<div class="bridge-history-entry"><strong>${escape(r.label||r.unit||'Unit')}</strong><span>${escape(r.from||'—')} → <b>${escape(r.to||r.status||'—')}</b></span><small>${escape(r.who||r.staff||'Staff')} · ${escape(new Date(Number(r.t)||0).toLocaleString())}</small></div>`).join('');}
     function drawHistory() {
       logWall.querySelector('.bridge-log-state').textContent=historyState;

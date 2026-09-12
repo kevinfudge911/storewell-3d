@@ -1,57 +1,85 @@
-/* Pearl-white bridge, continuous aisle, and one analog joystick. */
-#sw-deck.walkable-bridge{background:#d7e2e8}
-#sw-deck .bridge-bulkhead,#sw-deck .bridge-console-base{background:#e5e8e8 url('/bridge-pearl-bulkhead.webp') center/cover;border-color:#aab9c1;box-shadow:inset 0 0 15px #697c8326}
-#sw-deck .bridge-ceiling{background:#edf1f2 url('/bridge-pearl-bulkhead.webp') center/800px 540px;box-shadow:inset 0 0 140px #fff9}
-#sw-deck .bridge-rib{background:linear-gradient(90deg,#91a0aa,#f8fafb 27%,#bbc7ce 45%,#dce4e8 75%,#fff);border:1px solid #9baeb9;box-shadow:0 0 9px #fff5}
-#sw-deck .bridge-overhead{background:linear-gradient(#c2ccd2,#fafcfd 60%,#cbd4da);border:2px ridge #a7b7c0;border-bottom:9px solid #fff;box-shadow:0 0 35px #fff}
-#sw-deck .bridge-light-strip{background:#fff;border:5px solid #eefaff;border-radius:20px;box-shadow:0 0 30px 12px #fff,inset 0 0 10px #ebfaff}
-#sw-deck .bridge-wall-wash{background:#fff;box-shadow:0 0 40px 25px #fff9;border-radius:10px}
-#sw-deck .bridge-floor{background:linear-gradient(100deg,#ffffff30,#adc0cc44 50%,#ffffff30),repeating-linear-gradient(0deg,transparent 0 146px,#6c849255 147px 150px),repeating-linear-gradient(90deg,#a7b8c4 0 146px,#6e869355 147px 150px);border:8px solid #eafcff;box-shadow:inset 0 0 75px #f9fcff88}
-#sw-deck .bridge-aisle{background:linear-gradient(90deg,#f5fdffdd 0 3px,#c0d0da77 4px calc(100% - 4px),#f5fdffdd calc(100% - 3px)),repeating-linear-gradient(0deg,transparent 0 70px,#e8f8ff55 71px 72px);border:3px solid #f6feff;box-shadow:0 0 16px #d4f9ff99}
-#sw-deck .bridge-front-frame{background:#cad5dc url('/bridge-pearl-bulkhead.webp') center/cover;border:10px ridge #c9d7df;box-shadow:inset 0 0 30px #fff,0 0 35px #fff9;clip-path:polygon(3% 0,97% 0,100% 5%,100% 95%,97% 100%,3% 100%,0 95%,0 5%)}
-#sw-deck .bridge-front-frame:before{content:"";position:absolute;inset:3.5%;border:3px solid #bcf1ff;box-shadow:0 0 15px #fff,inset 0 0 25px #3fbaf5;background:#152f42}
-#sw-deck .bridge-window{background-image:url('/bridge-space-view.webp');background-size:auto 100%;border:15px ridge #c3d0d9;box-shadow:0 0 25px #fff8,inset 0 0 18px #19364b;clip-path:polygon(8% 0,92% 0,100% 100%,0 100%)}
+/* Navy bridge, readable command screen, and bottom-right movement controls. */
+#sw-deck.walkable-bridge{background:#102638;height:100dvh}
+#sw-deck .bridge-bulkhead{background:linear-gradient(0deg,#071f39c9 0 20%,#21456570 20% 74%,#082644c9 74%),url('/bridge-pearl-bulkhead.webp') center/cover;border-color:#54758a;box-shadow:inset 0 0 25px #09203380}
+#sw-deck .bridge-console-base{background:linear-gradient(#173c58aa,#091c32bb),url('/bridge-bulkhead.webp') center/cover;border-color:#587991;box-shadow:inset 0 0 18px #06121d}
+#sw-deck .bridge-ceiling{background:linear-gradient(#0b244688,#142b46aa),url('/bridge-bulkhead.webp') center/800px 540px;box-shadow:inset 0 0 70px #06132499}
+#sw-deck .bridge-rib{background:linear-gradient(90deg,#112a40,#91adbe 27%,#2c4d65 45%,#132d45 75%,#e1b35c);border:1px solid #64899e;box-shadow:none}
+#sw-deck .bridge-overhead{background:linear-gradient(#18344c,#47647a 60%,#12273c);border:2px solid #59768d;border-bottom:5px solid #f0bd60;box-shadow:0 0 14px #d29c3444}
+#sw-deck .bridge-light-strip{background:#a4ebff;border:2px solid #2ec8ef;border-radius:10px;box-shadow:0 0 15px 3px #28bce866}
+#sw-deck .bridge-wall-wash{background:#32d4ef;box-shadow:0 0 14px 4px #24c1e955;border-radius:4px}
+#sw-deck .bridge-floor{background:linear-gradient(100deg,#407e9c33,#122c4333 50%,#407e9c33),repeating-linear-gradient(0deg,transparent 0 146px,#122b40 147px 150px),repeating-linear-gradient(90deg,#47657a 0 146px,#142d40 147px 150px);border:8px solid #cb9b4c;box-shadow:inset 0 0 75px #081b3388}
+#sw-deck .bridge-aisle{background:linear-gradient(90deg,#47d9ed 0 3px,#19526d88 4px calc(100% - 4px),#47d9ed calc(100% - 3px)),repeating-linear-gradient(0deg,transparent 0 70px,#55d7eb55 71px 72px);border:3px solid #ebbf68;box-shadow:0 0 12px #16bfe344}
+#sw-deck .bridge-front-frame{background:linear-gradient(#12365399,#12365399),url('/bridge-pearl-bulkhead.webp') center/cover;border:10px ridge #6c91a8;box-shadow:inset 0 0 25px #061b2e,0 0 22px #29bee866;clip-path:polygon(3% 0,97% 0,100% 5%,100% 95%,97% 100%,3% 100%,0 95%,0 5%)}
+#sw-deck .bridge-front-frame:before{content:"";position:absolute;inset:3.5%;border:3px solid #e5b65b;box-shadow:inset 0 0 20px #1484b8;background:#0b263e}
+#sw-deck .bridge-window{background-image:url('/bridge-space-view.webp');background-size:auto 100%;border:15px ridge #67879d;box-shadow:0 0 15px #31b6e244,inset 0 0 18px #19364b;clip-path:polygon(8% 0,92% 0,100% 100%,0 100%)}
 #sw-deck .window-port{background-position:24% center}
 #sw-deck .window-starboard{background-position:78% center}
-#sw-deck .bridge-console-top{border-color:#ced9df;box-shadow:inset 0 0 15px #10bfff66,0 0 16px #fff8}
-#sw-deck .bridge-station{border-color:#d3dce2;box-shadow:inset 0 0 26px #10baff26,0 0 22px #fff9}
-#sw-deck .bridge-chair{background:linear-gradient(90deg,#a7b8c4,#f4f7fa 15%,#d2dce4 80%,#fff 94%,#a7b8c4);border-color:#b7c6d0;box-shadow:inset 0 0 12px #788e9c55}
-#sw-deck .chair-back{border-top:8px solid #effaff;background:linear-gradient(110deg,#afc0cc,#e4ecf1 55%,#9fb3c1)}
-#sw-deck .chair-back:before{background:repeating-linear-gradient(0deg,#294355 0 23px,#38546a 24px 26px);border-color:#849eaf}
-#sw-deck .chair-arm{border-top:9px solid #f2fcff}
-#sw-deck .bridge-dais{background:linear-gradient(90deg,#eef6fa,#91a8b8 5%,#afc0cc 95%,#fff);border:3px solid #e6faff;box-shadow:0 0 20px #e8faff}
-#sw-deck .bridge-airlock{background:linear-gradient(90deg,#b7c6d0,#edf3f6 49%,#fff 50%,#edf3f6 51%,#b7c6d0);border-color:#d2e2eb;color:#2e536c}
-#sw-deck.walkable-bridge .room-vignette{box-shadow:inset 0 0 70px #3b5a7518}
-#sw-deck .bridge-nav{background:#f0f7faed;border:1px solid #9fb5c5;box-shadow:0 8px 28px #23405b35,0 0 15px #fff8;color:#264c65}
-#sw-deck .bridge-nav button{color:#244d69;font-weight:700}
-#sw-deck .bridge-nav button[data-view="desk"]{background:linear-gradient(#1379ae,#075e90);color:#fff;border:1px solid #72c4e8;padding-inline:23px;box-shadow:0 2px 10px #0b6da244}
-#sw-deck .bridge-nav button[aria-pressed=true]{background:#d2eaf5;border-color:#4783a0;color:#123e59}
-#sw-deck .bridge-nav button[data-view="desk"][aria-pressed=true]{background:#0b638e;color:#fff;border-color:#fff}
-#sw-deck .view-help{background:#f4f9fbe8;border-color:#aec5d2;color:#24445b;box-shadow:0 2px 10px #6b8a9b33}
-#sw-deck .bridge-joystick{position:absolute;left:22px;bottom:100px;width:144px;display:flex;flex-direction:column;align-items:center;gap:8px;user-select:none;touch-action:none;z-index:3;color:#143c59;text-shadow:0 1px 5px #fff;font:11px Arial}
+#sw-deck .bridge-console-top{border-color:#6992a9;box-shadow:inset 0 0 15px #10bfff66,0 0 12px #26bada44}
+#sw-deck .bridge-station{border-color:#65879d;box-shadow:inset 0 0 26px #10baff26,0 0 16px #31b9e755}
+#sw-deck .bridge-chair{background:linear-gradient(90deg,#18324a,#4b6c87 15%,#10263c 80%,#86aec4 94%,#1b3852);border-color:#6f91a9;box-shadow:inset 0 0 12px #07182f}
+#sw-deck .chair-back{border-top:8px solid #e5ad50;background:linear-gradient(110deg,#173149,#456780 55%,#0f253d)}
+#sw-deck .chair-back:before{background:repeating-linear-gradient(0deg,#152e44 0 23px,#33536b 24px 26px);border-color:#87a8bc}
+#sw-deck .chair-arm{border-top:9px solid #5bdaef}
+#sw-deck .bridge-dais{background:linear-gradient(90deg,#7496ad,#264359 5%,#365870 95%,#a3bfd1);border:3px solid #e3b764;box-shadow:0 0 12px #39b8d844}
+#sw-deck .bridge-airlock{background:linear-gradient(90deg,#203e59,#10283f 49%,#f3bf60 50%,#10283f 51%,#203e59);border-color:#779cb5;color:#dff7ff}
+#sw-deck.walkable-bridge .room-vignette{box-shadow:inset 0 0 50px #06204044}
+#sw-deck .bridge-nav{z-index:4;left:auto;right:max(16px,env(safe-area-inset-right));transform:none;background:#071b30;border:2px solid #6398b5;box-shadow:0 4px 20px #0009;color:#fff;padding:7px;gap:7px}
+#sw-deck .bridge-nav button{color:#fff;font-weight:700;font-size:16px;min-height:48px;background:#173b56;border:1px solid #75b7d6;padding:10px 16px;justify-content:center}
+#sw-deck .bridge-nav button[data-view="desk"]{background:#075b83;border-color:#45d4f6}
+#sw-deck .bridge-nav button[data-view="history"]{background:#422f63;border-color:#bb99ed}
+#sw-deck .bridge-nav button[data-view="exit"]{background:#653b14;border-color:#f3bc65}
+#sw-deck .bridge-nav button[aria-pressed=true]{background:#116287;border-color:#b7f7ff;box-shadow:inset 0 -3px #59def5}
+#sw-deck .bridge-nav button:active,#sw-deck .level-view:active{filter:brightness(1.35)}
+#sw-deck .view-help{background:#071b30ed;border:1px solid #55bfd6;color:#e3f8ff;box-shadow:0 2px 12px #00112266;font-size:14px;padding:9px 14px}
+#sw-deck .bridge-joystick{position:absolute;left:auto;right:max(16px,env(safe-area-inset-right));bottom:calc(100px + env(safe-area-inset-bottom));width:168px;padding:10px;display:flex;flex-direction:column;align-items:center;gap:9px;user-select:none;touch-action:none;z-index:3;color:#fff;font:14px Arial;background:#071b30f5;border:2px solid #e9b858;border-radius:19px;box-shadow:0 5px 20px #0009}
 #sw-deck .bridge-joystick[hidden]{display:none}
-#sw-deck .joystick-caption{font-weight:800;letter-spacing:1.4px;padding:5px 10px;background:#f4f9fbe6;border-radius:20px;border:1px solid #c0d6e2}
-#sw-deck .joystick-pad{position:relative;width:136px;height:136px;border-radius:50%;border:2px solid #b2cedd;background:radial-gradient(circle,#4d7c9555 0 44%,#f0faffee 46% 58%,#9bbccc 61%,#eaf6fddd 65%,#719bad 100%);box-shadow:0 6px 22px #254d6655,inset 0 0 13px #fff;touch-action:none;padding:0}
-#sw-deck .joystick-ring{position:absolute;inset:13px;border:1px solid #d9f7ff;border-radius:50%;box-shadow:inset 0 0 22px #41668166}
-#sw-deck .joystick-stick{position:absolute;left:calc(50% - 25px);top:calc(50% - 25px);width:50px;height:50px;border:2px solid #d3f3ff;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 25%,#f9feff,#9bc4d8 55%,#426d88);box-shadow:0 5px 10px #23485e88,inset 0 2px 8px #fff}
-#sw-deck .joystick-stick i{width:20px;height:20px;border-radius:50%;border:1px solid #b8e6fa;background:#74b5d4;box-shadow:inset 0 0 8px #effaff}
-#sw-deck .joystick-pad.held{border-color:#fff;box-shadow:0 0 22px #8bdcffbb,inset 0 0 20px white}
-#sw-deck #bridge-joystick-help{padding:4px 8px;border-radius:15px;background:#f4f9fbea;white-space:nowrap;font-size:10px}
+#sw-deck .joystick-caption{font-weight:800;font-size:14px;letter-spacing:1px;color:#ffe0a0}
+#sw-deck .joystick-pad{position:relative;flex-shrink:0;width:142px;height:142px;border-radius:50%;border:3px solid #f2c166;background:radial-gradient(circle,#174d6b 0 49%,#0d2c44 50% 66%,#346984 67%,#0b2b45 73%);box-shadow:inset 0 0 14px #020c18;touch-action:none;padding:0}
+#sw-deck .joystick-ring{position:absolute;inset:19px;border:1px solid #5ea8c9;border-radius:50%}
+#sw-deck .joystick-direction{position:absolute;color:#ffdb89;font:700 22px Arial;line-height:1;pointer-events:none}
+#sw-deck .joystick-direction.north{top:4px;left:calc(50% - 7px)}
+#sw-deck .joystick-direction.south{bottom:4px;left:calc(50% - 7px)}
+#sw-deck .joystick-direction.west{left:4px;top:calc(50% - 11px)}
+#sw-deck .joystick-direction.east{right:4px;top:calc(50% - 11px)}
+#sw-deck .joystick-stick{position:absolute;left:calc(50% - 25px);top:calc(50% - 25px);width:50px;height:50px;border:3px solid #c3f9ff;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 25%,#99f7ff,#24bde0 55%,#076488);box-shadow:0 4px 10px #0009}
+#sw-deck .joystick-stick i{width:18px;height:18px;border-radius:50%;border:2px solid #dbffff;background:#137996}
+#sw-deck .joystick-pad.held{border-color:#fff;box-shadow:0 0 15px #33d9ecaa,inset 0 0 20px #134d6b}
+#sw-deck #bridge-joystick-help{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+#sw-deck .level-view{width:100%;min-height:44px;padding:8px 4px;font-size:16px;font-weight:700;border:1px solid #6bd9ec;border-radius:8px;background:#124864;color:#fff}
+#sw-deck.walkable-bridge.screen-focused .mobile-dock{display:flex;position:absolute;inset:max(20px,env(safe-area-inset-top)) 24px 102px;align-items:center;justify-content:center;pointer-events:none}
+#sw-deck .mobile-dock .command-screen{position:relative!important;left:auto!important;top:auto!important;width:min(1100px,100%);height:auto;max-height:100%;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;pointer-events:auto;gap:12px;padding:20px;background:#081e34;border:2px solid #5fcfe9;border-radius:16px;box-shadow:0 0 0 5px #173e57,0 6px 30px #0009;transform:none!important}
+#sw-deck .mobile-dock .command-screen>*{flex-shrink:0}
+#sw-deck .mobile-dock .key{clip-path:none;border:1px solid var(--accent);border-radius:9px;background:linear-gradient(135deg,var(--deep),var(--dark));text-shadow:none;min-height:48px}
+#sw-deck .mobile-dock .key:before,#sw-deck .mobile-dock .key:after{display:none}
+#sw-deck .mobile-dock .bridge-header .key{font-size:16px}
+#sw-deck .mobile-dock .key small{font-size:15px;white-space:normal}
+#sw-deck .mobile-dock .bridge-brand h1{font-size:clamp(18px,2vw,23px);white-space:normal;line-height:1.2;text-shadow:none}
+#sw-deck .mobile-dock .bridge-brand p{font-size:10px;letter-spacing:1px}
+#sw-deck .mobile-dock .telemetry .connection{font-size:14px;line-height:1.3}
 @media(max-width:700px){
- #sw-deck .bridge-nav{display:flex;gap:3px;width:calc(100% - 20px);padding:5px;bottom:max(12px,env(safe-area-inset-bottom))}
- #sw-deck .bridge-nav button{flex:1;min-width:0;min-height:54px;padding:7px 5px;font-size:14px;gap:4px;flex-direction:column}
- #sw-deck .bridge-nav button[data-view="desk"]{flex:1.5;padding-inline:8px}
- #sw-deck .bridge-nav button svg{width:15px;height:15px}
- #sw-deck .bridge-joystick{left:13px;bottom:88px;width:126px;gap:5px}
- #sw-deck .joystick-pad{width:118px;height:118px}
- #sw-deck .joystick-stick{width:44px;height:44px;left:calc(50% - 22px);top:calc(50% - 22px)}
- #sw-deck .joystick-caption{font-size:12px;padding:4px 8px;letter-spacing:.5px}
- #sw-deck #bridge-joystick-help{font-size:12px}
- #sw-deck .mobile-dock .key small{font-size:14px;line-height:1.2}
- #sw-deck .mobile-dock .lock-pair>.route-key{font-size:14px}
- #sw-deck .mobile-dock .command-actions .key{font-size:14px;line-height:1.2;min-height:66px}
- #sw-deck .mobile-dock .telemetry .connection{font-size:14px;line-height:1.3}
+ #sw-deck-dialog .unit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #sw-deck-dialog .unit small,#sw-deck-dialog .unit span{font-size:14px;line-height:1.3}
+ #sw-deck .bridge-nav{display:flex;left:10px;right:10px;width:auto;max-width:none;gap:5px;padding:6px;bottom:max(10px,env(safe-area-inset-bottom))}
+ #sw-deck .bridge-nav button{flex:1;min-width:0;min-height:60px;padding:7px 3px;font-size:14px;gap:5px;flex-direction:column;white-space:normal}
+ #sw-deck .bridge-nav button[data-view="desk"]{flex:1.2}
+ #sw-deck .bridge-nav button svg{width:20px;height:20px}
+ #sw-deck .bridge-joystick{right:max(12px,env(safe-area-inset-right));bottom:calc(98px + env(safe-area-inset-bottom));width:152px;padding:9px;gap:8px}
+ #sw-deck .joystick-pad{width:128px;height:128px}
+ #sw-deck .view-help{top:max(12px,env(safe-area-inset-top));width:auto;max-width:calc(100% - 24px);white-space:nowrap;font-size:13px}
+ #sw-deck.walkable-bridge.screen-focused .mobile-dock{inset:max(12px,env(safe-area-inset-top)) 12px calc(100px + env(safe-area-inset-bottom));align-items:flex-start}
+ #sw-deck .mobile-dock .command-screen{height:100%;padding:14px 10px;gap:10px}
+ #sw-deck .mobile-dock .bridge-brand h1{font-size:17px}
+ #sw-deck .mobile-dock .bridge-brand p{font-size:9px;letter-spacing:.5px}
+ #sw-deck .mobile-dock .lock-pair>.route-key{font-size:15px}
+ #sw-deck .mobile-dock .command-actions .key{font-size:14px;line-height:1.2;min-height:68px}
  #sw-deck .mobile-dock .screen-footer .key{font-size:16px;min-height:48px}
- #sw-deck .mobile-dock{bottom:88px}
- #sw-deck .toast{bottom:94px}
+ #sw-deck .toast{bottom:100px}
+}
+@media(max-height:550px){
+ #sw-deck .bridge-joystick{width:132px;padding:7px;gap:5px;bottom:90px}
+ #sw-deck .joystick-pad{width:104px;height:104px}
+ #sw-deck .joystick-stick{width:40px;height:40px;left:calc(50% - 20px);top:calc(50% - 20px)}
+ #sw-deck .joystick-caption{font-size:12px}
+ #sw-deck .view-help{left:14px;transform:none;top:10px;font-size:12px}
+ #sw-deck .mobile-dock .bridge-brand h1{font-size:18px}
 }
