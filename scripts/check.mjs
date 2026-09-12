@@ -15,7 +15,7 @@ for(const script of sourceDom.window.document.querySelectorAll('script')){
   if(script.type==='module')await transform(script.textContent,{loader:'js'});
   else new vm.Script(script.textContent);
 }
-for(const f of ['command-deck.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
+for(const f of ['bridge-room.js','command-deck.js','notifications.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
 for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-deck.css','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
 assert(html.includes('this.buildScene()')&&html.includes('buildZone9()'),'Complete property model is restored');
 async function verifyContext(noGpu){
@@ -66,6 +66,7 @@ assert.equal(w._swGetChar().shirt,'#123456','Saved character preferences remain 
 assert(app._computePath({x:0,z:10},{x:0,z:-100}).length>=2,'Recovered navigation can route around the buildings');
 assert(app._locks.G2.doorMat&&app._locks.G2.frame,'Unit G2 retains the newer alert material and no-lock frame');
 console.log('Doors without door-frame metadata:',Object.values(app._locks).filter(rec=>!rec.doorMat||!rec.frame).map(rec=>rec.label).join(', '));
+w.eval(read('bridge-room.js'));
 w.eval(read('command-deck.js'));
 await new Promise(resolve=>setTimeout(resolve,50));
 assert.equal(w.__swDeckVisible,false,'The storage property opens first');
@@ -82,10 +83,11 @@ const enter=()=>{
   else {const entry=w.document.querySelector('#sw-cmd-tab');assert(entry,'Recovered outdoor Command Center tab');entry.click();}
 };
 enter();assert.equal(w.__swDeckVisible,true,'Outdoor entry opens the command room');
-assert.equal(renderers,2,'The room renderer starts only after entry');
+assert.equal(renderers,1,'The bridge uses GPU-independent 3D geometry');
+assert(w.document.querySelectorAll('.bridge-surface').length>80,'Room has separate walls, floor and furniture');
 if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,true,'Outdoor fallback is hidden inside');
 click('[data-action="exit"]');assert.equal(w.__swDeckVisible,false,'Exit returns outside');
-enter();assert.equal(renderers,2,'Room re-entry reuses its existing renderer');
+enter();assert.equal(renderers,1,'Room re-entry reuses its existing renderer');
 click('[data-action="find"]');
 assert(w.document.querySelectorAll('.unit-grid .unit').length>=160,'Find unit lists full catalog');
 const search=w.document.querySelector('#deck-find');search.value='c11-2';search.dispatchEvent(new w.Event('input'));
@@ -101,7 +103,7 @@ if(noGpu){
   assert.equal(w.document.querySelector('#sw-property-fallback').hidden,false,'Find returns to outdoor plan');
   assert.equal(w.document.querySelectorAll('[data-plan-unit]').length,Object.keys(app._locks).length,'Property plan preserves every modeled unit');
   assert.equal(w.document.querySelector('.plan-unit.selected').dataset.planUnit,'C112','Plan highlights the searched unit');
-  assert.equal(w.document.querySelectorAll('.panorama-panel').length,32,'The CSS room wraps all the way around');
+  assert(w.document.querySelector('.bridge-log-wall')&&w.document.querySelector('.bridge-roster-wall'),'Lock activity and every unit have wall stations');
   assert(!w.document.querySelector('[data-view="look"]').disabled,'Look around remains available without WebGL');
 }else assert(app._marker?.visible,'Unit location marker appears in original model');
 enter();assert.equal(w.__swDeckVisible,true,'Can return to command room');
@@ -111,13 +113,19 @@ click('.close-dialog');click('[data-action="report"]');assert(w.document.querySe
 click('.close-dialog');click('[data-view="look"]');assert(w.document.querySelector('#sw-deck').classList.contains('exploring'));
 click('[data-view="center"]');assert(!w.document.querySelector('#sw-deck').classList.contains('exploring'));
 Object.defineProperty(w,'innerWidth',{configurable:true,value:393});w.dispatchEvent(new w.Event('resize'));
-assert(w.document.querySelector('.mobile-dock .command-screen'),'Phone controls move into responsive dock');
-click('[data-view="look"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Look around restores the 3D display');
-for(let i=0;i<15;i++)w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
-await new Promise(resolve=>setTimeout(resolve,1400));
-assert.equal(w.document.querySelector('.command-screen').style.display,'none','Looking away hides the display behind the camera');
-click('[data-view="center"]');assert(w.document.querySelector('.mobile-dock .command-screen'),'Center restores usable phone controls');
-assert.notEqual(w.document.querySelector('.mobile-dock .command-screen').style.display,'none','Phone controls become visible again after looking away');
+assert(!w.document.querySelector('.mobile-dock .command-screen'),'Phone bridge starts in the room without covering it');
+click('[data-view="desk"]');assert(w.document.querySelector('.mobile-dock .command-screen'),'Main screen gives the phone a readable focused display');
+click('[data-view="walk"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Walking returns the screen to the room');
+const deck=w.document.querySelector('#sw-deck'),startZ=Number(deck.dataset.bridgeZ);
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));
+await new Promise(resolve=>setTimeout(resolve,220));
+w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));
+assert(Number(deck.dataset.bridgeZ)>startZ+.2,'WASD actually translates the camera through the bridge');
+const stoppedZ=Number(deck.dataset.bridgeZ);await new Promise(resolve=>setTimeout(resolve,90));
+assert.equal(Number(deck.dataset.bridgeZ),stoppedZ,'Releasing a movement key stops walking');
+click('[data-view="history"]');assert.equal(w.document.querySelector('#deck-dialog-title').textContent,'Lock activity history');
+assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('sign in'),'History does not invent records before staff sign in');click('.close-dialog');
+click('[data-view="room"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Bridge overview remains spatial on phones');
 // Run the retained staff panel with fake identity and network. No production data is read or written.
 const staff=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
 w.eval(staff.slice(staff.indexOf('window.__swOperationsOpen='),staff.indexOf('window.__swAdminOpen=')));
@@ -149,8 +157,10 @@ assert.equal(app.state.chatOpen,false,'Staff chat closes when returning outside'
 app.state.editMode=true;w.__swCheckLogin=()=> 'Offline test';
 const original=app._statusOf('G2');w.fetch=async()=>({ok:false});
 assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original,'Rejected save leaves unit status intact');
-let writes=0;w.fetch=async(url,opts)=>{if(String(url).includes('/lockOverrides/')&&opts?.method==='PUT')writes++;return {ok:true,json:async()=>({})};};
-await app.setStatus('G2','black');assert.equal(app._statusOf('G2'),'black');assert.equal(writes,1,'Successful status update uses one shared write');
+let writes=0,histories=0,alerts=0;
+w._swAuth={currentUser:{uid:'offline'}};w._swRef=(db,key)=>key;w._swSet=async()=>{writes++;};w._swPush=async(key,entry)=>{assert.equal(key,'lockLog');assert.equal(entry.type,'lock');histories++;};w.__swNotifyStatus=async(type,label)=>{assert.equal(type,'black');assert.equal(label,'G2');alerts++;};
+await app.setStatus('G2','black');assert.equal(app._statusOf('G2'),'black');assert.equal(writes,1,'Successful SDK status save writes once');assert.equal(histories,1,'Saved change records authenticated history');assert.equal(alerts,1,'Successful SDK save sends a notification');
+w._swSet=async()=>{throw new Error('offline failure');};await app.setStatus('G2','green');assert.equal(alerts,1,'Failed save never sends an alert');assert.equal(histories,1,'Failed save never records false history');
 assert(!logs.some(x=>/SyntaxError|ReferenceError|TypeError/.test(x)),logs.join('\n'));
 console.log(`PASS (${noGpu?'no GPU':'GPU renderer'}): ${Object.keys(app._locks).length} modeled units; original boot; search and filters; property location; room controls; mobile dock; save failure and success. No production writes.`);
 dom.window.close();

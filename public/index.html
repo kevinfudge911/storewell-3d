@@ -1165,26 +1165,19 @@ class Component extends DCLogic {
     // Sync only this key to Firebase using the authenticated SDK (REST fetch fails auth rules)
     if(!this._pendingWrites) this._pendingWrites={};
     this._pendingWrites[k]={st,t:Date.now()};
-    // Persist log entry — always write via REST API (no auth required) AND Firebase SDK
-    (()=>{ const who=(this.state&&this.state.staffName)||'Staff';
-      const entry={label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now(),type:'lock'};
-      // REST API write (always works regardless of auth state)
-      fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(entry)}).catch(e=>console.warn('lockLog REST push failed',e));
-      // Update in-memory log for immediate board refresh
-      if(window.app&&window.app._histLog){ window.app._histLog.unshift(entry); if(window.app._officeCCdrawHist) window.app._officeCCdrawHist(); }
-    })();
-    // 🚨 SMS + screen alert when Lock It or Lock Off is activated
-    if(st==='flashred'||st==='flashgreen'){
-      const who2=(this.state&&this.state.staffName)||'Staff';
-      const action=st==='flashred'?'🔒🔴 LOCK IT - Unit needs to be locked!':'🔓🟢 LOCK OFF - Lock has been removed!';
-      const msg=action+' — Unit '+label+' per '+who2;
-
-      fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json').then(r=>r.json()).then(cfg=>{
-        const phone=(cfg&&cfg['Kevin']&&cfg['Kevin'].phone)||'';
-        const tbKey=(cfg&&cfg._tbKey)||'';
-        if(phone&&window.__swSMS) window.__swSMS(phone,msg,tbKey);
-      }).catch(e=>console.warn('Lock alert SMS failed',e));
+    const who=this.state.staffName||'Staff';
+    const entry={label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now(),type:'lock'};
+    // The history collection requires the same authenticated SDK as the lock save.
+    try{
+      if(!window._swAuth?.currentUser || !window._swPush)throw new Error('Sign in required for history');
+      await window._swPush(window._swRef(window._swDB,'lockLog'),entry);
+      window.dispatchEvent(new CustomEvent('sw-lock-history',{detail:entry}));
+    }catch(e){
+      console.warn('Status saved but history could not be recorded');
+      alert('The unit status was saved, but its history entry could not be recorded. Please check your connection.');
     }
+    // SDK writes do not pass through fetch. Notify explicitly, only after a confirmed save.
+    window.__swNotifyStatus?.(st,label,who).catch(()=>{});
     const rec=this._locks[k]; if(rec){ const c=this._LC()[st]||'#1f9d4d';
       rec.mat.color.set(c);
       this._flashers=this._flashers.filter(m=>m!==rec.mat);
@@ -2225,6 +2218,7 @@ class Component extends DCLogic {
 <script src="/exterior-controls.js" defer></script>
 <script src="/notifications.js" defer></script>
 <script src="/status-sounds.js" defer></script>
+<script src="/bridge-room.js" defer></script>
 <script src="/command-deck.js" defer></script>
 </body>
 </html>

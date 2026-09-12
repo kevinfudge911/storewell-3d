@@ -74,15 +74,13 @@ async function _sendSMS(phone,msg,tbKey){
 }
 try{ window.__swSMS=_sendSMS; }catch(e){}
 async function _sendEmail(to,toName,from,msg,key){
-  if(!key||!to)return;
-  try{await fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:'service_storewell',template_id:'sw_notify',user_id:key,template_params:{to_email:to,to_name:toName,from_name:from,message:msg}})});}catch(e){console.warn('email err',e);}
-  // Log the email to the activity log
-  try{
-    var eEntry={type:'email',label:'Email',from:from||'System',to:toName||to,who:from||'System',msg:(msg||'').slice(0,80),t:Date.now()};
-    if(window._swPush&&window._swRef&&window._swDB){ window._swPush(window._swRef(window._swDB,'lockLog'),eEntry).catch(function(){}); }
-    else{ fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(eEntry)}).catch(function(){}); }
-  }catch(ex){}
+  if(!to)throw new Error('Email recipient is missing');
+  const response=await fetch('/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,toName,subject:'StoreWell · '+(from||'Staff'),body:msg})});
+  const data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||'Email was not accepted');
+  if(window._swAuth?.currentUser&&window._swPush)window._swPush(window._swRef(window._swDB,'lockLog'),{type:'email',label:'Email',from:from||'Staff',to:toName||to,who:from||'Staff',msg:String(msg||'').slice(0,80),t:Date.now()}).catch(()=>{});
+  return data;
 }
+
 function _toast(name,changes,ts){
   const d=document.createElement('div');
   d.style.cssText='position:fixed;bottom:80px;right:14px;z-index:99999;background:#1f2a33;color:#fff;border-radius:12px;padding:12px 14px;max-width:260px;font-family:Segoe UI,Arial;box-shadow:0 6px 24px rgba(0,0,0,.4)';
@@ -130,6 +128,11 @@ window.__swRouteStatus=function(status){
 };
 // Jump to the command office (route start) on foot, keeping the drawn route
 window.__swWalkRoute=function(){ const a=window.__swApp; if(!a) return; a._inCommandRoom=false; if(a.setMode)a.setMode('walk'); const s=a._freeSpotNear(a._officeSpot()); if(a.walker){ a.walker.g.position.set(s.x,0,s.z); a.walker.h=Math.PI; if(a._net&&a._net._pos)a._net._pos(); } };
+window.__swReadLockHistory=async function(){
+  if(!window.__swCheckLogin?.()||!window._swAuth?.currentUser)throw new Error('Staff sign in is required');
+  const snapshot=await window._swGet(window._swRef(window._swDB,'lockLog'));
+  return Object.values(snapshot.val()||{}).sort((a,b)=>(Number(b.t)||0)-(Number(a.t)||0));
+};
 // Full scrollable Lock History (opened by tapping the history wall board)
 window.__swHistoryPanel=function(){
   const old=document.getElementById('sw-hist-panel'); if(old){ old.remove(); return; }
@@ -146,7 +149,7 @@ window.__swHistoryPanel=function(){
     }).join('');
   }
   if(app&&app._histLog&&app._histLog.length) render(app._histLog);
-  fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json').then(function(r){return r.ok?r.json():null;}).then(function(d){ const list=Object.values(d||{}).sort(function(a,b){return b.t-a.t;}); if(app)app._histLog=list; render(list); }).catch(function(){});
+  window.__swReadLockHistory().then(list=>{if(app)app._histLog=list;render(list);}).catch(()=>{const el=document.getElementById('sw-hist-list');if(el)el.textContent='History could not connect. Sign in and reopen to retry.';});
 };
 window.__swOperationsOpen=async function(initialTab='overview'){
   const app=window.__swApp;
@@ -211,7 +214,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
   }));
 
   function prefOpts(val){
-    return ['email','text','both','none'].map(v=>`<option value="${v}"${v===val?' selected':''}>${{email:'Email only',text:'Text only',both:'Email + Text',none:'No notifications'}[v]}</option>`).join('');
+    return ['email','text','both','none'].map(v=>`<option value="${v}"${v===val?' selected':''}>${{email:'Email only',text:'Push notifications',both:'Email + push',none:'No notifications'}[v]}</option>`).join('');
   }
 
   function buildInvRows(){
@@ -231,7 +234,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
 
   function buildLogRows(entries){
     if(!entries||!entries.length) return '<div style="color:#4a6380;font-size:13px;padding:20px;text-align:center;">No activity yet</div>';
-    return entries.slice().reverse().map(r=>{
+    return entries.map(r=>{
       const d=new Date(r.t);
       const dateStr=d.toLocaleDateString([],{month:'short',day:'numeric'});
       const timeStr=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -251,14 +254,12 @@ window.__swOperationsOpen=async function(initialTab='overview'){
   // Load full Firebase log async and render into the log tab
   async function loadFirebaseLog(){
     try{
-      const res=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json');
-      const data=await res.json()||{};
-      const entries=Object.values(data||{}).sort((a,b)=>b.t-a.t).slice(0,200);
+      const entries=await window.__swReadLockHistory();
       const logEl=document.getElementById('sw-log-list');
       const ovEl=document.getElementById('sw-ov-log');
       if(logEl) logEl.innerHTML=buildLogRows(entries);
       if(ovEl) ovEl.innerHTML=buildLogRows(entries.slice(0,5));
-    }catch(e){ console.warn('log load error',e); }
+    }catch(e){ for(const id of ['sw-log-list','sw-ov-log']){const el=document.getElementById(id);if(el)el.textContent='History could not connect. Sign in and reopen to retry.';} }
   }
 
   function buildStats(){
@@ -478,7 +479,7 @@ window.__swAdminOpen=async function(){
   const contacts=['Kevin','Mike','Brad'].map(n=>({name:n,color:SC[n],email:'',phone:'',carrier:'',pref:'email',...(cfg[n]||{})}));
   const modal=document.getElementById('sw-admin-modal');
   if(!modal)return;
-  const prefOpts=(val)=>['email','text','both','none'].map(v=>`<option value="${v}"${v===val?' selected':''}>${{email:'Email only',text:'Text only',both:'Email + Text',none:'No notifications'}[v]}</option>`).join('');
+  const prefOpts=(val)=>['email','text','both','none'].map(v=>`<option value="${v}"${v===val?' selected':''}>${{email:'Email only',text:'Push notifications',both:'Email + push',none:'No notifications'}[v]}</option>`).join('');
   modal.innerHTML=`<div style="background:#f4f6f9;border-radius:18px;width:340px;max-height:92vh;overflow-y:auto;font-family:'Segoe UI',Arial;box-shadow:0 12px 40px rgba(0,0,0,.35);">
     <div style="background:#1f2a33;border-radius:18px 18px 0 0;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;">
       <div style="color:#fff;font-weight:800;font-size:16px;">👥 Staff Contacts</div>
@@ -771,131 +772,54 @@ window.__swShowHelp=function(){
 
 
 window.__swSaveReport=function(){
-  const app=window.__swApp;
-  const log=(app&&app.state&&app.state.sessionLog)||[];
-
-  // Remove any existing modal
-  const existing=document.getElementById('sw-save-report-modal');
-  if(existing) existing.remove();
-
-  // Show modal IMMEDIATELY — don't wait for Firebase
-  const overlay=document.createElement('div');
-  overlay.id='sw-save-report-modal';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;font-family:Segoe UI,Arial;';
-  overlay.innerHTML='<div style="background:#0f1923;border:1px solid #1e3a5f;border-radius:20px;padding:32px;color:#8ab4d4;font-size:15px;text-align:center;">Loading report…</div>';
-  document.body.appendChild(overlay);
-
-  // Now fetch Firebase in background
-  var staff=[];
-  var cfg={};
-  fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json')
-    .then(function(r){return r.json();}).catch(function(){return {};})
-    .then(function(data){
-      cfg=data||{};
-      staff=['Kevin','Mike','Brad'].map(function(n){return {
-        name:n,
-        email:(cfg[n]&&cfg[n].email)||'',
-        phone:(cfg[n]&&cfg[n].phone)||'',
-        pref:(cfg[n]&&cfg[n].pref)||'email',
-        color:n==='Kevin'?'#2a6fdb':n==='Mike'?'#1f9d4d':'#9b3fcf'
-      };}).filter(function(c){return c.email||c.phone;});
-      buildModal();
-    });
-
-  var checked={};
-
-  function buildModal(){
-    staff.forEach(function(c){ checked[c.name]=c.pref!=='none'; });
-    render();
-  }
-
-  function render(){
-    overlay.innerHTML='<div style="background:#0f1923;border:1px solid #1e3a5f;border-radius:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.8);">'
-      +'<div style="padding:20px 20px 16px;border-bottom:1px solid #1e3a5f;display:flex;justify-content:space-between;align-items:center;">'
-      +'<div><div style="color:#00b4ff;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;">Session Report</div>'
-      +'<div style="color:#e2e8f0;font-size:16px;font-weight:800;margin-top:2px;">Save & Notify</div></div>'
-      +'<button id="sw-sr-close" style="border:none;cursor:pointer;background:#0d1f35;border:1px solid #1e3a5f;color:#8ab4d4;border-radius:8px;width:36px;height:36px;font-size:20px;flex-shrink:0;">×</button>'
-      +'</div>'
-      +'<div style="padding:16px 20px;border-bottom:1px solid #0d1f35;">'
-      +'<div style="color:#4a6380;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Changes This Session ('+log.length+')</div>'
-      +(log.length?log.slice().reverse().map(function(r){
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #0d1f35;">'
-          +'<div><div style="color:#e2e8f0;font-size:13px;font-weight:700;">'+r.label+'</div>'
-          +'<div style="color:#4a6380;font-size:11px;">'+r.from+' → <b style="color:#7dd3fc;">'+r.to+'</b></div></div>'
-          +'<div style="color:#2a4a6a;font-size:10px;">'+new Date(r.t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'</div></div>';
-        }).join('')
-        :'<div style="color:#4a6380;font-size:13px;text-align:center;padding:12px;">No changes this session</div>')
-      +'</div>'
-      +'<div style="padding:16px 20px;border-bottom:1px solid #0d1f35;">'
-      +'<div style="color:#4a6380;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">Who to Notify</div>'
-      +'<div style="display:flex;flex-direction:column;gap:8px;">'
-      +(staff.length?staff.map(function(c){
-          var bg=checked[c.name]?'#0d2d4a':'#0a1520';
-          var bd=checked[c.name]?'#1e5080':'#1a2d46';
-          var prefLabel={email:'📧 Email only',text:'💬 Text only',both:'📧💬 Email + Text',none:'🔕 No notifications'}[c.pref]||'📧 Email';
-          return '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border-radius:10px;background:'+bg+';border:1px solid '+bd+';">'
-          +'<input type="checkbox" data-name="'+c.name+'" '+(checked[c.name]?'checked':'')+' style="width:16px;height:16px;accent-color:#00b4ff;cursor:pointer;flex-shrink:0;"/>'
-          +'<div style="width:32px;height:32px;border-radius:50%;background:'+c.color+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;flex-shrink:0;">'+c.name[0]+'</div>'
-          +'<div style="flex:1;"><div style="color:#e2e8f0;font-size:13px;font-weight:700;">'+c.name+'</div>'
-          +'<div style="color:#4a6380;font-size:11px;">'+prefLabel+'</div></div></label>';
-        }).join('')
-        :'<div style="color:#4a6380;font-size:13px;padding:8px;">No contacts found</div>')
-      +'</div></div>'
-      +'<div style="padding:16px 20px;display:flex;gap:8px;">'
-      +'<button id="sw-sr-send" style="flex:1;border:none;cursor:pointer;background:linear-gradient(135deg,#00b4ff,#0066cc);color:#fff;font:700 14px Segoe UI,Arial;padding:12px;border-radius:10px;box-shadow:0 4px 16px rgba(0,140,255,.3);">📤 Send Report</button>'
-      +'<button id="sw-sr-save" style="border:1px solid #1e3a5f;cursor:pointer;background:#0d1f35;color:#8ab4d4;font:600 13px Segoe UI,Arial;padding:12px 16px;border-radius:10px;">Save Only</button>'
-      +'</div>'
-      +'<div id="sw-sr-status" style="display:none;text-align:center;padding:0 20px 16px;font-size:13px;font-weight:700;color:#00d68f;"></div>'
-      +'</div>';
-
-    overlay.querySelectorAll('input[type=checkbox]').forEach(function(cb){
-      cb.addEventListener('change',function(){ checked[cb.dataset.name]=cb.checked; render(); });
-    });
-
-    var close=function(){ overlay.remove(); };
-    document.getElementById('sw-sr-close').onclick=close;
-
-    document.getElementById('sw-sr-save').onclick=function(){
-      if(app&&app.setState) app.setState({sessionLog:[]});
-      close();
-    };
-
-    document.getElementById('sw-sr-send').onclick=function(){
-      if(!log.length){ close(); return; }
-      var targets=staff.filter(function(c){return checked[c.name];});
-      var btn=document.getElementById('sw-sr-send');
-      btn.textContent='Sending...'; btn.disabled=true;
-      var ts=new Date().toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      var staffNm=(app&&app.state&&app.state.staffName)||'Staff';
-      var _meta={'Rented':['🟢','#00b341'],'Late':['🔴','#ff1111'],'Reserved':['🔵','#00aaff'],'Rented · No Lock':['🟢','#22c55e'],'Not rentable':['⚪','#8893a0'],'Lock It':['🔒🔴','#ff3d00'],'Lock Off':['🔓🟢','#00b341']};
-      var _sty=function(l){return _meta[l]||['•','#5b6b7d'];};
-      var _rows=log.map(function(r){var t=_sty(r.to),f=_sty(r.from);var tm=new Date(r.t).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});return '<tr><td style="padding:10px 12px;border-bottom:1px solid #eef2f7;"><span style="font-weight:800;color:#1f2a37;font-size:15px;background:#eef4ff;border-radius:8px;padding:3px 10px;">'+r.label+'</span></td><td style="padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:right;font-size:14px;color:#5b6b7d;">'+f[0]+' '+r.from+' &nbsp;&rarr;&nbsp; <b style="color:'+t[1]+';">'+t[0]+' '+r.to+'</b> <span style="color:#aab4c0;font-size:11px;">'+tm+'</span></td></tr>';}).join('');
-      var _lockIt=log.filter(function(r){return r.to==='Lock It';}).length;
-      var _quip=_lockIt?'🔒 '+_lockIt+' unit'+(_lockIt!==1?'s':'')+' still need'+(_lockIt!==1?'':'s')+' a lock — go get \'em!':'✅ All caught up — nice work!';
-      var emailHtml='<div style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:0 auto;border-radius:18px;overflow:hidden;border:1px solid #e3eaf3;background:#fff;"><div style="background:linear-gradient(135deg,#FF6B6B,#FFD93D,#6BCB77,#4D96FF);padding:20px 22px;"><div style="font-size:24px;font-weight:900;color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.35);">🏪 StoreWell Report</div><div style="color:#fff;font-size:13px;font-weight:600;margin-top:3px;">'+ts+' &middot; by '+staffNm+' 👤</div></div><div style="padding:18px 20px;"><div style="color:#5b6b7d;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;">📋 '+log.length+' change'+(log.length!==1?'s':'')+' this round</div><table style="width:100%;border-collapse:collapse;">'+_rows+'</table><div style="margin-top:14px;background:#f0f7ff;border:1.5px solid #d6e8ff;border-radius:10px;padding:10px 14px;color:#1f2a37;font-size:13px;font-weight:700;">'+_quip+'</div></div><div style="padding:14px 20px;background:#f4f7fb;color:#8493a4;font-size:11px;text-align:center;">🏬 StoreWell Storage &middot; 1215 E Church St, Aurora MO &middot; sent automatically ✨🤖</div></div>';
-      var emailBody='🏪 StoreWell Report\n'+ts+' - by '+staffNm+'\n\n📋 Changes ('+log.length+'):\n'+log.map(function(r){var t=_sty(r.to);return t[0]+' '+r.label+': '+r.from+' -> '+r.to;}).join('\n')+'\n\n'+_quip+'\n\n— sent automatically by StoreWell ✨';
-      var sends=targets.map(function(contact){
-        var ops=[];
-        if((contact.pref==='text'||contact.pref==='both')&&contact.phone){
-          var allChanges=log.map(function(r){return r.label+':'+r.to;}).join(', ');
-          var smsText='StoreWell Report ('+ts+'): '+allChanges;
-          ops.push(fetch('/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:String(contact.phone).replace(/\D/g,''),message:smsText.slice(0,300),key:(cfg&&cfg._tbKey)||''})}).then(function(r){return r.json();}).catch(function(){return {};}).then(function(d){if(!d.success) console.warn('SMS fail',d); else console.log('SMS sent to '+contact.name);}));
-        }
-        if((contact.pref==='email'||contact.pref==='both')&&contact.email){
-          ops.push(fetch('/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:contact.email,toName:contact.name,subject:'🏪 StoreWell Report '+ts,body:emailBody,html:emailHtml})}).then(function(r){return r.json();}).catch(function(){return {};}).then(function(d){if(!d.success) console.warn('Email fail',d); else console.log('Email sent to '+contact.name);}));
-        }
-        return Promise.all(ops);
-      });
-      Promise.all(sends).then(function(){
-        if(app&&app.setState) app.setState({sessionLog:[]});
-        var st=document.getElementById('sw-sr-status');
-        if(st){ st.style.display='block'; st.textContent=targets.length?'✅ Sent to '+targets.map(function(c){return c.name;}).join(', '):'✅ Saved (no one notified)'; }
-        setTimeout(close,2200);
-      });
-    };
-  }
+  const app=window.__swApp;if(!window.__swCheckLogin?.())return;
+  const log=[...(app?.state.sessionLog||[])],checked={},accepted=app._reportAccepted||(app._reportAccepted=new Set());
+  const signature=JSON.stringify(log.map(r=>[r.t,r.label,r.from,r.to]));
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  document.getElementById('sw-save-report-modal')?.remove();
+  const overlay=document.createElement('section');overlay.id='sw-save-report-modal';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-label','Save and send report');
+  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:#010910d9;display:grid;place-items:center;padding:16px;font:14px Arial;color:#d7ecf9;color-scheme:dark;';
+  overlay.innerHTML='<div style="width:100%;max-width:500px;max-height:90dvh;overflow:auto;background:linear-gradient(145deg,#153248,#071522);border:1px solid #5195b0;border-radius:16px;padding:22px;"><header style="display:flex;gap:12px;align-items:center;"><h2 style="flex:1;font-size:21px;">Save &amp; send report</h2><button id="sw-sr-close" aria-label="Close report">×</button></header><p>'+log.length+' changes this session</p><div>'+log.map(r=>'<p style="padding:9px 0;border-bottom:1px solid #335061"><b>'+esc(r.label)+'</b> · '+esc(r.from)+' → '+esc(r.to)+'</p>').join('')+'</div><p id="sw-sr-loading">Loading team recipients…</p><div id="sw-sr-contacts"></div><p id="sw-sr-status" role="status" style="line-height:1.6;color:#ffd48a"></p><footer style="display:flex;gap:10px;margin-top:20px;"><button id="sw-sr-send" disabled>Send report</button><button id="sw-sr-save">Save only</button></footer></div>';
+  document.body.append(overlay);overlay.querySelectorAll('button').forEach(b=>b.style.cssText='padding:12px 16px;background:#155b80;border:1px solid #6298b2;color:white;border-radius:7px;font:700 14px Arial;cursor:pointer;');
+  const status=overlay.querySelector('#sw-sr-status'),send=overlay.querySelector('#sw-sr-send');
+  const finish=()=>{app.setState({sessionLog:(app.state.sessionLog||[]).filter(r=>!log.includes(r))});};
+  overlay.querySelector('#sw-sr-close').onclick=()=>overlay.remove();overlay.querySelector('#sw-sr-save').onclick=()=>{finish();overlay.remove();};
+  let staff=[];
+  fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json',{signal:AbortSignal.timeout(12000)}).then(r=>{if(!r.ok)throw new Error('Team contacts could not load');return r.json();}).then(cfg=>{
+    staff=['Kevin','Mike','Brad'].map(name=>({name,...(cfg?.[name]||{}),pref:cfg?.[name]?.pref||'email'}));
+    overlay.querySelector('#sw-sr-loading').textContent='Choose recipients. Phone alerts use push notifications.';
+    const target=overlay.querySelector('#sw-sr-contacts');
+    for(const c of staff){checked[c.name]=c.pref!=='none';const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 0';const box=document.createElement('input');box.type='checkbox';box.checked=checked[c.name];box.disabled=c.pref==='none';box.onchange=()=>checked[c.name]=box.checked;row.append(box,document.createTextNode(c.name+' · '+({email:'Email',text:'Push notifications',push:'Push notifications',both:'Email + push',none:'Disabled in team settings'}[c.pref]||'Email')));target.append(row);}
+    send.disabled=!log.length;
+  }).catch(e=>{overlay.querySelector('#sw-sr-loading').textContent=e.message+'. Close and reopen to retry.';});
+  send.onclick=async()=>{
+    const targets=staff.filter(c=>checked[c.name]);if(!targets.length){status.textContent='Select a recipient, or choose Save only.';return;}
+    send.disabled=true;send.textContent='Sending…';overlay.querySelector('#sw-sr-save').disabled=true;
+    const ts=new Date().toLocaleString(),who=app.state.staffName||'Staff';
+    const body='StoreWell report · '+ts+' · '+who+'\n\n'+log.map(r=>r.label+': '+r.from+' → '+r.to).join('\n');
+    const failures=[],successes=[];
+    for(const c of targets){
+      const channels=c.pref==='both'?['email','push']:['text','push'].includes(c.pref)?['push']:['email'];
+      for(const channel of channels){
+        const id=signature+'|'+c.name+'|'+channel;
+        if(accepted.has(id)){successes.push(c.name+' '+channel);continue;}
+        try{
+          if(channel==='email'){
+            if(!c.email)throw new Error('no email address in team settings');
+            await _sendEmail(c.email,c.name,who,body);
+          }else{
+            if(!window.__swNotifyReport)throw new Error('push service is still loading');
+            const result=await window.__swNotifyReport(body.slice(0,1600),[c.name]);
+            if(!result.sent)throw new Error('no device has report alerts enabled');
+          }
+          accepted.add(id);successes.push(c.name+' '+channel);
+        }catch(e){failures.push(c.name+' '+channel+': '+e.message);}
+      }
+    }
+    if(failures.length){status.textContent=(successes.length?'Accepted: '+successes.join(', ')+'. ':'')+'Still pending: '+failures.join('; ')+'. Your report is kept. Retry sends only pending recipients.';send.disabled=false;send.textContent='Retry pending';overlay.querySelector('#sw-sr-save').disabled=false;}
+    else{finish();status.textContent='Accepted by the delivery services: '+successes.join(', ')+'.';send.textContent='Report sent';}
+  };
 };
-
 
 // Joystick repositioning — re-binds every time sc-if recreates the element
 (function(){
@@ -1251,14 +1175,14 @@ window.__swAdminSave=async function(contacts,ejsKey){
 };
 window.__swStaffReport=async function(fromName,changes){
   if(!fromName||!changes?.length)return;
-  push(ref(_db,'staffReports'),{name:fromName,changes,ts:Date.now()});
+  push(ref(_db,'staffReports'),{name:fromName,changes,ts:Date.now()}).catch(()=>console.warn('Staff report activity could not be recorded'));
   const _sr7=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');const cfg=await _sr7.json()||{};const key=cfg._ejsKey||'';
   const msg=fromName+' updated StoreWell ('+new Date().toLocaleString()+'):\n'+changes.map(c=>'• Unit '+c.label+': '+c.from+' → '+c.to).join('\n');
   for(const name of['Kevin','Mike','Brad']){
     if(name===fromName)continue;
     const c=cfg[name]||{},pref=c.pref||'none';
     if((pref==='email'||pref==='both')&&c.email)await _sendEmail(c.email,name,fromName,msg,key);
-    if((pref==='text'||pref==='both')&&c.phone&&c.phone&&cfg._tbKey)await _sendSMS(c.phone.replace(/\D/g,''),fromName+': '+msg.slice(0,140),cfg._tbKey);
+    if(pref==='text'||pref==='push'||pref==='both')await window.__swNotifyReport?.(fromName+': '+msg,[name]);
   }
 };
 window.__swStaffOnline=(n)=>{push(ref(_db,'staffActivity'),{name:n,action:'logged in',ts:Date.now()});};

@@ -1,200 +1,61 @@
-
-(function(){
-  if(!('serviceWorker' in navigator)) return;
-  window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
-  window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); window._swInstallPrompt=e; });
-  var PUB='BMdsVeAQi5T1q696P9T6hDtV7ubKVw2Zbuv4RwYfuSpp9us_hLYZKDrjA6xCRReiH-mQtvGCBhmP6KNq4jsiAG0';
-  var FB='https://storewell-3d-default-rtdb.firebaseio.com';
-  // Alert types a brand-new device gets until it customizes (matches notify.js).
-  var DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
-  // Board colours -> label + emoji (exactly matching the lock board).
-  var LBL={green:'Rented',red:'Late',blue:'Reserved',yellow:'Rented · No Lock',white:'Empty',black:'Out of Service',flashred:'Lock It',flashgreen:'Lock Off',purple:'Ready to Rent',ready:'Ready to rent',report:'Reports'};
-  var EMO={green:'🟢',red:'🔴',blue:'🔵',yellow:'🟡',white:'⚪',black:'⚫',flashred:'⚡🔴',flashgreen:'⚡🟢',ready:'🔓',report:'📊',purple:'🟣'};
-  // Only these statuses ever fire an alert (each phone still chooses which it wants).
-  var ALERT_STATES=['flashred','flashgreen','red','green','blue','yellow','purple'];
-  // Toggles shown in the "which alerts" panel, in order.
-  var PANEL=['flashred','flashgreen','red','green','blue','yellow','purple','report'];
-
-  function u8(b64){var p='='.repeat((4-b64.length%4)%4);var s=atob((b64+p).replace(/-/g,'+').replace(/_/g,'/'));var a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
-  function setBell(on){window._swBellOn=!!on;var b=document.getElementById('sw-bell');if(b){b.innerHTML='<span style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));">'+(on?'🔔':'🔕')+'</span><span class="sw-glbl">'+(on?'ALERTS ON':'ALERTS')+'</span>';b.style.background=on?'linear-gradient(180deg,#f2a33c,#d9791a)':'linear-gradient(180deg,#9aa6b2,#6b7280)';b.style.boxShadow=on?'-4px 3px 10px rgba(0,0,0,.35),inset 0 2px 3px rgba(255,255,255,.55)':'-4px 3px 10px rgba(0,0,0,.35),inset 0 2px 3px rgba(255,255,255,.45)';b.title=on?'Alerts ON — tap to choose which alerts':'Tap to turn on lock & report alerts';}
-    var c=document.getElementById('sw-cc-bell');
-    if(c){ var sp=c.getElementsByTagName('span');
-      if(sp[0]) sp[0].textContent=on?'🔔':'🔕';
-      if(sp[1]) sp[1].textContent=on?'ALERTS ON':'ALERTS';
-      c.title=on?'Alerts ON — tap to choose which alerts':'Tap to turn on lock & report alerts';
-      c.style.background=on?'linear-gradient(180deg,#f2a33c,#d9791a)':'linear-gradient(180deg,#9aa6b2,#6b7280)';
-      c.style.boxShadow=on?'0 5px 0 #a85712,0 8px 14px rgba(0,0,0,.32),inset 0 2px 3px rgba(255,255,255,.55)':'0 5px 0 #4b5563,0 8px 14px rgba(0,0,0,.32),inset 0 2px 3px rgba(255,255,255,.45)';
-    }}
-  function getSub(){return navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();});}
-  function subId(ep){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(ep)).then(function(d){return Array.prototype.slice.call(new Uint8Array(d),0,12).map(function(x){return x.toString(16).padStart(2,'0');}).join('');});}
-  function staffName(){try{return (window.__swApp&&window.__swApp.state&&window.__swApp.state.staffName)||'';}catch(e){return '';}}
-
-  function savePrefs(id,prefs){
-    return fetch(FB+'/pushSubs/'+id+'/prefs.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(prefs)});
+/* StoreWell alerts: successful saves trigger notifications directly, including SDK saves. */
+(() => {
+  'use strict';
+  const FB='https://storewell-3d-default-rtdb.firebaseio.com';
+  const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
+  const LABELS={flashred:'Lock It',flashgreen:'Lock Off',red:'Locked out',green:'Rented',blue:'Reserved',yellow:'Rented · No Lock',purple:'Ready to Rent',white:'Empty',black:'Out of Service',report:'Reports'};
+  const staffName=()=>window.__swApp?.state?.staffName||'';
+  const supported=()=>('serviceWorker' in navigator)&&('PushManager' in window)&&('Notification' in window);
+  const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const bytes=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+  let syncing=null;
+  function notice(message){window.dispatchEvent(new CustomEvent('sw-notification-notice',{detail:message}));const old=document.getElementById('sw-alert-notice');old?.remove();const el=document.createElement('div');el.id='sw-alert-notice';el.setAttribute('role','status');el.style.cssText='position:fixed;bottom:145px;left:50%;transform:translateX(-50%);z-index:100001;padding:14px 18px;border:1px solid #b9a057;border-radius:9px;background:#122b3c;color:#edf6ff;font:14px Arial;width:max-content;max-width:90vw;';el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),8500);}
+  async function api(url,init){const r=await fetch(url,init);const d=await r.json().catch(()=>({}));if(!r.ok||d.success===false)throw new Error(d.error||'The request could not be completed');return d;}
+  async function post(url,data){return api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(45000)});}
+  function setBell(on){window._swBellOn=!!on;for(const id of ['sw-bell','sw-cc-bell']){const el=document.getElementById(id);if(!el)continue;el.title=on?'Choose alerts for this device':'Enable push notifications';const spans=el.querySelectorAll('span');if(spans[0])spans[0].textContent=on?'🔔':'🔕';if(spans[1])spans[1].textContent=on?'ALERTS ON':'ALERTS';}}
+  async function subId(endpoint){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');}
+  async function saveNode(id,node){const r=await fetch(FB+'/pushSubs/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(node),signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error('Could not save this device’s alert settings');}
+  async function syncSubscription(){
+    if(syncing)return syncing;
+    syncing=(async()=>{
+      if(!supported())throw new Error('Push notifications are not supported in this browser');
+      const config=await api('/notify',{cache:'no-store',signal:AbortSignal.timeout(12000)});
+      if(!config.configured||!config.publicKey)throw new Error('The push service is not ready');
+      const reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
+      let sub=await reg.pushManager.getSubscription(),oldId,existing={};
+      if(sub){oldId=await subId(sub.endpoint);existing=await api(FB+'/pushSubs/'+oldId+'.json',{signal:AbortSignal.timeout(12000)})||{};}
+      const prefs=existing.prefs||DEFAULT_PREFS;
+      // Reuse every valid subscription; migrate a mismatched old key while preserving preferences.
+      if(sub&&sub.options?.applicationServerKey&&b64(sub.options.applicationServerKey)!==config.publicKey){await sub.unsubscribe();sub=null;}
+      if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(config.publicKey)});
+      const id=await subId(sub.endpoint),node={...sub.toJSON(),prefs,staff:staffName()||existing.staff||'',updatedAt:Date.now()};
+      await saveNode(id,node);
+      if(oldId&&id!==oldId)await fetch(FB+'/pushSubs/'+oldId+'.json',{method:'DELETE'}).catch(()=>{});
+      setBell(true);return {id,node};
+    })().catch(e=>{setBell(false);throw e;}).finally(()=>syncing=null);
+    return syncing;
   }
-  // Turn on alerts for this device: subscribe, save it (keeping any prefs it had), then let them choose.
-  function subscribe(){
-    if(!staffName()){alert('Alerts are for logged-in staff only. Log in first, then tap the bell.');return;}
-      Notification.requestPermission().then(function(perm){
-      if(perm!=='granted'){alert('Notifications are blocked for this site. Turn them on in your browser settings, then tap the bell again.');return;}
-      return navigator.serviceWorker.ready.then(function(reg){
-        return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(PUB)});
-      }).then(function(sub){
-        return subId(sub.endpoint).then(function(id){
-          return fetch(FB+'/pushSubs/'+id+'.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(existing){
-            var prefs=(existing&&existing.prefs)||DEFAULT_PREFS;
-            var node=sub.toJSON(); node.prefs=prefs; node.staff=staffName();
-            return fetch(FB+'/pushSubs/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(node)}).then(function(resp){
-              if(!resp.ok){throw new Error('save failed ('+resp.status+')');}
-              setBell(true); openPanel(id,prefs);
-            });
-          });
-        });
-      });
-    }).catch(function(e){alert('Could not turn on alerts: '+(e&&e.message||e));});
+  function openPanel(id,node){
+    document.getElementById('sw-pref-panel')?.remove();const panel=document.createElement('section');panel.id='sw-pref-panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Alerts on this device');
+    panel.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;background:linear-gradient(145deg,#153248,#071522);color:#e6f7ff;border:1px solid #58a9c8;border-radius:14px;box-shadow:0 18px 80px #000b;padding:20px;width:320px;max-width:90vw;max-height:85dvh;overflow:auto;font:14px Arial;color-scheme:dark;';
+    const title=document.createElement('h2');title.textContent='Alerts on this device';title.style.cssText='font-size:18px;margin:0 0 12px';panel.append(title);
+    for(const [type,label]of Object.entries(LABELS)){const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid #31546a;';const cb=document.createElement('input');cb.type='checkbox';cb.checked=node.prefs[type]===true;cb.style.cssText='width:21px;height:21px;accent-color:#21a8e0';cb.onchange=async()=>{const previous=!cb.checked;node.prefs[type]=cb.checked;cb.disabled=true;try{await saveNode(id,node);}catch(e){node.prefs[type]=previous;cb.checked=previous;notice(e.message);}finally{cb.disabled=false;}};row.append(cb,document.createTextNode(label));panel.append(row);}
+    const done=document.createElement('button');done.textContent='Done';done.style.cssText='margin-top:14px;width:100%;padding:12px;background:#155b80;border:1px solid #5fadc6;color:white;border-radius:7px;font:700 14px Arial';done.onclick=()=>panel.remove();panel.append(done);document.body.append(panel);
   }
-  // Exposed so the Command Center's ALERTS button can drive it (admin-only area).
-  window.__swBellTap=function(){ try{ bellTap(); }catch(e){} };
-  window.__swBellRefresh=function(){ try{ getSub().then(function(s){ setBell(!!s); }).catch(function(){}); }catch(e){} };
-  // Tapping the bell: if already on, open the chooser; otherwise turn it on.
-  function bellTap(){ if(!staffName()){alert('Alerts are for logged-in staff only. Log in first, then tap the bell.');return;}
-    getSub().then(function(sub){
-      if(!sub){subscribe();return;}
-      subId(sub.endpoint).then(function(id){
-        fetch(FB+'/pushSubs/'+id+'.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(node){
-          var prefs=(node&&node.prefs)||DEFAULT_PREFS;
-          // Always re-save the full subscription to Firebase (handles wiped DB, key rotation, etc.)
-          var fullNode=sub.toJSON(); fullNode.prefs=prefs; fullNode.staff=staffName();
-          fetch(FB+'/pushSubs/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(fullNode)}).catch(function(){});
-          openPanel(id,prefs);
-        });
-      });
-    });
-  }
-  // The per-device "which alerts do you want" panel.
-  function openPanel(id,prefs){
-    var old=document.getElementById('sw-pref-panel'); if(old) old.remove();
-    prefs=prefs||{};
-    // Position below the ALERTS button in the toolbar
-    var bellBtn=document.getElementById('sw-bell');
-    var rect=bellBtn?bellBtn.getBoundingClientRect():{top:80,right:window.innerWidth-10,bottom:80};
-    var panelTop=rect.bottom+8;
-    var panelRight=window.innerWidth-rect.right;
-    var wrap=document.createElement('div');
-    wrap.id='sw-pref-panel';
-    wrap.style.cssText='position:fixed;top:'+panelTop+'px;right:'+panelRight+'px;z-index:100000;background:#fff;color:#1f2a37;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.35);padding:14px 14px 10px;width:230px;font-family:-apple-system,Segoe UI,sans-serif;';
-    var h=document.createElement('div');
-    h.textContent='Alerts on this phone';
-    h.style.cssText='font-weight:800;font-size:14px;margin-bottom:2px;';
-    var sub=document.createElement('div');
-    sub.textContent='Tap the ones you want to be buzzed for.';
-    sub.style.cssText='font-size:11px;color:#6b7a8d;margin-bottom:10px;';
-    wrap.appendChild(h); wrap.appendChild(sub);
-    PANEL.forEach(function(t){
-      var row=document.createElement('label');
-      row.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 4px;font-size:14px;cursor:pointer;border-top:1px solid #eef1f5;';
-      var cb=document.createElement('input');
-      cb.type='checkbox'; cb.checked=prefs[t]===true;
-      cb.style.cssText='width:20px;height:20px;flex-shrink:0;accent-color:#9a3b30;';
-      cb.onchange=function(){
-        prefs[t]=cb.checked;
-        savePrefs(id,prefs).catch(function(){alert('Could not save that — check your connection and try again.');});
-      };
-      var txt=document.createElement('span');
-      txt.textContent=(EMO[t]||'')+' '+(LBL[t]||t);
-      row.appendChild(cb); row.appendChild(txt);
-      wrap.appendChild(row);
-    });
-    var done=document.createElement('button');
-    done.textContent='Done';
-    done.style.cssText='margin-top:10px;width:100%;border:none;background:#9a3b30;color:#fff;font:700 14px Segoe UI;padding:10px;border-radius:10px;cursor:pointer;';
-    done.onclick=function(){wrap.remove();};
-    wrap.appendChild(done);
-    document.body.appendChild(wrap);
-  }
-
-  window.addEventListener('load', function(){
-    var b=document.getElementById('sw-bell');
-    if(b) b.onclick=bellTap;
-    // Auto-resubscribe: runs on page load AND whenever the tab becomes visible.
-    // This handles VAPID key rotation — no manual refresh needed, just switch to the tab.
-    function doResubscribe(){
-      if(Notification.permission==='granted'){
-        navigator.serviceWorker.ready.then(function(reg){
-          return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(PUB)});
-        }).then(function(sub){
-          setBell(true);
-          return subId(sub.endpoint).then(function(id){
-            return fetch(FB+'/pushSubs/'+id+'.json').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(existing){
-              var prefs=(existing&&existing.prefs)||DEFAULT_PREFS;
-              var node=sub.toJSON(); node.prefs=prefs; node.staff=staffName();
-              return fetch(FB+'/pushSubs/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(node)});
-            });
-          });
-        }).catch(function(){
-          getSub().then(function(s){setBell(!!s);});
-        });
-      } else {
-        getSub().then(function(s){setBell(!!s);});
-      }
-    }
-    doResubscribe();
-    // Also resubscribe when user switches back to this tab (handles already-open tabs)
-    document.addEventListener('visibilitychange', function(){
-      if(document.visibilityState==='visible') doResubscribe();
-    });
-  });
-
-  // Test notification — sends a real push and shows who got it
-  window.__swTestNotif = async function(){
-    var btn = document.getElementById('sw-cc-testnotif');
-    if(btn){ btn.disabled=true; btn.style.opacity='0.6'; }
-    try {
-      var r = await fetch('/notify',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({type:'flashgreen',title:'📡 Test Notification',body:'Push notifications are working!'})});
-      var j = await r.json();
-      var msg = '📡 Test Notification Sent!\n\n'
-        + '✅ Delivered: ' + j.sent + ' device' + (j.sent!==1?'s':'') + '\n'
-        + '❌ Failed: '    + j.failed + ' device' + (j.failed!==1?'s':'');
-      if(j.failed > 0 && j.sent === 0){
-        msg += '\n\n⚠️ All subscriptions failed.\nEveryone needs to refresh the app once to re-subscribe.';
-      } else if(j.failed > 0){
-        msg += '\n\n⚠️ Some devices failed.\nThose users should refresh the app to re-subscribe.';
-      }
-      alert(msg);
-    } catch(e) {
-      alert('❌ Could not reach /notify endpoint.\n' + e.message);
-    } finally {
-      if(btn){ btn.disabled=false; btn.style.opacity='1'; }
-    }
+  window.__swBellTap=async()=>{
+    if(!staffName()||!window.__swCheckLogin?.())return notice('Staff sign in is needed to enable alerts');
+    if(!supported())return notice('This browser cannot receive push alerts. On iPhone, install StoreWell on the Home Screen first.');
+    try{const permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('Allow StoreWell notifications in your browser settings to receive alerts');const {id,node}=await syncSubscription();openPanel(id,node);}catch(e){notice(e.message);}
   };
-
-  // Fire a colour-matched alert whenever a lock's status changes, when a lock is
-  // marked Ready, or when a report is emailed. notify.js decides who actually gets it.
-  function fire(type,title,body){
-    _f('/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:type,title:title,body:body||''})}).catch(function(){});
-  }
-  var _f=window.fetch.bind(window);
-  window.fetch=function(input,init){
-    var pr=_f(input,init);
-    try{
-      var u=typeof input==='string'?input:((input&&input.url)||'');
-      var m=(init&&init.method)||(input&&input.method)||'GET';
-      if(/lockOverrides\/[^\/]+\.json/.test(u)&&m==='PUT'){
-        var unit=(u.match(/lockOverrides\/([^\/.]+)/)||[])[1]||'unit';
-        var st=null;try{st=JSON.parse((init&&init.body)||'null');}catch(e){}
-        if(typeof st==='string'&&ALERT_STATES.indexOf(st)>=0){
-          var who=staffName(); var by=who?(' — by '+who):'';
-          var title;
-          if(st==='flashred') title='⚡🔴 LOCK IT — Unit '+unit+' needs locking';
-          else if(st==='flashgreen') title='⚡🟢 LOCK OFF — Unit '+unit+' lock removed';
-          else title=EMO[st]+' '+LBL[st]+' — Unit '+unit;
-          pr.then(function(r){if(r&&r.ok){fire(st,title,('Unit '+unit+by));}}).catch(function(){});
-        }
-      } else if(u==='/email'&&m==='POST'){
-        pr.then(function(r){if(r&&r.ok){fire('report','📊 StoreWell report emailed','');}}).catch(function(){});
-      }
-    }catch(e){}
-    return pr;
+  window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else setBell(false);};
+  window.__swNotifyStatus=async(type,unit,who)=>{
+    if(!LABELS[type]||type==='report')return;
+    try{return await post('/notify',{type,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});}
+    catch(e){notice('Status saved. Push alerts could not be sent: '+e.message);throw e;}
   };
+  window.__swNotifyReport=(body,recipients)=>post('/notify',{type:'report',title:'StoreWell report',body, ...(recipients?{recipients}:{})});
+  window.__swTestNotif=async()=>{try{const d=await post('/notify',{type:'report',title:'StoreWell test notification',body:'Push notifications are connected.'});notice('Push service accepted '+d.sent+' notification(s); '+d.failed+' failed.');}catch(e){notice(e.message);}};
+  function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));}
+  if(document.readyState==='complete')start();else window.addEventListener('load',start);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));});
 })();

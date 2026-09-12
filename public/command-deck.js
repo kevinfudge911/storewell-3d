@@ -38,10 +38,10 @@
   deck.innerHTML = `<div class="fallback-room"></div><div class="room-canvas"></div><div class="room-ui"></div><div class="room-vignette"></div><div class="mobile-dock"></div>
     <div class="view-help" hidden>Drag to look around · Arrow keys to turn · Center to return</div>
     <nav class="bridge-nav" aria-label="Room view">
-      <button data-view="room" aria-pressed="true">${icon('units')}Room</button>
-      <button data-view="desk" aria-pressed="false">${icon('desk')}At the desk</button>
-      <button data-view="look" aria-pressed="false">${icon('eye')}Look around</button>
-      <button data-view="center">${icon('center')}Center</button>
+      <button data-view="room" aria-pressed="true">${icon('units')}Bridge</button>
+      <button data-view="desk" aria-pressed="false">${icon('desk')}Main screen</button>
+      <button data-view="walk" aria-pressed="false">${icon('route')}Walk around</button><button data-view="look" aria-pressed="false">${icon('eye')}Look around</button>
+      <button data-view="history">${icon('clock')}Lock log</button><button data-view="exit">${icon('exit')}Outside</button><button data-view="center" hidden>Center</button>
     </nav><div class="toast" role="status" hidden></div>`;
   const screen = document.createElement('main');
   screen.className = 'command-screen';
@@ -61,7 +61,7 @@
   dialog.innerHTML = '<div class="dialog-box"><header class="dialog-head"><h2 id="deck-dialog-title"></h2><button class="close-dialog" aria-label="Close dialog">×</button></header><div class="dialog-body"></div></div>';
   document.body.append(dialog);
   const content = dialog.querySelector('.dialog-body');
-  let app, room, renderer, cssRenderer, cssScene, cssCamera, camera, board, raf, lastFrame = 0, roomStarted = false;
+  let app, bridge, roomStarted = false;
   let propertyPlan, selectedPropertyUnit;
   const sceneryPanels=[];
   let view = 'room', yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
@@ -75,7 +75,7 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 5000);
   }
   function showDialog(title, html) {
-    lastFocus = document.activeElement;
+    bridge?.stop(); lastFocus = document.activeElement;
     content.onclick = null;
     dialog.querySelector('h2').textContent = title; content.innerHTML = html;
     dialog.hidden = false; deck.inert = true;
@@ -105,11 +105,11 @@
     if(!roomStarted) { roomStarted = true; setupRoom(); }
     yaw = pitch = targetYaw = targetPitch = 0;
     setView('room');
-    if(!raf) animate();
+    bridge?.open();
   }
   function exitDeck(unit) {
     if(!app?.scene) return toast('The property model is still loading. Please try again in a moment.');
-    closeDialog(); deck.hidden = true; window.__swDeckVisible = false;
+    bridge?.close(); closeDialog(); deck.hidden = true; window.__swDeckVisible = false;
     document.body.classList.remove('storewell-deck-open');
     for(const id of ['sw-cmd-panel','sw-help-modal','sw-wardrobe','sw-rounds-modal','sw-hist-panel','sw-pref-panel']) document.getElementById(id)?.remove();
     app.keys={}; app._kt={}; app._tk={}; app._talt={}; app.setState({chatOpen:false});
@@ -266,7 +266,8 @@
     const list=units(),counts={all:list.length};for(const u of list)counts[u.status]=(counts[u.status]||0)+1;
     screen.querySelectorAll('[data-count]').forEach(el=>el.textContent=String(counts[el.dataset.count]||0));
     const connection=screen.querySelector('.connection');connection.textContent=live?'Shared inventory connected':'Saved inventory · reconnecting';connection.classList.toggle('live',live);
-    screen.querySelector('.alerts-label').textContent=typeof Notification!=='undefined'&&Notification.permission==='granted'?'Alerts on':'Alerts';
+    screen.querySelector('.alerts-label').textContent=window._swBellOn?'Alerts on':'Alerts';
+    bridge?.refresh();
     if(!dialog.hidden && content.querySelector('.unit-grid') && !content.querySelector('.unit')) content.querySelector('input')?.dispatchEvent(new Event('input'));
   }
   async function syncHealth() {
@@ -280,102 +281,12 @@
     refresh();
   }
   function setupRoom() {
-    if(!window.THREE?.CSS3DRenderer) return fallback();
-    const T=window.THREE;
-    try {
-      try{renderer=new T.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputEncoding=T.sRGBEncoding;deck.querySelector('.room-canvas').append(renderer.domElement);}
-      catch{renderer=null;deck.classList.add('css-room');}
-      cssRenderer=new T.CSS3DRenderer();deck.querySelector('.room-ui').append(cssRenderer.domElement);
-      room=new T.Scene();room.background=new T.Color('#030a11');cssScene=new T.Scene();cssScene.scale.setScalar(100);camera=new T.PerspectiveCamera(48,innerWidth/innerHeight,.1,200);camera.rotation.order='YXZ';cssCamera=camera.clone();
-      if(!renderer) setupCssScenery(T);
-      if(renderer){
-      const loader=new T.TextureLoader();
-      loader.load('/storewell-bridge-panorama.webp',texture=>{
-        texture.encoding=T.sRGBEncoding;
-        const sphere=new T.Mesh(new T.SphereGeometry(65,64,40),new T.MeshBasicMaterial({map:texture,side:T.BackSide}));sphere.rotation.y=Math.PI/2;room.add(sphere);
-      },undefined,()=>toast('Some room scenery could not load. The controls remain available.'));
-      loader.load('/storewell-command-deck.webp',texture=>{
-        texture.encoding=T.sRGBEncoding;
-        const front=new T.Mesh(new T.PlaneGeometry(32,18),new T.MeshBasicMaterial({map:texture}));front.position.set(0,0,-20);room.add(front);
-      },undefined,()=>fallback());
-      // Separate metal console wings give the seated view real perspective and parallax.
-      const metal=new T.MeshStandardMaterial({color:'#14212c',roughness:.48,metalness:.75});
-      const cyan=new T.MeshBasicMaterial({color:'#26bde8'}),amber=new T.MeshBasicMaterial({color:'#f4b854'});
-      room.add(new T.HemisphereLight('#b0e1ff','#142035',1.8));const lamp=new T.PointLight('#ffb24d',2,35);lamp.position.set(0,8,-6);room.add(lamp);
-      for(const side of [-1,1]){
-        const wing=new T.Group();wing.position.set(side*10.3,-5.0,-4.5);wing.rotation.y=side*.18;
-        const desk=new T.Mesh(new T.BoxGeometry(3.3,1.15,10),metal);wing.add(desk);
-        const glass=new T.Mesh(new T.BoxGeometry(2.9,.05,7.7),new T.MeshStandardMaterial({color:'#063957',emissive:'#0278b3',emissiveIntensity:.4,metalness:.3,roughness:.3}));glass.position.y=.61;wing.add(glass);
-        for(let n=0;n<7;n++){const strip=new T.Mesh(new T.BoxGeometry(.07,.07,.5),n%3?cyan:amber);strip.position.set(side*1.38,.67,n-3);wing.add(strip);}
-        const rail=new T.Mesh(new T.BoxGeometry(.05,.06,9.5),amber);rail.position.set(-side*1.5,.6,0);wing.add(rail);room.add(wing);
-      }
-      renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();renderer.domElement.remove();renderer=null;deck.classList.add('css-room');setupCssScenery(T);resize();});
-      }
-      board=new T.CSS3DObject(screen);board.position.set(0,2.36,-19.92);board.scale.setScalar(.016);cssScene.add(board);
-      deck.addEventListener('pointerdown',pointerDown);
-      deck.addEventListener('pointermove',pointerMove);
-      deck.addEventListener('pointerup',pointerUp);deck.addEventListener('pointercancel',pointerUp);
-      deck.querySelector('.room-canvas').style.touchAction='none';resize();animate();
-    }catch(error){console.warn('Room rendering unavailable',error);fallback();}
+    try { bridge=window.__swCreateBridge({deck,screen,units,status:STATUS,escape,showUnit,showDialog,content,login,gear,alerts,report,exit:exitDeck}); }
+    catch(error){ console.warn('Room rendering unavailable',error);deck.classList.add('is-fallback');deck.querySelector('.mobile-dock').append(screen);toast('The room could not load. The main controls remain available.'); }
   }
-  function setupCssScenery(T){
-    // A ring of perspective panels keeps the entire room navigable without WebGL.
-    const count=32,radius=65,scale=.08,panelWidth=2*radius*Math.tan(Math.PI/count)/scale,panelHeight=Math.PI*radius/scale;
-    for(let i=0;i<count;i++){
-      const angle=i/count*Math.PI*2,element=document.createElement('div');element.className='panorama-panel';
-      element.style.cssText=`width:${panelWidth+1}px;height:${panelHeight}px;background-image:url('/storewell-bridge-panorama.webp');background-size:${panelWidth*count}px ${panelHeight}px;background-position:${-(i+count/2)%count*panelWidth}px 0;`;
-      const panel=new T.CSS3DObject(element);panel.scale.setScalar(scale);panel.position.set(Math.sin(angle)*radius,0,-Math.cos(angle)*radius);panel.rotation.y=-angle;cssScene.add(panel);sceneryPanels.push({object:panel,angle});
-    }
-    const front=document.createElement('div');front.className='room-front';front.style.cssText="width:1600px;height:900px;background:url('/storewell-command-deck.webp') center/100% 100%;";
-    const face=new T.CSS3DObject(front);face.scale.setScalar(.02);face.position.z=-20;cssScene.add(face);sceneryPanels.push({object:face,angle:0});
-  }
-  function renderCss(){
-    // Keep CSS distances in pixels to avoid near-plane precision artifacts while turning.
-    cssCamera.copy(camera);cssCamera.position.multiplyScalar(100);
-    for(const panel of sceneryPanels)panel.object.visible=Math.cos(panel.angle+yaw)>.12;
-    if(board)board.visible=Math.cos(yaw)>.12;
-    cssRenderer.render(cssScene,cssCamera);
-  }
-  let drag;
-  function pointerDown(e){if(view!=='look'||e.target.closest('.bridge-nav,.command-screen'))return;drag={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}
-  function pointerMove(e){if(!drag)return;targetYaw-=(e.clientX-drag.x)*.004;targetPitch=Math.max(-.6,Math.min(.6,targetPitch-(e.clientY-drag.y)*.003));drag={x:e.clientX,y:e.clientY};}
-  function pointerUp(){drag=null;}
-  function setView(next){
-    if(next==='center'){targetYaw=targetPitch=0;if(mobile())next='desk';else next=view==='look'?'desk':view;}
-    view=next;deck.classList.toggle('exploring',view==='look');deck.querySelector('.view-help').hidden=view!=='look';
-    if(view!=='look')targetYaw=targetPitch=0;
-    deck.querySelectorAll('[data-view]').forEach(b=>{if(b.dataset.view!=='center')b.setAttribute('aria-pressed',String(b.dataset.view===view));});resize();
-  }
+  function setView(next) { if(next==='exit')exitDeck();else bridge?.setView(next); }
   deck.querySelector('.bridge-nav').onclick=e=>{const next=e.target.closest('[data-view]')?.dataset.view;if(next)setView(next);};
-  document.addEventListener('keydown',e=>{
-    if(deck.hidden||!dialog.hidden||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
-    if(e.key==='Escape')return setView('center');
-    if(view!=='look')return;
-    if(e.key==='ArrowLeft')targetYaw+=.12;else if(e.key==='ArrowRight')targetYaw-=.12;else if(e.key==='ArrowUp')targetPitch=Math.min(.6,targetPitch+.08);else if(e.key==='ArrowDown')targetPitch=Math.max(-.6,targetPitch-.08);else return;e.preventDefault();
-  });
-  function resize(){
-    if(!camera||deck.classList.contains('is-fallback'))return;
-    camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer?.setSize(innerWidth,innerHeight);cssRenderer.setSize(innerWidth,innerHeight);
-    if(mobile()&&view!=='look'){if(board.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);screen.style.display='';}else if(!board.parent)cssScene.add(board);
-    renderCss();
-  }
-  function animate(now=0){
-    raf=requestAnimationFrame(animate);if(deck.hidden||document.hidden)return;
-    if(now-lastFrame<32)return;lastFrame=now;
-    if(!camera||deck.classList.contains('is-fallback'))return;
-    const motion=matchMedia('(prefers-reduced-motion: reduce)').matches?1:.12;
-    yaw+=(targetYaw-yaw)*motion;pitch+=(targetPitch-pitch)*motion;
-    camera.rotation.set(pitch,yaw,0,'YXZ');
-    const seated=view==='desk'||view==='look';camera.position.y+=((seated?1.85:0)-camera.position.y)*motion;camera.position.z+=((seated?-4.8:0)-camera.position.z)*motion;
-    renderer?.render(room,camera);renderCss();
-  }
-  function fallback(){
-    deck.classList.add('is-fallback');if(board?.parent)cssScene.remove(board);deck.querySelector('.mobile-dock').append(screen);screen.style.display='';
-    deck.querySelector('.room-canvas').style.display='none';deck.querySelector('.room-ui').style.display='none';
-    deck.querySelectorAll('[data-view="look"],[data-view="room"]').forEach(b=>b.disabled=true);
-    toast('Room controls are available. This browser could not start the 3D view.');
-  }
-  window.addEventListener('resize',resize);window.addEventListener('online',syncHealth);
+  window.addEventListener('online',syncHealth);
   window.addEventListener('offline',()=>{live=false;refresh();});
   setInterval(refresh,1000);setInterval(syncHealth,15000);
   refresh();syncHealth();

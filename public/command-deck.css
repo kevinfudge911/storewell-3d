@@ -119,35 +119,35 @@ body.storewell-deck-open #sw-sens-ctrl,body.storewell-deck-open #sw-ward-btn,bod
  #sw-deck .mobile-dock{display:block;position:absolute;inset:max(12px,env(safe-area-inset-top)) 12px 91px;pointer-events:none}
  #sw-deck .mobile-dock .command-screen{width:100%;height:100%;max-height:700px;overflow-y:auto;pointer-events:auto;gap:10px;padding:14px 10px;background:linear-gradient(150deg,#06233bed,#03121cef);border:1px solid #36bce3;border-radius:15px;box-shadow:0 0 0 4px #213d4f,0 0 0 6px #09131f,0 0 35px #17c1ff44;transform:none!important}
  #sw-deck.exploring .mobile-dock{display:none}
- #sw-deck .bridge-header{flex-wrap:wrap;gap:8px;padding-bottom:11px;min-height:auto}
- #sw-deck .bridge-brand{width:100%;flex-basis:100%}
- #sw-deck .bridge-brand h1{font-size:clamp(14px,4.1vw,22px);letter-spacing:.2px}
- #sw-deck .bridge-brand p{font-size:8px;letter-spacing:1.3px}
- #sw-deck .bridge-emblem{width:34px;height:34px}
- #sw-deck .bridge-header .key{flex:1;font-size:11px;min-height:44px}
- #sw-deck .stats-primary{grid-template-columns:repeat(2,1fr);height:auto;gap:8px}
- #sw-deck .stats-primary .key{min-height:72px}
- #sw-deck .key{gap:8px;padding:11px 14px;flex-shrink:0}
- #sw-deck .key b{font-size:29px}
- #sw-deck .key small{font-size:10px;white-space:normal}
- #sw-deck .key svg{width:24px;height:24px}
- #sw-deck .lock-row{height:auto;gap:8px}
- #sw-deck .lock-pair{grid-template-columns:1fr;gap:5px}
- #sw-deck .lock-pair>.key{min-height:73px}
- #sw-deck .lock-pair>.route-key{min-height:44px;flex-direction:row;font-size:10px}
- #sw-deck .route-key svg{width:19px;height:19px}
- #sw-deck .stats-secondary{height:74px;gap:5px}
- #sw-deck .stats-secondary .key{gap:3px;padding:10px 8px}
- #sw-deck .stats-secondary svg{display:none}
- #sw-deck .stats-secondary .key-copy{align-items:center;text-align:center}
- #sw-deck .command-actions{height:auto;gap:5px}
- #sw-deck .command-actions .key{font-size:9px;flex-direction:column;gap:4px;min-height:57px;padding:10px 7px}
- #sw-deck .command-actions svg{width:19px;height:19px}
- #sw-deck .screen-footer{flex-wrap:wrap;gap:9px;padding:2px;min-height:100px}
- #sw-deck .telemetry{font-size:8px;letter-spacing:0}
- #sw-deck .telemetry .connection{font-size:10px}
- #sw-deck .mini-radar{width:40px;height:40px}
- #sw-deck .screen-footer .key{min-width:0;width:100%;min-height:44px;font-size:13px}
+ #sw-deck .mobile-dock .bridge-header{flex-wrap:wrap;gap:8px;padding-bottom:11px;min-height:auto}
+ #sw-deck .mobile-dock .bridge-brand{width:100%;flex-basis:100%}
+ #sw-deck .mobile-dock .bridge-brand h1{font-size:clamp(14px,4.1vw,22px);letter-spacing:.2px}
+ #sw-deck .mobile-dock .bridge-brand p{font-size:8px;letter-spacing:1.3px}
+ #sw-deck .mobile-dock .bridge-emblem{width:34px;height:34px}
+ #sw-deck .mobile-dock .bridge-header .key{flex:1;font-size:11px;min-height:44px}
+ #sw-deck .mobile-dock .stats-primary{grid-template-columns:repeat(2,1fr);height:auto;gap:8px}
+ #sw-deck .mobile-dock .stats-primary .key{min-height:72px}
+ #sw-deck .mobile-dock .key{gap:8px;padding:11px 14px;flex-shrink:0}
+ #sw-deck .mobile-dock .key b{font-size:29px}
+ #sw-deck .mobile-dock .key small{font-size:10px;white-space:normal}
+ #sw-deck .mobile-dock .key svg{width:24px;height:24px}
+ #sw-deck .mobile-dock .lock-row{height:auto;gap:8px}
+ #sw-deck .mobile-dock .lock-pair{grid-template-columns:1fr;gap:5px}
+ #sw-deck .mobile-dock .lock-pair>.key{min-height:73px}
+ #sw-deck .mobile-dock .lock-pair>.route-key{min-height:44px;flex-direction:row;font-size:10px}
+ #sw-deck .mobile-dock .route-key svg{width:19px;height:19px}
+ #sw-deck .mobile-dock .stats-secondary{height:74px;gap:5px}
+ #sw-deck .mobile-dock .stats-secondary .key{gap:3px;padding:10px 8px}
+ #sw-deck .mobile-dock .stats-secondary svg{display:none}
+ #sw-deck .mobile-dock .stats-secondary .key-copy{align-items:center;text-align:center}
+ #sw-deck .mobile-dock .command-actions{height:auto;gap:5px}
+ #sw-deck .mobile-dock .command-actions .key{font-size:9px;flex-direction:column;gap:4px;min-height:57px;padding:10px 7px}
+ #sw-deck .mobile-dock .command-actions svg{width:19px;height:19px}
+ #sw-deck .mobile-dock .screen-footer{flex-wrap:wrap;gap:9px;padding:2px;min-height:100px}
+ #sw-deck .mobile-dock .telemetry{font-size:8px;letter-spacing:0}
+ #sw-deck .mobile-dock .telemetry .connection{font-size:10px}
+ #sw-deck .mobile-dock .mini-radar{width:40px;height:40px}
+ #sw-deck .mobile-dock .screen-footer .key{min-width:0;width:100%;min-height:44px;font-size:13px}
  #sw-deck .bridge-nav{bottom:max(13px,env(safe-area-inset-bottom));gap:2px;padding:5px;width:calc(100% - 24px);justify-content:space-between}
  #sw-deck .bridge-nav button{padding:9px 8px;gap:4px;font-size:10px;flex:1;justify-content:center;min-height:46px}
  #sw-deck .bridge-nav button svg{width:15px;height:15px}
@@ -162,3 +162,67 @@ body.storewell-deck-open #sw-sens-ctrl,body.storewell-deck-open #sw-ward-btn,bod
  #sw-deck-dialog .unit strong{font-size:17px}
 }
 @media(prefers-reduced-motion:reduce){#sw-deck *{animation:none!important;transition:none!important}}
+
+/* The command bridge is an enclosed, walkable room with individual surfaces. */
+#sw-deck.walkable-bridge{touch-action:none;background:#060d17}
+#sw-deck.walkable-bridge .fallback-room{display:none}
+#sw-deck .bridge-surface{backface-visibility:hidden;pointer-events:none!important;overflow:hidden;color:#d3f6ff}
+#sw-deck .bridge-bulkhead,#sw-deck .bridge-console-base,#sw-deck .bridge-overhead{background:#18252f url('/bridge-bulkhead.webp') center/cover;box-shadow:inset 0 0 18px #020509;border:2px solid #354653}
+#sw-deck .bridge-floor{background:linear-gradient(90deg,transparent 24%,#56c8ed66 24.1%,transparent 24.3%,transparent 75.7%,#56c8ed66 75.9%,transparent 76%),repeating-linear-gradient(0deg,transparent 0 146px,#040a10 147px 151px),repeating-linear-gradient(90deg,#1d2b35 0 146px,#080f17 147px 151px);border:10px solid #c18838;box-shadow:inset 0 0 120px #03070c}
+#sw-deck .bridge-ceiling{background:repeating-linear-gradient(90deg,#111d27 0 240px,#596b73 241px 248px,#111d27 249px 490px,#b38038 491px 495px);box-shadow:inset 0 0 160px #000}
+#sw-deck .bridge-rib{background:linear-gradient(90deg,#050a10,#526674 30%,#111b25 45%,#152534 75%,#8fc8db);border:1px solid #07101a}
+#sw-deck .bridge-overhead{border-bottom:8px solid #f8c572;box-shadow:0 0 25px #e3a44655}
+#sw-deck .bridge-front-frame{background:url('/storewell-command-deck.webp') center 22%/160% 188%;border:7px ridge #587180;clip-path:polygon(3% 0,97% 0,100% 5%,100% 95%,97% 100%,3% 100%,0 95%,0 5%);box-shadow:0 0 30px #00baff77}
+#sw-deck .bridge-window{background-image:url('/storewell-command-deck.webp');background-size:550% 150%;border:15px ridge #435a6a;box-shadow:inset 0 0 30px #000,0 0 20px #3992b755;clip-path:polygon(12% 0,88% 0,100% 100%,0 100%)}
+#sw-deck .window-port{background-position:left 25%}
+#sw-deck .window-starboard{background-position:right 25%}
+#sw-deck .bridge-station{pointer-events:auto!important;background:linear-gradient(140deg,#071d2bf5,#020b14fa);border:10px ridge #476171;padding:20px;box-shadow:inset 0 0 35px #10baff44,0 0 12px #32cdfc99;display:flex;flex-direction:column;gap:13px;font-size:15px}
+#sw-deck .bridge-station header{border-bottom:2px solid #3a8fa5;padding-bottom:12px}
+#sw-deck .bridge-station header>span{font:11px monospace;letter-spacing:3px;color:#edbd6f}
+#sw-deck .bridge-station h2{margin:7px 0 0;font-size:27px;letter-spacing:2px;text-shadow:0 0 10px #31b9ff}
+#sw-deck .bridge-station button{background:linear-gradient(#15465f,#092337);border:1px solid #438ba5;color:#d4f4ff;padding:10px 14px;border-radius:4px;min-height:42px}
+#sw-deck .bridge-station footer{margin-top:auto;display:flex;gap:10px;font:12px monospace;color:#92c5d2;padding-top:10px;border-top:1px solid #296173}
+#sw-deck .bridge-log-rows{flex:1;overflow:auto;min-height:0;touch-action:pan-y}
+#sw-deck .bridge-log-state{font:12px monospace;color:#afd8e5}
+.bridge-history-entry{display:grid;grid-template-columns:75px 1fr;gap:5px 12px;border-bottom:1px solid #2c4b59;padding:10px 0;color:#d5e8f2;font-size:14px}
+.bridge-history-entry>strong{color:#8bdcfe;grid-row:span 2;font-size:19px}
+.bridge-history-entry small{color:#9bb5c4;font-size:11px}
+#sw-deck .bridge-roster{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;overflow:auto;touch-action:pan-y;flex:1}
+#sw-deck .bridge-roster button{min-width:0;min-height:21px;font-size:10px;padding:4px 1px;border-color:var(--unit-color);color:var(--unit-color);border-radius:2px;background:#082532}
+#sw-deck .bridge-station-actions{display:grid;gap:16px;margin:20px 0}
+#sw-deck .bridge-station-actions button{min-height:60px;font-size:20px}
+#sw-deck .bridge-airlock{flex:1;background:linear-gradient(90deg,#31404c,#0d1722 49%,#eba53c 50%,#0d1722 51%,#31404c);border:5px ridge #557583;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;letter-spacing:3px}
+#sw-deck .bridge-console-top{background:linear-gradient(120deg,#143f5a,#020e1f);border:9px ridge #698293;padding:10px;display:flex;align-items:center;gap:15px;box-shadow:inset 0 0 22px #10bfff,0 0 10px #000}
+#sw-deck .instrument-radar{width:38%;aspect-ratio:1;border:2px solid #49ccff;border-radius:50%;background:repeating-radial-gradient(circle,transparent 0 14%,#4dbef477 15% 16%),conic-gradient(transparent 45%,#4cf1ff77 99%,#b0f3ff);box-shadow:0 0 10px #1fbcff}
+#sw-deck .instrument-lines{flex:1;display:grid;gap:12px}
+#sw-deck .instrument-lines i{height:5px;background:linear-gradient(90deg,#22b4f4 65%,#1d566d 65%)}
+#sw-deck .instrument-lines i:nth-child(even){width:65%}
+#sw-deck .instrument-lights{color:#ff663f;font-size:17px;writing-mode:vertical-rl;text-shadow:0 0 12px #ff5722}
+#sw-deck .instrument-lights b{color:#fff4b7}
+#sw-deck .bridge-chair{background:linear-gradient(90deg,#060c12,#334650 7%,#080f16 16%,#1a232b 80%,#82919a 93%,#0a1017);border:5px ridge #40515b;box-shadow:inset 0 0 18px #000}
+#sw-deck .chair-back{border-top:8px solid #c3904c;background:linear-gradient(110deg,#0b131b,#2b3944 55%,#070c11)}
+#sw-deck .chair-arm{border-top:9px solid #89dffc}
+#sw-deck .bridge-dais{background:linear-gradient(90deg,#3c535f,#0e1d29 5%,#1c2b36 95%,#658493);border:3px solid #bc8b46;box-shadow:0 0 15px #38b8e244}
+#sw-deck.walkable-bridge .room-vignette{box-shadow:inset 0 0 75px #0008}
+#sw-deck.walkable-bridge .mobile-dock{display:none}
+#sw-deck.walkable-bridge.screen-focused .mobile-dock{display:block}
+#sw-deck .bridge-nav [hidden]{display:none!important}
+#sw-deck .bridge-walk-controls{position:absolute;bottom:100px;left:18px;display:grid;grid-template-columns:repeat(3,48px);gap:5px;padding:7px;background:#071722c9;border:1px solid #50798b;border-radius:10px;touch-action:none}
+#sw-deck .bridge-walk-controls[hidden]{display:none}
+#sw-deck .bridge-walk-controls button{width:48px;height:46px;background:#143446e8;border:1px solid #5b94ad;border-radius:6px;font-size:24px;user-select:none;touch-action:none}
+#sw-deck .bridge-walk-controls button.held{background:#1d7194;color:white}
+#sw-deck .view-help{z-index:2}
+@media(max-width:700px){
+ #sw-deck .bridge-nav{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;bottom:max(10px,env(safe-area-inset-bottom))}
+ #sw-deck .bridge-nav button{font-size:11px;min-height:43px;padding:7px 6px}
+ #sw-deck .bridge-walk-controls{bottom:125px;left:12px;grid-template-columns:repeat(3,42px);padding:5px;gap:4px}
+ #sw-deck .bridge-walk-controls button{width:42px;height:43px;font-size:23px}
+ #sw-deck .mobile-dock{bottom:124px}
+ #sw-deck .view-help{width:calc(100% - 28px);font-size:10px;padding:9px 12px}
+ #sw-deck .toast{bottom:130px}
+ #sw-deck .bridge-station{touch-action:pan-y}
+}
+
+#sw-deck .bridge-ceiling{background:linear-gradient(#06101b66,#06101b66),url('/bridge-bulkhead.webp') center/800px 540px;box-shadow:inset 0 0 160px #0008}
+#sw-deck .chair-back:before{content:"";position:absolute;inset:15% 12%;border:2px solid #54616a;box-shadow:inset 0 0 18px #000;border-radius:12px;background:repeating-linear-gradient(0deg,#0f1922 0 23px,#1c2933 24px 26px)}
+#sw-deck .chair-back:after{content:"S";position:absolute;left:calc(50% - 20px);top:28%;width:40px;height:40px;display:grid;place-items:center;border:3px double #435560;border-radius:50%;background:#17232c;color:#6c8493;font:bold 25px Arial}
