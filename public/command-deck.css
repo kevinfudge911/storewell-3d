@@ -1,3 +1,4 @@
+body.storewell-deck-open #sw-tabs,body.storewell-deck-open #sw-clear-route,body.storewell-deck-open #sw-route-toast{display:none!important}
 :root{color-scheme:light}
 body.storewell-deck-open #sw-route-banner{display:none!important}
 body.storewell-deck-open #sw-chat-panel{position:fixed!important;z-index:9001!important;max-width:calc(100vw - 28px);color:#1f2a33;color-scheme:light}

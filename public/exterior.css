@@ -1,0 +1,13 @@
+
+@keyframes sw-flash-red{0%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}50%{background:#ff4444;box-shadow:0 0 0 2px #ff000022,0 0 12px #ff000066;}100%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}}
+@keyframes sw-flash-green{0%{background:#00ff44;box-shadow:0 0 0 8px #00ff4455,0 0 50px #00ff44,0 0 100px #00ff4488;}50%{background:#44ff88;box-shadow:0 0 0 2px #00ff4422,0 0 12px #00ff4466;}100%{background:#00ff44;box-shadow:0 0 0 8px #00ff4455,0 0 50px #00ff44,0 0 100px #00ff4488;}}
+/* Right-side book tabs — fixed to viewport, always visible */
+#sw-tabs{ position:fixed; right:0; top:10px; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-start; gap:5px; z-index:200; padding:0; pointer-events:none; }
+.sw-tab{ pointer-events:all; flex:0 0 auto; width:64px; min-height:62px; border:none; cursor:pointer; border-radius:14px 0 0 14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:8px 4px 8px 10px; color:#fff; -webkit-tap-highlight-color:transparent; transition:transform .08s; box-shadow:-4px 3px 10px rgba(0,0,0,.35),inset 0 2px 3px rgba(255,255,255,.45); }
+.sw-tab:active{ transform:translateX(6px); }
+.sw-tab#sw-cmd-tab{ min-height:76px; width:70px; }
+.sw-tlbl{ font:800 9px 'Segoe UI',Arial; letter-spacing:.3px; text-transform:uppercase; text-shadow:0 1px 2px rgba(0,0,0,.45); }
+/* Keep sw-glbl for compatibility with setBell() */
+.sw-glbl{ font:800 9px 'Segoe UI',Arial; letter-spacing:.3px; text-transform:uppercase; text-shadow:0 1px 2px rgba(0,0,0,.45); }
+/* Hide tabs when Command Center is open */
+body.sw-cc-open #sw-tabs{ display:none !important; }

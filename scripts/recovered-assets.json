@@ -1,0 +1,9 @@
+{
+  "sourceDeployment": "fc403072-736d-456c-bd4b-92f85ff2769e",
+  "files": {
+    "/models/fire.glb": "9606f26dc14fa71fe4b6ea726be2315a",
+    "/models/limo.glb": "18978f4e9bb0359866f4a3fc56a0e2be",
+    "/models/police.glb": "d46e15d27e73d2526c6c37f2e72ee54a",
+    "/img/limo.jpg": "5b13ad65b20ba6da8ca5cdce0e5aa7c9"
+  }
+}

@@ -23,6 +23,7 @@ const logs=[], requests=[];
 const vc=new VirtualConsole();vc.on('jsdomError',e=>logs.push(e.message));vc.on('error',e=>logs.push(String(e)));
 const dom=new JSDOM(html,{url:'https://storewell.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc});
 const w=dom.window;
+const modelRequests=[];
 const ctx=new Proxy({measureText:t=>({width:String(t).length*9}),createLinearGradient:()=>({addColorStop(){}}),createRadialGradient:()=>({addColorStop(){}}),getImageData:()=>({data:new Uint8ClampedArray(4)})},{get:(o,k)=>k in o?o[k]:()=>{}});
 w.HTMLCanvasElement.prototype.getContext=function(){return ctx;};w.HTMLCanvasElement.prototype.toDataURL=()=>'';
 w.matchMedia=q=>({matches:false,addEventListener(){}});w.alert=()=>{};
@@ -30,6 +31,15 @@ w.EventSource=class{addEventListener(){}close(){}};
 w.fetch=async(url,opts={})=>{requests.push({url:String(url),opts});return {ok:true,json:async()=>({E5:'blue',E8:'white',G1:'red',D1:'flashgreen',E10:'purple'}),text:async()=>html};};
 w.AbortSignal.timeout=()=>undefined;
 for(const f of ['vendor/three.min.js','vendor/OrbitControls.js','vendor/CSS3DRenderer.js','vendor/react.production.min.js','vendor/react-dom.production.min.js'])w.eval(read(f));
+// Parse the actual bundled character geometry, skeletons and animations; stub image decoding only.
+w.TextDecoder=TextDecoder;w.TextEncoder=TextEncoder;
+w.URL.createObjectURL=()=> 'blob:offline-model-texture';w.URL.revokeObjectURL=()=>{};
+w.THREE.TextureLoader.prototype.load=function(url,onLoad){const t=new w.THREE.Texture();setTimeout(()=>onLoad(t),0);return t;};
+w.eval(read('vendor/GLTFLoader.js'));
+const ModelLoader=w.THREE.GLTFLoader;
+w.THREE.GLTFLoader=class extends ModelLoader{load(url,onLoad,progress,onError){modelRequests.push(url);try{const bytes=fs.readFileSync(path.join(root,'public',new URL(url,'https://storewell.test').pathname));this.parse(new w.Uint8Array(bytes).buffer,'/',onLoad,onError);}catch(e){onError?.(e);}}};
+w.eval(read('exterior-characters.js'));
+w.eval(read('exterior-controls.js'));
 // A software DOM cannot create a GPU context; keep real scene geometry and stub only rendering.
 let renderers=0;
 w.THREE.WebGLRenderer=class{constructor(){renderers++;if(noGpu)throw new Error('GPU context unavailable');this.domElement=w.document.createElement('canvas');this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}dispose(){}};
@@ -45,6 +55,17 @@ assert.equal(app._statusOf('G2'),'green');
 assert.equal(app._statusLabel('green'),'Rented');
 assert.equal(app._statusOf('E5'),'blue');
 assert.equal(app._statusOf('E8'),'white');
+w._swApplyLook();await new Promise(resolve=>setTimeout(resolve,30));
+assert(app.walker._modelObj?.isGroup,'Recovered GLB character replaces the primitive body');
+assert(app.walker._mixer,'Recovered character animation mixer starts');
+assert(modelRequests.some(url=>url.endsWith('Soldier.glb')),'Default character is the newer Soldier model');
+assert.deepEqual(Object.keys(w._SWMODELS).filter(k=>['soldier','robot','xbot','cesium'].includes(k)).sort(),['cesium','robot','soldier','xbot']);
+w.localStorage.setItem('sw_char',JSON.stringify({shirt:'#123456'}));
+assert.equal(w._swGetChar().model,'soldier','Old saved clothing does not strand the player on the old primitive character');
+assert.equal(w._swGetChar().shirt,'#123456','Saved character preferences remain intact');
+assert(app._computePath({x:0,z:10},{x:0,z:-100}).length>=2,'Recovered navigation can route around the buildings');
+assert(app._locks.G2.doorMat&&app._locks.G2.frame,'Unit G2 retains the newer alert material and no-lock frame');
+console.log('Doors without door-frame metadata:',Object.values(app._locks).filter(rec=>!rec.doorMat||!rec.frame).map(rec=>rec.label).join(', '));
 w.eval(read('command-deck.js'));
 await new Promise(resolve=>setTimeout(resolve,50));
 assert.equal(w.__swDeckVisible,false,'The storage property opens first');
@@ -53,12 +74,12 @@ assert.equal(renderers,1,'Only the original property renderer is attempted befor
 assert.equal(app.mode,'walk','The original outdoor walking view is selected');
 assert(app._siteWalls.length>30,'Outdoor plan uses actual model building edges');
 if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,false,'No-GPU startup is the outdoor property plan');
-assert.equal(app._statusOf('E10'),'white','Saved purple Ready status is understood by the restored property');
+assert.equal(app._statusOf('E10'),'purple','The upgraded Ready status remains purple');
 assert.equal(app._overrides.E10,'purple','Compatibility does not rewrite stored statuses');
 const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.click();};
 const enter=()=>{
   if(noGpu)click('[data-property="command"]');
-  else {const entry=[...w.document.querySelectorAll('#dc-root button')].find(b=>b.textContent.includes('Command Center'));assert(entry,'Original outdoor Command Center button');entry.click();}
+  else {const entry=w.document.querySelector('#sw-cmd-tab');assert(entry,'Recovered outdoor Command Center tab');entry.click();}
 };
 enter();assert.equal(w.__swDeckVisible,true,'Outdoor entry opens the command room');
 assert.equal(renderers,2,'The room renderer starts only after entry');

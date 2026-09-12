@@ -1,6 +1,6 @@
 # StoreWell project
 
-Production is https://storewell-3d.pages.dev, served by the existing Cloudflare Pages project `storewell-3d`. The app must open OUTSIDE in the original Three.js facility model. Only the Command Center button opens the spaceship command room; Exit returns outside without resetting the visitor’s location. Keep the original outdoor buildings, movement, vehicles, units and staff features. The no-WebGL property plan is an outdoor fallback, never a spaceship dashboard. Gear must retain access to the original activity log, team, chat, character editor and help.
+Production is https://storewell-3d.pages.dev, served by the existing Cloudflare Pages project `storewell-3d`. The app must open OUTSIDE in the latest upgraded Three.js facility model. Only the Command Center button opens the spaceship command room; Exit returns outside without resetting the visitor’s location. Preserve the September 8 deployment’s outdoor buildings, GLB characters, uniforms, movement, vehicles, walking paths, whole-door status indicators, rounds, sounds, units and staff features. The early GitHub upload contained an older July build and must not be used as a restoration baseline. See RECOVERY.md for provenance. The no-WebGL property plan is an outdoor fallback, never a spaceship dashboard. Gear must retain access to the original activity log, team, chat, character editor and help.
 
 ## Deployment continuity
 

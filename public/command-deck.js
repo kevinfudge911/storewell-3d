@@ -4,8 +4,8 @@
   const STATUS = Object.freeze({
     green: ['Rented', '#42f7b6'], red: ['Locked out', '#ff7974'],
     flashred: ['Lock on', '#ff7974'], flashgreen: ['Lock off', '#42f7b6'],
-    blue: ['Reserved', '#63ceff'], yellow: ['Pending', '#ffce6e'],
-    white: ['Ready', '#eee9ff'], black: ['Out of service', '#adbdca']
+    blue: ['Reserved', '#63ceff'], yellow: ['Rented · no lock', '#ffce6e'],
+    purple: ['Ready to rent', '#bd8aff'], white: ['Empty', '#eee9ff'], black: ['Out of service', '#adbdca']
   });
   const paths = {
     units: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h1m6 0h1M8 11h1m6 0h1M8 15h1m6 0h1M10 21v-3h4v3"/>',
@@ -50,7 +50,7 @@
     <div class="stats-primary">${key('Total units','purple','all','units','all')}${key('Rented','green','green','units','green')}${key('Out of service','steel','black','tool','black')}${key('Locked out','red','red','lock','red')}</div>
     <div class="lock-row"><div class="lock-pair">${key('Lock on','red','flashred','lock','flashred')}<button class="key gold route-key" data-action="route-flashred">${icon('route')}Route</button></div>
       <div class="lock-pair">${key('Lock off','green','flashgreen','unlock','flashgreen')}<button class="key gold route-key" data-action="route-flashgreen">${icon('route')}Route</button></div></div>
-    <div class="stats-secondary">${key('Reserved','','blue','star','blue')}${key('Pending','gold','yellow','clock','yellow')}${key('Ready','purple','white','check','white')}</div>
+    <div class="stats-secondary">${key('Reserved','','blue','star','blue')}${key('No lock','gold','yellow','clock','yellow')}${key('Ready','purple','purple','check','purple')}</div>
     <div class="command-actions"><button class="key red" data-action="exit">${icon('exit')}Exit</button><button class="key gold" data-action="alerts">${icon('bell')}<span class="alerts-label">Alerts</span></button><button class="key steel" data-action="install">${icon('phone')}Install app</button></div>
     <footer class="screen-footer"><div class="mini-radar" aria-hidden="true"></div><div class="telemetry"><span class="connection" role="status">Connecting to unit inventory…</span><span>STORE · TRACK · PROTECT</span></div><button class="key" data-action="report">${icon('save')}Save &amp; report</button></footer>`;
   deck.querySelector('.mobile-dock').append(screen);
@@ -99,6 +99,7 @@
     document.body.classList.add('storewell-deck-open');
     document.body.classList.remove('storewell-property-plan');
     if(propertyPlan) propertyPlan.hidden = true;
+    const playerControls=document.getElementById('sw-sens-panel');if(playerControls)playerControls.style.display='none';
     document.getElementById('sw-dashboard')?.remove();
     if(app) { app.keys = {}; app._kt = {}; app._tk = {}; app._talt = {}; app._dragging = false; app.setState({showSearch:false,showInv:false,pickUnit:null,chatOpen:false,helpClosed:true}); }
     if(!roomStarted) { roomStarted = true; setupRoom(); }
@@ -110,7 +111,7 @@
     if(!app?.scene) return toast('The property model is still loading. Please try again in a moment.');
     closeDialog(); deck.hidden = true; window.__swDeckVisible = false;
     document.body.classList.remove('storewell-deck-open');
-    for(const id of ['sw-cmd-panel','sw-help-modal','sw-wardrobe']) document.getElementById(id)?.remove();
+    for(const id of ['sw-cmd-panel','sw-help-modal','sw-wardrobe','sw-rounds-modal','sw-hist-panel','sw-pref-panel']) document.getElementById(id)?.remove();
     app.keys={}; app._kt={}; app._tk={}; app._talt={}; app.setState({chatOpen:false});
     if(unit) { app.locate(unit.id); app.setState({showSearch:false,pickUnit:null}); }
     if(app._webglAvailable===false) showPropertyPlan(unit);
@@ -208,13 +209,17 @@
   }
   function gear() {
     const name=window.__swCheckLogin?.();
-    showDialog('Command center tools', `<p class="muted">${name ? 'Signed in as '+escape(name) : 'Sign in to use the staff log, team, chat, and unit editing tools.'}</p><div class="dialog-actions"><button class="action-button" data-setting="log">Activity log</button><button class="action-button" data-setting="contacts">Team</button><button class="action-button" data-setting="chat">Staff chat</button><button class="action-button" data-setting="character">My character</button><button class="action-button" data-setting="help">How to navigate</button><button class="action-button" data-setting="login">${name?'Switch staff member':'Staff sign in'}</button><button class="action-button" data-setting="fullscreen">Full screen</button></div><p class="muted">Use Look around to turn in the room. Drag with one finger or use the arrow keys. Center brings the main controls back in front of you. Exit returns you to the outdoor property.</p>`);
+    showDialog('Command center tools', `<p class="muted">${name ? 'Signed in as '+escape(name) : 'Sign in to use the staff log, team, chat, and unit editing tools.'}</p><div class="dialog-actions"><button class="action-button" data-setting="log">Activity log</button><button class="action-button" data-setting="contacts">Team</button><button class="action-button" data-setting="chat">Staff chat</button><button class="action-button" data-setting="character">My character</button><button class="action-button" data-setting="controls">Player controls</button><button class="action-button" data-setting="rounds">Rounds checklist</button><button class="action-button" data-setting="sound">Status sounds</button><button class="action-button" data-setting="reverse">Turn around outside</button><button class="action-button" data-setting="help">How to navigate</button><button class="action-button" data-setting="login">${name?'Switch staff member':'Staff sign in'}</button><button class="action-button" data-setting="fullscreen">Full screen</button></div><p class="muted">Use Look around to turn in the room. Drag with one finger or use the arrow keys. Center brings the main controls back in front of you. Exit returns you to the outdoor property.</p>`);
     content.onclick=async e=>{
       const action=e.target.closest('[data-setting]')?.dataset.setting;
       if(action==='login') { closeDialog(); if(name) window.__swLogout?.(); else await login(); }
       if(action==='contacts'||action==='log') { closeDialog(); if(await login())await window.__swOperationsOpen?.(action); }
       if(action==='chat') { closeDialog(); if(await login())app.setState({chatOpen:true}); }
       if(action==='character') { closeDialog(); window._swShowWardrobe?.(); }
+      if(action==='controls'){closeDialog();window.__swGear?.();}
+      if(action==='rounds'){closeDialog();if(await login())window.__swRounds?.();}
+      if(action==='sound'){window.__swSoundToggle?.();closeDialog();}
+      if(action==='reverse'){exitDeck();window.__swReverseWalk?.();}
       if(action==='help') { closeDialog(); window.__swShowHelp?.(); }
       if(action==='fullscreen'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Full screen is not available in this browser.');}}
     };
@@ -232,6 +237,7 @@
   async function alerts() {
     if(!('Notification' in window)) return toast('This browser does not support alerts.');
     if(!await login()) return;
+    if(window.__swBellTap){window.__swBellTap();return;}
     if(window.__swTogglePush) { await window.__swTogglePush(); refresh(); return; }
     showDialog('Alerts', '<p class="muted">Use the existing notification bell in the property to enable push alerts for this device.</p><button class="action-button" id="deck-alert-property">Open property</button>');
     content.querySelector('button').onclick=()=>exitDeck();
@@ -247,12 +253,12 @@
     content.onclick=null;
     if(action==='find'||action==='all')return showInventory();
     if(STATUS[action])return showInventory(action);
-    if(action.startsWith('route-'))return showInventory(action.slice(6),true);
+    if(action.startsWith('route-')){const status=action.slice(6);if(app?._webglAvailable && window.__swRouteStatus){exitDeck();window.__swRouteStatus(status);}else showInventory(status,true);return;}
     ({exit:exitDeck,gear,report,alerts,install}[action])?.();
   });
   function refresh() {
     app=window.__swApp;
-    window.__swCommandCenter=openDeck; window.__swPanelOpen=openDeck;
+    window.__swCommandCenter=openDeck; window.__swPanelOpen=openDeck; window.__swGoCommand=openDeck;
     if(!app?._locks) return;
     if(!window.__swDeckVisible && app._webglAvailable===false && Object.keys(app._locks).length) {
       if(!propertyPlan||propertyPlan.hidden)showPropertyPlan();else updatePropertyPlan();

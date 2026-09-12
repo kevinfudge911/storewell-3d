@@ -9,8 +9,11 @@
 <title>StoreWell Command Center</title>
 <script src="/vendor/three.min.js"></script>
 <script src="/vendor/OrbitControls.js"></script>
+<script src="/vendor/GLTFLoader.js"></script>
+<script src="/exterior-characters.js"></script>
 <script src="/vendor/CSS3DRenderer.js"></script>
 <script src="/vendor/dc-runtime.js"></script>
+<link rel="stylesheet" href="/exterior.css">
 <link rel="stylesheet" href="/command-deck.css">
 <style>
 @keyframes sw-flash-red{0%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}50%{background:#ff4444;box-shadow:0 0 0 2px #ff000022,0 0 12px #ff000066;}100%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}}
@@ -29,14 +32,27 @@
 
 </helmet>
 <div style="position:relative;width:100%;height:100vh;overflow:hidden;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2a33;">
-  <div ref="{{ mountRef }}" style="position:absolute;inset:0;touch-action:none;"></div>
+  <div ref="{{ mountRef }}" style="position:absolute;inset:0;touch-action:pinch-zoom;"></div>
 
-  <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;align-items:center;background:rgba(255,255,255,.85);padding:4px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.18);">
-    <button onClick="{{ goHome }}" title="Home — back to the front gate" style="border:none;cursor:pointer;font-size:18px;line-height:1;padding:6px 8px;border-radius:8px;background:#eef1f4;" style-hover="background:#dde3ea">🏠</button>
-    <button onClick="{{ setWalk }}" title="Walk" style="border:none;cursor:pointer;font-size:18px;line-height:1;padding:6px 8px;border-radius:8px;background:#eef1f4;" style-hover="background:#dde3ea">🚶</button>
-    <button onClick="{{ setView }}" title="Orbit" style="border:none;cursor:pointer;font-size:18px;line-height:1;padding:6px 8px;border-radius:8px;background:#e7eef7;" style-hover="background:#d4e2f0">🔭</button>
-    <div style="width:1px;background:#dde3ea;align-self:stretch;margin:2px 1px;"></div>
-    <button onClick="{{ openCommandCenter }}" style="border:none;cursor:pointer;background:linear-gradient(135deg,#00b4ff,#0066cc);color:#fff;font:700 11px 'Segoe UI',Arial;padding:6px 12px;border-radius:8px;letter-spacing:.3px;box-shadow:0 2px 10px rgba(0,120,255,.35);">⚡ Command Center</button>
+  <div id="sw-tabs">
+    <button onClick="{{ goHome }}" class="sw-tab" style="background: linear-gradient(rgb(87, 176, 247), rgb(31, 111, 214));">
+      <span style="font-size: 24px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.35) 0px 1px 1px);">🏠</span>
+      <span class="sw-tlbl">HOME</span></button>
+    <button onClick="{{ setWalk }}" class="sw-tab" style="background: linear-gradient(rgb(247, 190, 78), rgb(229, 143, 28));">
+      <span style="font-size: 24px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.35) 0px 1px 1px);">🚶</span>
+      <span class="sw-tlbl">WALK</span></button>
+    <button onClick="{{ setView }}" class="sw-tab" style="background: linear-gradient(rgb(180, 94, 224), rgb(138, 47, 192));">
+      <span style="font-size: 24px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.35) 0px 1px 1px);">🗺️</span>
+      <span class="sw-tlbl">MAP</span></button>
+    <button onClick="{{ openSearch }}" class="sw-tab" style="background: linear-gradient(rgb(99, 209, 95), rgb(47, 160, 47));">
+      <span style="font-size: 24px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.35) 0px 1px 1px);">🔍</span>
+      <span class="sw-tlbl">FIND</span></button>
+    <button onClick="{{ openCommandCenter }}" id="sw-cmd-tab" aria-label="Enter Command Center" class="sw-tab" style="background: linear-gradient(135deg, rgb(77, 182, 247), rgb(21, 96, 200), rgb(13, 61, 138)); box-shadow: rgba(0, 0, 0, 0.45) -5px 4px 14px, rgba(255, 255, 255, 0.5) 0px 2px 4px inset;">
+      <span style="font-size: 26px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.4) 0px 1px 2px);">⚡</span>
+      <span class="sw-tlbl" style="font-size: 10px; letter-spacing: 0.5px;">CMD</span></button>
+    <button onClick="{{ goHome }}" id="sw-exit-tab" class="sw-tab" style="display: none; background: linear-gradient(rgb(224, 82, 82), rgb(181, 32, 32));">
+      <span style="font-size: 22px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.35) 0px 1px 1px);">✕</span>
+      <span class="sw-tlbl">EXIT</span></button>
   </div>
 
   <div style="position:absolute;top:12px;right:12px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
@@ -69,13 +85,14 @@
         <button onClick="{{ setStatusFlashred }}" title="Need to Lock" style="border:none;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#8b1a1a;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">⚡</span><span style="color:#ff9999;font-size:8px;font-weight:700;">Lock it</span></button>
         <button onClick="{{ setStatusFlashgreen }}" title="Lock Off" style="border:none;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#145228;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">⚡</span><span style="color:#99ffbb;font-size:8px;font-weight:700;">Lock Off</span></button>
         <button onClick="{{ setStatusBlue }}" title="Reserved" style="border:none;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#2a6fdb;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">🔵</span><span style="color:#fff;font-size:8px;font-weight:700;">Reserved</span></button>
-        <button onClick="{{ setStatusYellow }}" title="Pending" style="border:none;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#8a6f00;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">🟡</span><span style="color:#ffe066;font-size:8px;font-weight:700;">Pending</span></button>
+        <button onClick="{{ setStatusYellow }}" title="Rented · No Lock" style="border:none;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#8a6f00;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">🟡</span><span style="color:#ffe066;font-size:8px;font-weight:700;">No Lock</span></button>
+        <button onClick="{{ setStatusPurple }}" title="Ready to Rent" style="border:none;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#793fc2;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">🟣</span><span style="color:#fff;font-size:8px;font-weight:700;">Ready</span></button>
+        <button onClick="{{ setStatusWhite }}" title="Empty" style="border:1px solid #aaa;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#eee;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">⚪</span><span style="color:#333;font-size:8px;font-weight:700;">Empty</span></button>
         <button onClick="{{ setStatusBlack }}" title="Out of Service" style="border:none;cursor:pointer;border-radius:10px;width:44px;height:44px;background:#222;border:1px solid #555;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;"><span style="font-size:16px;">⚫</span><span style="color:#aaa;font-size:8px;font-weight:700;">N/A</span></button>
       </div>
     </div>
   </sc-if>
 
-  <button onClick="{{ openSearch }}" style="position:absolute;top:58px;left:12px;border:none;cursor:pointer;background:rgba(255,255,255,.9);color:#1f2a33;font:600 12px 'Segoe UI',Arial;padding:7px 13px;border-radius:9px;box-shadow:0 2px 10px rgba(0,0,0,.18);">🔍 Find a unit</button>
 
   <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ false }}">
     <div style="position:absolute;top:100px;left:12px;width:248px;background:#fff;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.22);padding:13px;font-family:'Segoe UI',Arial;">
@@ -84,6 +101,7 @@
         <button onClick="{{ closeSearch }}" style="border:none;cursor:pointer;background:#eef1f4;border-radius:6px;width:24px;height:24px;font-size:14px;">×</button>
       </div>
       <input ref="{{ qRef }}" onInput="{{ onQuery }}" placeholder="Number or letter (e.g. E5, 12, J)" style="width:100%;box-sizing:border-box;border:1px solid #cfd4da;border-radius:7px;padding:8px;font-size:13px;margin-bottom:8px;" />
+      <sc-if value="{{ hasSuggestions }}"><div class="sw-search-suggestions"><sc-for list="{{ suggestions }}" as="s"><button onClick="{{ s.go }}" style="display:block;width:100%;text-align:left;padding:9px;border:0;border-bottom:1px solid #ddd;background:white;cursor:pointer;">{{ s.label }} · {{ s.size }} · {{ s.statusName }}</button></sc-for></div></sc-if>
       <div style="font-size:11px;color:#5a6770;font-weight:700;margin-bottom:4px;">Size</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">
         <button onClick="{{ sz5x10 }}" style="border:1px solid #cfd4da;cursor:pointer;border-radius:6px;padding:5px 9px;font:600 11px 'Segoe UI';background:#f5f7f9;">5×10</button>
@@ -184,7 +202,7 @@ class Component extends DCLogic {
     this._qRef = React.createRef();
   }
   renderVals(){ return { mountRef:this.mountRef, loadRef:this.loadRef, mode:this.state.mode,
-    setWalk:()=>this.setMode('walk'), setDrive:()=>this.setMode('drive'), setFly:()=>this.setMode('fly'), setUfo:()=>this.setMode('ufo'), setView:()=>this.setMode('orbit'),
+    setWalk:()=>this.setMode('walk'), setDrive:()=>this.setMode('drive'), setFly:()=>this.setMode('fly'), setUfo:()=>this.setMode('ufo'), setView:()=>this.setMode('orbit'), goOffice:()=>{ try{ if(window.__swCommandCenter)window.__swCommandCenter(); }catch(e){} },
     showJoy: this.state.isTouch && this.state.mode!=='orbit',
     showRideBtns: this.state.isTouch && (this.state.mode==='drive'||this.state.mode==='fly'||this.state.mode==='ufo'),
     inAir: this.state.isTouch && (this.state.mode==='fly'||this.state.mode==='ufo'),
@@ -201,8 +219,10 @@ class Component extends DCLogic {
     editMode:this.state.editMode, notEdit:!this.state.editMode, staffName:this.state.staffName||'Staff', isAdmin:this.state.staffName==='Kevin', pickUnit:this.state.pickUnit, pickStatus:this.state.pickStatus,
     showHelp:(this.state.helpClosed?false:!this.state.editMode), closeHelp:()=>this.setState({helpClosed:true}),
     showSearch:this.state.showSearch, results:this.state.results||[], nResults:this.state.nResults||0, qRef:this._qRef,
+    suggestions:(this.state.suggestions||[]).map(r=>({...r,go:()=>this.locate(r.key)})),
+    hasSuggestions:(this.state.suggestions||[]).length>0 && !!(this.state.q||'').trim(),
     fSize:this.state.fSize||'', fAvail:!!this.state.fAvail,
-    openSearch:()=>this.setState({showSearch:true}), closeSearch:()=>this.setState({showSearch:false}),
+    openSearch:()=>this.setState({showSearch:true}), closeSearch:()=>this.setState({showSearch:false, q:'', suggestions:[]}),
     onQuery:()=>{ this.setState({q:(this._qRef.current&&this._qRef.current.value)||''}); this.runSearch(); },
     setSize:(s)=>{ this.setState({fSize:this.state.fSize===s?'':s}, ()=>this.runSearch()); },
     sz5x10:()=>this._setSize('5x10'), sz10x10:()=>this._setSize('10x10'), sz10x20:()=>this._setSize('10x20'), sz10x26:()=>this._setSize('10x26'),
@@ -211,7 +231,7 @@ class Component extends DCLogic {
     showInv:this.state.showInv,
     openInv:()=>{ this.setState({showInv:true}, ()=>this.buildInv()); }, closeInv:()=>this.setState({showInv:false}),
     invTotal:this.state.invTotal||0, invFilter:this.state.invFilter||'all',
-    invChips:[['all','All'],['green','Good'],['red','Late'],['yellow','Empty·needs app'],['white','Empty·app'],['blue','Reserved'],['black','Not rentable'],['flashred','Install red'],['flashgreen','Remove red']]
+    invChips:[['all','All'],['green','Rented'],['red','Late'],['yellow','Rented · No Lock'],['white','Empty'],['blue','Reserved'],['purple','Ready to Rent'],['black','Not rentable'],['flashred','Install red'],['flashgreen','Remove red']]
       .map(([st,name])=>({st,name,count: st==='all'?(this.state.invTotal||0):((this.state.invCounts||{})[st]||0), set:()=>this._invFilter(st), active: (this.state.invFilter||'all')===st})),
     invRows:(this.state.invRows||[]).map(r=>({...r, col:this._LC()[r.status]||'#1f9d4d', dark:(r.status==='white'||r.status==='yellow'), edit:()=>this.setState({pickUnit:r.label, pickStatus:r.status}), go:()=>this.locate(r.key)})),
     invLeft:((this.state.invPos&&this.state.invPos.x)||12)+'px', invTop:((this.state.invPos&&this.state.invPos.y)||58)+'px',
@@ -224,6 +244,8 @@ class Component extends DCLogic {
     openReport:()=>this.setState({showReport:true}), closeReport:()=>this.setState({showReport:false}),
     openAdmin:async()=>{ if(window.__swAdminOpen) await window.__swAdminOpen(); },
     openCommandCenter:()=>{ if(window.__swCommandCenter) window.__swCommandCenter(); }, closeAdmin:()=>{ const m=document.getElementById('sw-admin-modal'); if(m){m.style.display='none';} },
+    openGear:()=>{ if(window.__swGear) window.__swGear(); },
+    openWardrobe:()=>{ if(window._swShowWardrobe) window._swShowWardrobe(); },
     showAdmin:this.state.showAdmin, adminSaved:this.state.adminSaved,
     adminContacts:(this.state.adminContacts||[{name:'Kevin',email:'',phone:'',carrier:'',pref:'email',color:'#2a6fdb'},{name:'Mike',email:'',phone:'',carrier:'',pref:'email',color:'#1f9d4d'},{name:'Brad',email:'',phone:'',carrier:'',pref:'email',color:'#9b3fcf'}]),
     ejsKey:this.state.ejsKey||'',
@@ -241,16 +263,18 @@ class Component extends DCLogic {
     joinChat:()=>this.joinChat(), sendChat:()=>this.sendChat(),
     login:async()=>{ if(window.__swLoginGate) await window.__swLoginGate(this); },
     cancelLogin:()=>this.setState({showLogin:false}),
-    loginAs:(e)=>{ const n=e.target.closest('[data-name]')?.dataset?.name||''; if(!n) return; try{ localStorage.setItem('sw_staff_name',n); }catch(er){} this.setState({editMode:true,staffName:n,showLogin:false}); if(window.__swStaffOnline) window.__swStaffOnline(n); },
+    loginAs:(e)=>{ const n=e.target.closest('[data-name]')?.dataset?.name||''; if(!n) return; try{ localStorage.setItem('sw_staff_name',n); }catch(er){} this.setState({editMode:true,staffName:n,showLogin:false}); if(window.__swStaffOnline) window.__swStaffOnline(n);
+      // Log login event
+      try{ var le={type:'login',label:'Login',from:'Offline',to:'Online',who:n,t:Date.now()}; if(window._swPush&&window._swRef&&window._swDB){window._swPush(window._swRef(window._swDB,'lockLog'),le).catch(function(){});}else{fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(le)}).catch(function(){});} }catch(ex){} },
     pinRef:this._pinRef, remRef:this._remRef,
     showLogin:this.state.showLogin, loginErr:false,
     logout:()=>{ try{ localStorage.removeItem('sw_staff_name'); }catch(e){} this.setState({editMode:false,staffName:'',pickUnit:null,showInv:false}); },
     closePick:()=>this.setState({pickUnit:null}),
     setStatusBlue:()=>this._pick('blue'), setStatusRed:()=>this._pick('red'), setStatusWhite:()=>this._pick('white'),
     setStatusBlack:()=>this._pick('black'), setStatusGreen:()=>this._pick('green'), setStatusYellow:()=>this._pick('yellow'),
-    setStatusFlashred:()=>this._pick('flashred'), setStatusFlashgreen:()=>this._pick('flashgreen') }; }
+    setStatusFlashred:()=>this._pick('flashred'), setStatusFlashgreen:()=>this._pick('flashgreen'), setStatusPurple:()=>this._pick('purple') }; }
   _pick(st){ if(this.state.pickUnit) this.setStatus(this.state.pickUnit, st); }
-  _goHome(){ this.setMode('walk'); this._tk={}; this._talt={}; this.lookYaw=0;
+  _goHome(){ this._inCommandRoom=false; if(this._clearTour)this._clearTour(); this.setMode('walk'); this._tk={}; this._talt={}; this.lookYaw=0;
     if(this.walker){ this.walker.g.position.set(0,0,46); this.walker.g.rotation.y=Math.PI; this.walker.h=Math.PI; this.walker.g.visible=true; this.walker.g.scale.setScalar(1); }
     // tilt the view up so the whole front building + STOREWELL sign sit centered; held until they move/look
     this.lookPitch=-0.62; this._homeGaze=true; }
@@ -309,7 +333,7 @@ class Component extends DCLogic {
     this.setState({invRows:rows.slice(0,250), invCounts:counts, invTotal:Object.keys(this._locks).length});
   }
   _invFilter(st){ this.setState({invFilter:st}, ()=>this.buildInv()); }
-  _statusLabel(st){ return {blue:'Reserved',red:'Late',white:'Empty',black:'Not rentable',green:'Rented',yellow:'Pending',flashred:'Lock It',flashgreen:'Lock Off'}[st]||st; }
+  _statusLabel(st){ return {blue:'Reserved',red:'Late',white:'Empty',black:'Not rentable',green:'Rented',yellow:'Rented · No Lock',flashred:'Lock It',flashgreen:'Lock Off',purple:'Ready to Rent'}[st]||st; }
   runSearch(){
     const q=(this.state.q||'').replace(/[-\s]/g,'').toUpperCase();
     const sz=this.state.fSize||''; const fav=this.state.fAvail;
@@ -323,7 +347,15 @@ class Component extends DCLogic {
       out.push({key:k, label:rec.label, size:size||'—', status, statusName:this._statusLabel(status)});
     });
     out.sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
-    this.setState({results:out.slice(0,40), nResults:out.length});
+    // Suggestions: prefix-first sorted, no size/avail filter, max 8
+    const sugg=[]; if(q){ const starts=[],contains=[];
+      Object.keys(this._locks).forEach(k=>{ const rec=this._locks[k]; const size=this._sizeOf(rec.label)||'—'; const status=this._statusOf(rec.label);
+        const row={key:k,label:rec.label,size,statusName:this._statusLabel(status)};
+        if(k.startsWith(q)) starts.push(row); else if(k.indexOf(q)>=0) contains.push(row); });
+      starts.sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
+      contains.sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
+      sugg.push(...starts,...contains); }
+    this.setState({results:out.slice(0,40), nResults:out.length, suggestions:sugg.slice(0,8)});
   }
   _makeMarker(){
     const g=new THREE.Group();
@@ -333,27 +365,108 @@ class Component extends DCLogic {
     g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.renderOrder=999; } });
     this._markerMat=m; this.scene.add(g); return g;
   }
+  _pathGrid(){
+    if(this._pgrid) return this._pgrid;
+    const CS=2.0, minX=-42, maxX=58, minZ=-214, maxZ=15;
+    const cols=Math.ceil((maxX-minX)/CS), rows=Math.ceil((maxZ-minZ)/CS), R=1.7;
+    const grid=new Uint8Array(cols*rows);
+    const rects=[].concat(this.solids||[], (this.walls||[]).filter(w=>!w.gate));
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const x=minX+(c+0.5)*CS, z=minZ+(r+0.5)*CS; let blk=0; for(const s of rects){ if(x>s.x0-R&&x<s.x1+R&&z>s.z0-R&&z<s.z1+R){blk=1;break;} } grid[r*cols+c]=blk; }
+    return (this._pgrid={grid,cols,rows,minX,minZ,CS});
+  }
+  _computePath(from,to){
+    const G=this._pathGrid(), CS=G.CS, minX=G.minX, minZ=G.minZ, cols=G.cols, rows=G.rows, grid=G.grid;
+    const idx=(c,r)=>r*cols+c;
+    const free=(c,r)=>c>=0&&r>=0&&c<cols&&r<rows&&!grid[idx(c,r)];
+    const cellOf=(x,z)=>[Math.max(0,Math.min(cols-1,Math.floor((x-minX)/CS))), Math.max(0,Math.min(rows-1,Math.floor((z-minZ)/CS)))];
+    function nearestFree(c,r){ if(free(c,r))return[c,r]; for(let rad=1;rad<18;rad++){ for(let dc=-rad;dc<=rad;dc++)for(let dr=-rad;dr<=rad;dr++){ if(free(c+dc,r+dr))return[c+dc,r+dr]; } } return [c,r]; }
+    let a=cellOf(from.x,from.z), b=cellOf(to.x,to.z); a=nearestFree(a[0],a[1]); b=nearestFree(b[0],b[1]);
+    const sc=a[0],sr=a[1],tc=b[0],tr=b[1];
+    const key=(c,r)=>c*rows+r; const gS=new Map(), came=new Map(), open=new Map();
+    const hh=(c,r)=>Math.hypot(c-tc,r-tr);
+    gS.set(key(sc,sr),0); open.set(key(sc,sr),{c:sc,r:sr,f:hh(sc,sr)});
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    let found=null, iter=0;
+    while(open.size&&iter++<40000){ let bk=null,bf=1e18; for(const [k,v] of open){ if(v.f<bf){bf=v.f;bk=k;} } const cur=open.get(bk); open.delete(bk);
+      if(cur.c===tc&&cur.r===tr){found=cur;break;}
+      const cg=gS.get(key(cur.c,cur.r))||0;
+      for(const d of dirs){ const nc=cur.c+d[0],nr=cur.r+d[1]; if(!free(nc,nr))continue; if(d[0]&&d[1]&&(!free(cur.c+d[0],cur.r)||!free(cur.c,cur.r+d[1])))continue;
+        const nk=key(nc,nr), ng=cg+((d[0]&&d[1])?1.4142:1); if(ng<(gS.has(nk)?gS.get(nk):1e18)){ gS.set(nk,ng); came.set(nk,key(cur.c,cur.r)); open.set(nk,{c:nc,r:nr,f:ng+hh(nc,nr)}); } } }
+    if(!found) return [{x:from.x,z:from.z},{x:to.x,z:to.z}];
+    const cells=[]; let k=key(found.c,found.r); const un=(kk)=>[Math.floor(kk/rows),kk%rows];
+    while(k!==undefined){ const cr=un(k); cells.push(cr); k=came.get(k); }
+    cells.reverse();
+    let path=cells.map(cr=>({x:minX+(cr[0]+0.5)*CS, z:minZ+(cr[1]+0.5)*CS}));
+    const losFn=(p,q)=>{ const st=Math.ceil(Math.hypot(q.x-p.x,q.z-p.z)/1.0); for(let i=1;i<st;i++){ const x=p.x+(q.x-p.x)*i/st, z=p.z+(q.z-p.z)*i/st; const cc=cellOf(x,z); if(grid[idx(cc[0],cc[1])])return false; } return true; };
+    const sm=[path[0]]; let i=0; while(i<path.length-1){ let j=path.length-1; while(j>i+1&&!losFn(path[i],path[j]))j--; sm.push(path[j]); i=j; }
+    sm[0]={x:from.x,z:from.z}; sm[sm.length-1]={x:to.x,z:to.z};
+    return sm;
+  }
+  _routeHeading(from){
+    const path=this._routePath; if(!path||path.length<2) return null;
+    for(let i=1;i<path.length;i++){ const dx=path[i].x-from.x, dz=path[i].z-from.z; if(Math.hypot(dx,dz)>2.0){ return Math.atan2(dx,dz); } }
+    const last=path[path.length-1]; return Math.atan2(last.x-from.x,last.z-from.z);
+  }
   _updateRoute(from, to){
-    if(!this._route){
-      const geo=new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6),3));
-      this._route=new THREE.Line(geo, new THREE.LineBasicMaterial({color:'#ff2a2a'}));
-      this._route.renderOrder=998; this.scene.add(this._route);
+    const now=Date.now();
+    const moved=!this._routeFrom||Math.hypot(from.x-this._routeFrom.x,from.z-this._routeFrom.z)>3;
+    if(!this._routePath || moved || now-(this._routeT||0)>500){
+      this._routePath=this._computePath(from,to); this._routeT=now; this._routeFrom={x:from.x,z:from.z};
+      const path=this._routePath, n=Math.max(2,path.length);
+      if(!this._route || this._routeN!==n){ if(this._route){ this.scene.remove(this._route); this._route.geometry.dispose(); } const geo=new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n*3),3)); this._route=new THREE.Line(geo, new THREE.LineBasicMaterial({color:'#ff2a2a'})); this._route.renderOrder=998; this.scene.add(this._route); this._routeN=n; }
+      const pos=this._route.geometry.attributes.position.array;
+      for(let i=0;i<path.length;i++){ pos[i*3]=path[i].x; pos[i*3+1]=0.35; pos[i*3+2]=path[i].z; }
+      this._route.geometry.attributes.position.needsUpdate=true;
     }
     this._route.visible=true;
-    const pos=this._route.geometry.attributes.position.array;
-    pos[0]=from.x; pos[1]=0.3; pos[2]=from.z; pos[3]=to.x; pos[4]=0.3; pos[5]=to.z;
-    this._route.geometry.attributes.position.needsUpdate=true;
+  }
+  _makeStopPin(n){
+    const c=document.createElement('canvas'); c.width=c.height=72; const x=c.getContext('2d');
+    x.fillStyle='#ff8800'; x.beginPath(); x.arc(36,36,30,0,7); x.fill(); x.strokeStyle='#fff'; x.lineWidth=5; x.stroke();
+    x.fillStyle='#fff'; x.font='bold 36px Arial'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(String(n),36,38);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), depthTest:false})); sp.scale.set(3.4,3.4,1); sp.renderOrder=1000; return sp;
+  }
+  _clearTour(){
+    if(this._tour){ this.scene.remove(this._tour); this._tour.geometry.dispose(); this._tour=null; }
+    if(this._tourPins){ this._tourPins.forEach(p=>this.scene.remove(p)); this._tourPins=null; }
+  }
+  // The command-center office door in the yard — where you exit to and where routes begin
+  _officeSpot(){ const o=this._locks&&(this._locks['D61']||this._locks['OFFICE']); if(o&&o.pos) return {x:o.pos.x, z:o.pos.z}; return {x:20,z:6}; }
+  _freeSpotNear(p){ try{ if(!this._blocked({x:p.x,y:0,z:p.z},this.walker)) return {x:p.x,z:p.z}; for(var r=2;r<26;r+=2){ for(var a=0;a<12;a++){ var ang=a/12*Math.PI*2; var x=p.x+Math.cos(ang)*r, z=p.z+Math.sin(ang)*r; if(!this._blocked({x:x,y:0,z:z},this.walker)) return {x:x,z:z}; } } }catch(e){} return {x:p.x,z:p.z}; }
+  _exitCommandCenter(){ this._inCommandRoom=false; if(this._clearTour)this._clearTour(); this.setMode('walk'); const s=this._freeSpotNear(this._officeSpot()); if(this.walker){ this.walker.g.position.set(s.x,0,s.z); this.walker.h=Math.PI; if(this._net&&this._net._pos)this._net._pos(); } }
+  // Build an optimized walking tour from the front gate through every unit in `status`
+  buildStatusTour(status){
+    const gate=this._officeSpot();
+    const pts=[];
+    Object.keys(this._locks).forEach(k=>{ const rec=this._locks[k]; if(this._statusOf(rec.label)===status){ pts.push({x:rec.pos.x,z:rec.pos.z,label:rec.label}); } });
+    if(!pts.length) return 0;
+    // greedy nearest-neighbour ordering from the gate
+    const remaining=pts.slice(), order=[]; let cur=gate;
+    while(remaining.length){ let bi=0,bd=1e18; for(let i=0;i<remaining.length;i++){ const d=Math.hypot(remaining[i].x-cur.x,remaining[i].z-cur.z); if(d<bd){bd=d;bi=i;} } cur=remaining[bi]; order.push(cur); remaining.splice(bi,1); }
+    // stitch real paths around buildings between each stop
+    let full=[{x:gate.x,z:gate.z}]; cur=gate;
+    for(const s of order){ const leg=this._computePath(cur,{x:s.x,z:s.z}); for(let i=1;i<leg.length;i++) full.push(leg[i]); cur=s; }
+    this._clearTour();
+    const geo=new THREE.BufferGeometry(); const arr=new Float32Array(full.length*3);
+    for(let i=0;i<full.length;i++){ arr[i*3]=full[i].x; arr[i*3+1]=0.45; arr[i*3+2]=full[i].z; }
+    geo.setAttribute('position', new THREE.BufferAttribute(arr,3));
+    this._tour=new THREE.Line(geo, new THREE.LineBasicMaterial({color:'#ff8a00'})); this._tour.renderOrder=997; this.scene.add(this._tour);
+    this._tourPins=[]; order.forEach((s,i)=>{ const pin=this._makeStopPin(i+1); pin.position.set(s.x,6,s.z); this.scene.add(pin); this._tourPins.push(pin); });
+    // gate marker (start)
+    const g0=this._makeStopPin('▶'); g0.position.set(gate.x,6,gate.z); this.scene.add(g0); this._tourPins.push(g0);
+    return order.length;
   }
   locate(key){
     const rec=this._locks[key]; if(!rec) return; const p=rec.pos;
     if(!this._marker) this._marker=this._makeMarker();
     this._marker.visible=true; this._marker.position.set(p.x, 8.5, p.z);
     this.setState({showSearch:false});
-    // Face the player toward the marker immediately
+    // Compute the walking path (around buildings) and face the player along it to start
     const actor=this.cur||this.walker;
     if(actor&&actor.g){
-      const dx=p.x-actor.g.position.x, dz=p.z-actor.g.position.z;
-      actor.h=Math.atan2(dx,dz);
+      this._updateRoute(actor.g.position, {x:p.x, z:p.z});
+      const hd=this._routeHeading(actor.g.position);
+      if(hd!=null) actor.h=hd;
     }
   }
 
@@ -435,15 +548,37 @@ class Component extends DCLogic {
     try{ this._overrides=JSON.parse(localStorage.getItem('sw_locks')||'{}'); }catch(e){ this._overrides={}; }
     this.buildScene();
     // Load lock overrides from Firebase and subscribe to real-time changes
-    try{
-      const locksRef=ref(_db,'lockOverrides');
-      onValue(locksRef,(snap)=>{
+    this._initLockRealtime=()=>{
+      var _R=window._swRef,_OV=window._swOnValue,_DB=window._swDB;
+      if(!_R||!_OV||!_DB){ setTimeout(this._initLockRealtime,300); return; }
+      try{
+      const locksRef=_R(_DB,'lockOverrides');
+      _OV(locksRef,(snap)=>{
         const data=snap.val()||{};
         const pending=this._pendingWrites||{};
         const merged=Object.assign({},data);
-        Object.keys(pending).forEach(pk=>{ if(Date.now()-pending[pk].t<5000) merged[pk]=pending[pk].st; });
+        Object.keys(pending).forEach(pk=>{ if(Date.now()-pending[pk].t<30000) merged[pk]=pending[pk].st; });
+        const prevOv=Object.assign({},this._overrides);
         this._overrides=merged;
         try{ localStorage.setItem('sw_locks',JSON.stringify(data)); }catch(e){}
+        // Sound + push notification for remote changes (skip on first load)
+        if(this._realtimeReady){
+          var _nowMs=Date.now();
+          var _ntr=this._notifyTrack=this._notifyTrack||{};
+          var _AL=['flashred','flashgreen','red','green','blue','yellow','purple'];
+          var _EM={green:'🟢',red:'🔴',blue:'🔵',yellow:'🟡',black:'⚫',flashred:'⚡🔴',flashgreen:'⚡🟢',purple:'🟣'};
+          var _LB={green:'Rented',red:'Late',blue:'Reserved',yellow:'Rented · No Lock',black:'Out of Service',flashred:'Lock It',flashgreen:'Lock Off',purple:'Ready to Rent'};
+          Object.keys(merged).forEach((k)=>{
+            if(merged[k]!==prevOv[k]){
+              var st=merged[k];
+              if(_nowMs-(_ntr[k]||0)<5000) return;
+              _ntr[k]=_nowMs;
+              try{ if(window._swPlaySound) window._swPlaySound(st); }catch(e){}
+
+            }
+          });
+        }
+        this._realtimeReady=true;
         // Repaint all locks with latest data
         this._flashers=[];
         Object.keys(this._locks).forEach(k=>{
@@ -453,19 +588,25 @@ class Component extends DCLogic {
           if(rec.mat){
             rec.mat.color.set(c);
             if(st==='flashred'||st==='flashgreen'){
-              rec.mat.emissive.setHex(st==='flashred'?0xff0000:0x00ff44);
+              var _fx=st==='flashred'?0xff0000:0x00ff44;
+              rec.mat.emissive.setHex(_fx);
               rec.mat.emissiveIntensity=1.2;
               this._flashers.push(rec.mat);
+              this._setDoorFlash(rec,_fx);
             } else {
               rec.mat.emissive.setHex(new THREE.Color(c).getHex());
               rec.mat.emissiveIntensity=0.7;
+              this._clearDoorFlash(rec);
             }
+            this._setLockFrame(rec, st);
             rec.mat.needsUpdate=true;
           }
         });
         if(this._refreshInvCircles) this._refreshInvCircles();
       });
-    }catch(e){ console.warn('Firebase lock sync error',e); }
+      }catch(e){ console.warn('Firebase lock sync error',e); }
+    };
+    this._initLockRealtime();
 
     // REST polling fallback — guarantees real-time multi-user sync even if the SDK realtime socket is down
     const _repaintFromOverrides=()=>{
@@ -473,8 +614,9 @@ class Component extends DCLogic {
       Object.keys(this._locks).forEach(k=>{
         const rec=this._locks[k]; const st=this._statusOf(rec.label); const c=this._LC()[st]||'#1f9d4d';
         if(rec.mat){ rec.mat.color.set(c);
-          if(st==='flashred'||st==='flashgreen'){ rec.mat.emissive.setHex(st==='flashred'?0xff0000:0x00ff44); rec.mat.emissiveIntensity=1.2; this._flashers.push(rec.mat); }
-          else { rec.mat.emissive.setHex(new THREE.Color(c).getHex()); rec.mat.emissiveIntensity=0.7; }
+          if(st==='flashred'||st==='flashgreen'){ var _fx=st==='flashred'?0xff0000:0x00ff44; rec.mat.emissive.setHex(_fx); rec.mat.emissiveIntensity=1.2; this._flashers.push(rec.mat); this._setDoorFlash(rec,_fx); }
+          else { rec.mat.emissive.setHex(new THREE.Color(c).getHex()); rec.mat.emissiveIntensity=0.7; this._clearDoorFlash(rec); }
+          this._setLockFrame(rec, st);
           rec.mat.needsUpdate=true; }
       });
       if(this._refreshInvCircles) this._refreshInvCircles();
@@ -538,10 +680,32 @@ class Component extends DCLogic {
     });
     renderer.domElement.addEventListener('pointerup',e=>{
       _drag=false; this._dragging=false;
-      if(Math.hypot(e.clientX-_dx,e.clientY-_dy)>5) return; // a drag, not a click
+      if(Math.hypot(e.clientX-_dx,e.clientY-_dy)>12) return; // a drag, not a click (forgiving for finger taps)
       const r=renderer.domElement.getBoundingClientRect();
       this.mouse.x=((e.clientX-r.left)/r.width)*2-1; this.mouse.y=-((e.clientY-r.top)/r.height)*2+1;
       this.ray.setFromCamera(this.mouse,this.camera);
+      // In the Command Center room, taps drive the wall board / history screen FIRST —
+      // before any ride/actor check, so the first-person player body never eats the tap.
+      if(this._inCommandRoom){
+        // History board is display-only — tapping it does nothing (no popup)
+        if(this._officeCC && this._officeCC.scr){ const sh=this.ray.intersectObject(this._officeCC.scr,false)[0];
+          if(sh&&sh.uv){ const px=sh.uv.x*1024, py=(1-sh.uv.y)*471; const hz=(this._officeCC.hits||[]).find(rr=>px>=rr.x&&px<=rr.x+rr.w&&py>=rr.y&&py<=rr.y+rr.h);
+            if(hz){ var cc=this._officeCC;
+              if(hz.action==='save'){ if(window.__swSaveReport) window.__swSaveReport(); }
+              else if(hz.action==='find'){ if(this.setState) this.setState({showSearch:true}); }
+              else if(hz.action==='gear'){ if(window.__swGear) window.__swGear(); }
+              else if(hz.action==='exit'){ if(this._exitCommandCenter) this._exitCommandCenter(); }
+              else if(hz.action==='alerts'){ if(window.__swBellTap) window.__swBellTap(); }
+              else if(hz.action==='install'){ if(window._swInstallPrompt){ window._swInstallPrompt.prompt(); window._swInstallPrompt.userChoice.then(function(){ window._swInstallPrompt=null; }); } }
+              else if(hz.action==='back'){ cc.view=(cc.view==='unit')?'units':'dash'; if(this._officeCCdraw)this._officeCCdraw(); }
+              else if(hz.open){ cc.view='units'; cc.filter=hz.open; cc.page=0; if(this._officeCCdraw)this._officeCCdraw(); }
+              else if(hz.unit){ cc.view='unit'; cc.sel=hz.unit; if(this._officeCCdraw)this._officeCCdraw(); }
+              else if(hz.setstatus){ if(this.setStatus)this.setStatus(hz.setstatus.label,hz.setstatus.st); cc.view='units'; if(this._officeCCdraw)this._officeCCdraw(); }
+              else if(hz.page!==undefined){ cc.page=(cc.page||0)+hz.page; if(this._officeCCdraw)this._officeCCdraw(); }
+              else if(hz.status && window.__swRouteStatus){ window.__swRouteStatus(hz.status); } }
+            return; } }
+        return; // stay in the room; don't fall through to ride/actor entering
+      }
       let best=null;
       (this.actors||[]).forEach(A=>{ const h=this.ray.intersectObject(A.obj.g,true)[0]; if(h&&(!best||h.distance<best.d)) best={d:h.distance,mode:A.mode}; });
       if(best){ if(best.mode!==this.mode) this.setMode(best.mode); return; }
@@ -549,7 +713,19 @@ class Component extends DCLogic {
       // All users can change lock status
       {
         const lh=this.ray.intersectObjects(this._lockMeshes,false)[0];
-        if(lh){ if(window.__swCycleNext) window.__swCycleNext(lh.object.userData.label, e); return; }
+        let pickLabel = lh ? lh.object.userData.label : null;
+        if(!pickLabel){
+          // Forgiving tap: if the ray just missed, grab the closest lock within a finger-sized radius on screen.
+          const rect=renderer.domElement.getBoundingClientRect();
+          let bestD=48, bestL=null; const v=new THREE.Vector3();
+          (this._lockMeshes||[]).forEach(m=>{ v.setFromMatrixPosition(m.matrixWorld); v.project(this.camera);
+            if(v.z>1) return; // behind the camera
+            const sx=rect.left+(v.x*0.5+0.5)*rect.width, sy=rect.top+(-v.y*0.5+0.5)*rect.height;
+            const d=Math.hypot(e.clientX-sx, e.clientY-sy);
+            if(d<bestD){ bestD=d; bestL=m.userData.label; } });
+          pickLabel=bestL;
+        }
+        if(pickLabel){ if(window.__swCycleNext) window.__swCycleNext(pickLabel, e); return; }
       }
       const hit=this.ray.intersectObjects(this.gPanels,false)[0];
       if(hit) this._toggle(hit.object.userData.rec);
@@ -582,7 +758,7 @@ class Component extends DCLogic {
 
     const loop = ()=>{
       this._raf=requestAnimationFrame(loop);
-      if (!this._webglAvailable || window.__swDeckVisible || document.hidden) return;
+      if(!this._webglAvailable || window.__swDeckVisible || document.hidden)return;
       for(const rec of this.openables){
         if(Math.abs(rec.cur-rec.target)>0.003){
           rec.cur += (rec.target-rec.cur)*0.16;
@@ -604,15 +780,21 @@ class Component extends DCLogic {
       if(!this._flashCheck) this._flashCheck=0;
       if(Date.now()-this._flashCheck>2000){ this._flashCheck=Date.now();
         Object.keys(this._locks||{}).forEach(k=>{ const rec=this._locks[k]; const st=this._statusOf(rec.label);
-          if(st==='flashred'||st==='flashgreen'){ if(!this._flashers.includes(rec.mat)){ rec.mat.emissive.setHex(st==='flashred'?0xff0000:0x00ff44); rec.mat.emissiveIntensity=1.2; this._flashers.push(rec.mat); } }
-          else{ if(this._flashers.includes(rec.mat)){ this._flashers=this._flashers.filter(m=>m!==rec.mat); } }
+          if(st==='flashred'||st==='flashgreen'){ var hex=st==='flashred'?0xff0000:0x00ff44;
+            if(!this._flashers.includes(rec.mat)){ rec.mat.emissive.setHex(hex); rec.mat.emissiveIntensity=1.2; this._flashers.push(rec.mat); }
+            if(rec.doorMat && !this._flashers.includes(rec.doorMat)){ this._setDoorFlash(rec,hex); }
+          }
+          else{ if(this._flashers.includes(rec.mat)){ this._flashers=this._flashers.filter(m=>m!==rec.mat); }
+            if(rec.doorMat && this._flashers.includes(rec.doorMat)){ this._clearDoorFlash(rec); }
+          }
+          this._setLockFrame(rec, st);
         });
       }
       if(this._flashers.length){ const t=Date.now(); const on=(t%400<200); for(const m of this._flashers){ m.emissiveIntensity=on?3.5:0.05; } }
       if(this._marker&&this._marker.visible){ const t=Date.now(); this._marker.position.y=8.5+Math.sin(t*0.004)*0.7; this._marker.rotation.y+=0.035; this._markerMat.emissiveIntensity=1.0+0.7*(0.5+0.5*Math.sin(t*0.009));
         const _a={walk:this.walker,drive:this.car,fly:this.flyer,ufo:this.ufo}[this.mode];
         if(_a){ this._updateRoute(_a.g.position, this._marker.position);
-          const dx=_a.g.position.x-this._marker.position.x, dz=_a.g.position.z-this._marker.position.z; const _dist=Math.hypot(dx,dz); if(_dist<9){ this._marker.visible=false; if(this._route) this._route.visible=false; } else { _a.h=Math.atan2(-dx,-dz); } } }
+          const dx=_a.g.position.x-this._marker.position.x, dz=_a.g.position.z-this._marker.position.z; const _dist=Math.hypot(dx,dz); if(_dist<9){ this._marker.visible=false; if(this._route) this._route.visible=false; } } }
       if(this.mode==='orbit') controls.update();
       if(this.camera.position.y<0.6) this.camera.position.y=0.6; // never go through the ground
       renderer.render(scene,camera);
@@ -784,7 +966,7 @@ class Component extends DCLogic {
       panel.rotation.y=Math.PI; panel.position.set(cx,cy,zN-0.07); this.scene.add(panel);
       // label
       const sp=this.makeFlatSign(lab,'N'); sp.position.set(cx, cy+0.7, zN-0.12); this.scene.add(sp);
-      this._addLock('N',cx,zN,cy,lab);
+      this._addLock('N',cx,zN,cy,lab,panel.material,dw,fullH);
       const rec={panel, topY:dTop, fullH, cur:1, target:1, open:false};
       panel.userData.rec=rec; this.openables.push(rec);
       // invisible full-size click zone so the door can be toggled even when rolled up
@@ -874,7 +1056,6 @@ class Component extends DCLogic {
 
   // generic vertical wall (gable or eave) with rectangular door holes
   buildWall(face, fixed, lat0, lat1, h, peak, isGable, doors, mat){
-    // Reuse the exact building edges for the outdoor plan on devices without WebGL.
     if(!this._siteWalls)this._siteWalls=[];
     this._siteWalls.push(face==='N'||face==='S'?{x1:lat0,z1:fixed,x2:lat1,z2:fixed}:{x1:fixed,z1:lat0,x2:fixed,z2:lat1});
     const s=new THREE.Shape(); const cx=(lat0+lat1)/2;
@@ -903,16 +1084,13 @@ class Component extends DCLogic {
     set('white','E8,26');
     this._us=m; return m;
   }
-  _LC(){ return {blue:'#00aaff',red:'#ff1111',white:'#ffffff',black:'#aaaaaa',green:'#00ff44',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44'}; }
+  _LC(){ return {blue:'#00aaff',red:'#ff1111',white:'#ffffff',black:'#aaaaaa',green:'#00ff44',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44',purple:'#9b30d1'}; }
   _statusOf(label){ const k=(label||'').replace(/[-\s]/g,'').toUpperCase();
-    const aliases=this._overrides||{};
-    const alias=aliases[k]?k:Object.keys(aliases).find(key=>key.replace(/[-\s]/g,'').toUpperCase()===k);
-    const status=aliases[k] || aliases[alias] || this._unitStatus()[k] || 'green';
-    // The newer command screen saved Ready as purple; the property uses white.
-    // Normalize only when reading, leaving existing shared records unchanged.
-    return status==='purple'?'white':status; }
+    const saved=this._overrides||{};
+    const alias=saved[k]?k:Object.keys(saved).find(key=>key.replace(/[-\s]/g,'').toUpperCase()===k);
+    return saved[k] || saved[alias] || this._unitStatus()[k] || 'green'; }
   _refreshInvCircles(){
-    const sc={blue:'#00aaff',red:'#ff1111',green:'#00ff44',white:'#ffffff',black:'#aaaaaa',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44'};
+    const sc={blue:'#00aaff',red:'#ff1111',green:'#00ff44',white:'#ffffff',black:'#aaaaaa',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44',purple:'#9b30d1'};
     Object.keys(this._locks||{}).forEach(k=>{
       const rec=this._locks[k]; if(!rec) return;
       const st=this._statusOf(rec.label);
@@ -927,28 +1105,74 @@ class Component extends DCLogic {
     });
     // Rebuild inventory counts (updates the filter pills and list)
     if(this.buildInv) this.buildInv();
+    // Keep the command-center wall screen live when locks change (from anyone)
+    if(this._officeCCdraw){ try{ this._officeCCdraw(); }catch(e){} }
   }
+  // Make the whole DOOR flash the same bright pure red/green as the lock indicator:
+  // drop its texture + set a solid color so nothing mutes it, then the frame loop pulses emissive.
+  _setDoorFlash(rec, hex){ const dm=rec&&rec.doorMat; if(!dm) return;
+    if(dm.map){ if(rec.doorBaseMap===undefined) rec.doorBaseMap=dm.map; dm.map=null; dm.needsUpdate=true; }
+    dm.color.setHex(hex); dm.emissive.setHex(hex); dm.emissiveIntensity=1.2;
+    if(!this._flashers.includes(dm)) this._flashers.push(dm); }
+  // "Rented · No Lock" marker: a fat green band hugging the door with a yellow band around it.
+  _makeLockFrame(face, a, fixed, cy, w, h){
+    const rot=this._baseRot(face), n=new THREE.Vector3(Math.sin(rot),0,Math.cos(rot));
+    const g=new THREE.Group(); g.visible=false;
+    const tG=Math.max(0.20, w*0.075), tY=Math.max(0.20, w*0.075);
+    const ring=(halfW, halfH, thick, colour, push)=>{
+      const mat=new THREE.MeshStandardMaterial({color:colour, emissive:colour, emissiveIntensity:0.95, roughness:0.35, metalness:0.05});
+      const outW=halfW*2+thick*2;
+      const bars=[
+        {len:outW,  hgt:thick, dx:0,               dy:halfH+thick/2},
+        {len:outW,  hgt:thick, dx:0,               dy:-(halfH+thick/2)},
+        {len:thick, hgt:halfH*2, dx:-(halfW+thick/2), dy:0},
+        {len:thick, hgt:halfH*2, dx:halfW+thick/2,   dy:0}
+      ];
+      bars.forEach(b=>{
+        const m=new THREE.Mesh(new THREE.BoxGeometry(b.len, b.hgt, 0.07), mat);
+        m.rotation.y=rot;
+        m.position.copy(this._wallPoint(face, a+b.dx, fixed, cy+b.dy).add(n.clone().multiplyScalar(push)));
+        g.add(m);
+      });
+    };
+    ring(w/2,          h/2,          tG, 0x00ff44, 0.10);
+    ring(w/2+tG,       h/2+tG,       tY, 0xffee00, 0.09);
+    this.scene.add(g);
+    return g;
+  }
+  _setLockFrame(rec, st){ if(rec && rec.frame) rec.frame.visible=(st==='yellow'); }
+  _clearDoorFlash(rec){ const dm=rec&&rec.doorMat; if(!dm) return;
+    this._flashers=this._flashers.filter(m=>m!==dm);
+    if(rec.doorBaseMap!==undefined && dm.map!==rec.doorBaseMap){ dm.map=rec.doorBaseMap; dm.needsUpdate=true; }
+    dm.color.setHex(0xffffff); dm.emissive.setHex(0x000000); dm.emissiveIntensity=0; }
   async setStatus(label, st){
+    if(!this.state?.editMode || !window.__swCheckLogin?.()) return false;
     const k=(label||'').replace(/[-\s]/g,'').toUpperCase(); if(!k) return;
-    if(!this._locks[k] || !['green','red','flashred','flashgreen','blue','yellow','white','black'].includes(st)) return false;
-    if(!this.state.editMode || !window.__swCheckLogin?.()) return false;
+    if(!this._locks[k] || !Object.hasOwn(this._LC(),st))return false;
     const prev=this._statusOf(label);
-    if(prev===st) return true;
-    // Confirm the shared write before changing the visible unit or reporting success.
+    if(prev===st)return true;
     try{
-      const response=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides/'+k+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(st),signal:AbortSignal.timeout(12000)});
-      if(!response.ok) throw new Error('Save failed');
-    }catch(e){ alert('The status could not be saved. The unit has not been changed. Please check your connection and try again.'); return false; }
+      if(window._swAuth?.currentUser && window._swSet && window._swRef){
+        await window._swSet(window._swRef(window._swDB,'lockOverrides/'+k),st);
+      }else{
+        const response=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides/'+k+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(st),signal:AbortSignal.timeout(12000)});
+        if(!response.ok)throw new Error('Save failed');
+      }
+    }catch(e){alert('The status could not be saved. The unit has not been changed. Please check your connection and try again.');return false;}
     this._overrides[k]=st;
-    if(prev!==st){ const log=(this.state.sessionLog||[]).concat([{label, from:this._statusLabel(prev), to:this._statusLabel(st), t:Date.now()}]); this.setState({sessionLog:log}); }
+    if(prev!==st){ const log=(this.state.sessionLog||[]).concat([{label, from:this._statusLabel(prev), to:this._statusLabel(st), t:Date.now()}]); this.setState({sessionLog:log}); try{ if(window._swPlaySound) window._swPlaySound(st); }catch(e){} }
     try{ localStorage.setItem('sw_locks', JSON.stringify(this._overrides)); }catch(e){}
-    // Sync only this key to Firebase (PATCH individual key so other users' changes aren't wiped)
-    const _fbBase='https://storewell-3d-default-rtdb.firebaseio.com';
+    // Sync only this key to Firebase using the authenticated SDK (REST fetch fails auth rules)
     if(!this._pendingWrites) this._pendingWrites={};
     this._pendingWrites[k]={st,t:Date.now()};
-    // Persist log entry via REST
+    // Persist log entry — always write via REST API (no auth required) AND Firebase SDK
     (()=>{ const who=(this.state&&this.state.staffName)||'Staff';
-      fetch(_fbBase+'/lockLog.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now()})}).catch(e=>console.warn('lockLog push failed',e)); })();
+      const entry={label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now(),type:'lock'};
+      // REST API write (always works regardless of auth state)
+      fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(entry)}).catch(e=>console.warn('lockLog REST push failed',e));
+      // Update in-memory log for immediate board refresh
+      if(window.app&&window.app._histLog){ window.app._histLog.unshift(entry); if(window.app._officeCCdrawHist) window.app._officeCCdrawHist(); }
+    })();
     // 🚨 SMS + screen alert when Lock It or Lock Off is activated
     if(st==='flashred'||st==='flashgreen'){
       const who2=(this.state&&this.state.staffName)||'Staff';
@@ -964,8 +1188,9 @@ class Component extends DCLogic {
     const rec=this._locks[k]; if(rec){ const c=this._LC()[st]||'#1f9d4d';
       rec.mat.color.set(c);
       this._flashers=this._flashers.filter(m=>m!==rec.mat);
-      if(st==='flashred'||st==='flashgreen'){rec.mat.emissive.setHex(st==='flashred'?0xff0000:0x00ff44);rec.mat.emissiveIntensity=1.2;this._flashers.push(rec.mat);}
-      else{rec.mat.emissive.setHex(new THREE.Color(c).getHex());rec.mat.emissiveIntensity=0.7;}
+      if(st==='flashred'||st==='flashgreen'){ var _fx=st==='flashred'?0xff0000:0x00ff44; rec.mat.emissive.setHex(_fx);rec.mat.emissiveIntensity=1.2;this._flashers.push(rec.mat); this._setDoorFlash(rec,_fx); }
+      else{rec.mat.emissive.setHex(new THREE.Color(c).getHex());rec.mat.emissiveIntensity=0.7; this._clearDoorFlash(rec);}
+      this._setLockFrame(rec, st);
       rec.mat.needsUpdate=true;
     }
     // Refresh inventory circles immediately
@@ -1021,15 +1246,18 @@ class Component extends DCLogic {
     const st=this._statusOf(label), c=this._LC()[st]||'#1f9d4d';
     return new THREE.MeshStandardMaterial({color:c, emissive:c, emissiveIntensity:0.6, roughness:0.4, metalness:0.2});
   }
-  _addLock(face,a,fixed,cy,label){
+  _addLock(face,a,fixed,cy,label,doorMat,dw,dh){
     const rot=this._baseRot(face), n=new THREE.Vector3(Math.sin(rot),0,Math.cos(rot));
     const mat=this._lockMat(label);
     const lock=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,16), mat);
     lock.position.copy(this._wallPoint(face,a,fixed,cy-0.35).add(n.clone().multiplyScalar(0.16)));
     this.scene.add(lock);
     const k=(label||'').replace(/[-\s]/g,'').toUpperCase();
-    if(k){ lock.userData.unit=k; lock.userData.label=label; this._lockMeshes.push(lock); this._locks[k]={mesh:lock,mat,label,pos:lock.position.clone()}; }
+    let frame=null;
+    try{ if(dw && dh) frame=this._makeLockFrame(face,a,fixed,cy,dw,dh); }catch(e){}
+    if(k){ lock.userData.unit=k; lock.userData.label=label; this._lockMeshes.push(lock); this._locks[k]={mesh:lock,mat,label,doorMat:doorMat||null,frame:frame,pos:lock.position.clone()}; }
     const st=this._statusOf(label);
+    if(frame) frame.visible=(st==='yellow');
     if(st==='flashred'||st==='flashgreen'){mat.emissive.setHex(st==='flashred'?0xff0000:0x00ff44);mat.emissiveIntensity=1;this._flashers.push(mat);}
   }
 
@@ -1053,7 +1281,7 @@ class Component extends DCLogic {
       const sp=this.makeFlatSign(d.label, face);
       const _sy=(d.bot+d.top)/2+0.7, _so=0.12;
       sp.position.copy(this._wallPoint(face,d.a,fixed,_sy).add(n.clone().multiplyScalar(_so))); this.scene.add(sp);
-      if(!d.business) this._addLock(face,d.a,fixed,(d.bot+d.top)/2,d.label);
+      if(!d.business) this._addLock(face,d.a,fixed,(d.bot+d.top)/2,d.label,panel.material,d.w,fullH);
     } else {
       this.makeSwingDoor(face, d, fixed, eaveH);
     }
@@ -1080,7 +1308,7 @@ class Component extends DCLogic {
     const sp=this.makeFlatSign(d.label, face);
     const _sy=(d.bot+d.top)/2+0.55, _so=0.12;
     sp.position.copy(this._wallPoint(face,d.a,fixed,_sy).add(n.clone().multiplyScalar(_so))); this.scene.add(sp);
-    if(!d.business) this._addLock(face,d.a,fixed,(d.bot+d.top)/2,d.label);
+    if(!d.business) this._addLock(face,d.a,fixed,(d.bot+d.top)/2,d.label,door.material,d.w,fullH);
   }
 
   // flat number sign painted on the wall above a door (faces outward along the wall)
@@ -1134,9 +1362,13 @@ class Component extends DCLogic {
     this.mode=m; this.setState({mode:m});
     this.lookYaw=0; this.lookPitch=0; this.keys={}; this._dragging=false;
     if(m==='orbit'){
+      this._inCommandRoom=false;
+      if(!this._fog0) this._fog0=this.scene.fog;
+      this.scene.fog=null; // clear haze so the whole property is visible from above
       this.controls.enabled=true;
-      this.camera.position.set(38,27,46); this.controls.target.set(6,4,-10); this.controls.update();
+      this.camera.position.set(8,205,72); this.controls.target.set(8,0,-96); this.controls.update();
     } else {
+      if(this._fog0) this.scene.fog=this._fog0; // restore ground-level haze
       this.controls.enabled=false;
       const o={walk:this.walker,drive:this.car,fly:this.flyer,ufo:this.ufo}[m];
       this.cur=o||null;
@@ -1229,11 +1461,12 @@ class Component extends DCLogic {
     this._eWas=eNow;
     const t=this._tk||{};
     const L=k.ArrowLeft||k.KeyA||t.L, R=k.ArrowRight||k.KeyD||t.R, U=k.ArrowUp||k.KeyW||t.U, Dn=k.ArrowDown||k.KeyS||t.Dn;
-    // non-strafe actors turn with left/right; strafe actors (walker) turn only via the mouse
-        if(!o.strafe){ const _tr=window._swTurnSpd||0.005; if(L) o.h+=_tr; if(R) o.h-=_tr; }
+    // all actors turn with left/right; use each actor's own turn rate
+        if(!o.strafe){ const _tr=(window._swTurnSpd>0?window._swTurnSpd:o.turn)||0.045; if(L) o.h+=_tr; if(R) o.h-=_tr; }
     if(L||R||U||Dn||this._dragging) this._homeGaze=false; // any input releases the held home view
-    if(!this._dragging && !this._homeGaze){ this.lookYaw*=0.96; this.lookPitch*=0.96; if(Math.abs(this.lookYaw)<0.002)this.lookYaw=0; if(Math.abs(this.lookPitch)<0.002)this.lookPitch=0; }
-    const camA=o.strafe?o.h:(o.h+this.lookYaw);
+    if(this._frontView){ this._homeGaze=false; this.lookYaw += (Math.PI-this.lookYaw)*0.2; } // swing the camera around to the FRONT
+    else if(!this._dragging && !this._homeGaze){ this.lookYaw*=0.96; this.lookPitch*=0.96; if(Math.abs(this.lookYaw)<0.002)this.lookYaw=0; if(Math.abs(this.lookPitch)<0.002)this.lookPitch=0; }
+    const camA=o.strafe?(o.h+(this._frontView?Math.PI:0)):(o.h+this.lookYaw);
     const camDir=new THREE.Vector3(Math.sin(camA),0,Math.cos(camA));
 
     if(o.air){
@@ -1274,21 +1507,29 @@ class Component extends DCLogic {
     if(U){ mv.add(f); }
     if(Dn){ mv.addScaledVector(f,-0.7); }
     if(o.strafe){ const rt=new THREE.Vector3(-Math.cos(o.h),0,Math.sin(o.h)); if(R) mv.add(rt); if(L) mv.sub(rt); }
-    if(mv.lengthSq()>0){ const spd=this._joyMag>0?(window._swWalkSpd||0.008)*Math.max(0.3,this._joyMag):o.spd; mv.normalize().multiplyScalar(spd); o.g.position.add(mv); moving=true; }
+    if(mv.lengthSq()>0){ let base=(o===this.walker&&window._swWalkSpd>0&&localStorage.getItem('sw_walk_spd')!=null)?window._swWalkSpd:o.spd; let spd=this._joyMag>0?base*Math.max(0.35,this._joyMag):base; if(this._inCommandRoom) spd*=1.7; mv.normalize().multiplyScalar(spd); o.g.position.add(mv); moving=true; }
     if(this._blocked(o.g.position,o)){
       const tx=old.clone(); tx.x=o.g.position.x; const tz=old.clone(); tz.z=o.g.position.z;
       if(!this._blocked(tx,o)) o.g.position.copy(tx);
       else if(!this._blocked(tz,o)) o.g.position.copy(tz);
       else o.g.position.copy(old);
     }
-    o.g.position.x=Math.max(-66,Math.min(84,o.g.position.x));
-    o.g.position.z=Math.max(-211,Math.min(40,o.g.position.z));
+    if(this._inCommandRoom){
+      o.g.position.x=Math.max(487.5,Math.min(512.5,o.g.position.x));
+      o.g.position.z=Math.max(485.5,Math.min(514.5,o.g.position.z));
+      if(o.g.position.x>511.6 && Math.abs(o.g.position.z-500)<1.5 && this._exitCommandCenter){ this._exitCommandCenter(); }
+    } else {
+      o.g.position.x=Math.max(-66,Math.min(84,o.g.position.x));
+      o.g.position.z=Math.max(-211,Math.min(40,o.g.position.z));
+    }
     o.g.position.y=0; o.g.rotation.y=o.h;
+    if(o===this.walker) this.walker._mov=moving;
     if(o.la){ const s=moving?Math.sin(Date.now()*0.012)*0.5:0; o.la.rotation.x=s; o.ra.rotation.x=-s; }
     // INSIDE a unit → clean first-person view. The chase cam would otherwise sit behind you, inside
     // the wall, and slice through it (the "collapsing walls"). First-person keeps the room clean.
     let _inside=false;
     for(const s of this.solids){ const p=o.g.position; if(p.x>s.x0&&p.x<s.x1&&p.z>s.z0&&p.z<s.z1){ _inside=true; break; } }
+    if(this._inCommandRoom) _inside=true; // command room = look around freely, walls never block the view
     if(this.mode==='walk') this.walker.g.visible=!_inside; // hide your own body in first-person
     if(_inside){
       const eye=1.62;
@@ -1307,20 +1548,40 @@ class Component extends DCLogic {
   buildActors(){
     // ---- character (third-person avatar) ----
     const w=new THREE.Group();
-    const skin=new THREE.MeshStandardMaterial({color:'#e8b68a',roughness:0.85});
-    const shirt=new THREE.MeshStandardMaterial({color:'#2f7fd0',roughness:0.7});
-    const jeans=new THREE.MeshStandardMaterial({color:'#33405a',roughness:0.85});
-    const hair=new THREE.MeshStandardMaterial({color:'#3a2a1a',roughness:0.9});
+    const _wc=(window._swGetChar&&window._swGetChar())||{};
+    const skin=new THREE.MeshStandardMaterial({color:_wc.skin||'#e8b68a',roughness:0.85});
+    const shirt=new THREE.MeshStandardMaterial({color:_wc.shirt||'#2f7fd0',roughness:0.7});
+    const jeans=new THREE.MeshStandardMaterial({color:_wc.pants||'#33405a',roughness:0.85});
+    const hair=new THREE.MeshStandardMaterial({color:_wc.hair||'#3a2a1a',roughness:0.9});
     const mk=(g,m,x,y,z)=>{const e=new THREE.Mesh(g,m);e.position.set(x,y,z);e.castShadow=true;w.add(e);return e;};
-    mk(new THREE.BoxGeometry(0.26,0.85,0.26),jeans,-0.16,0.43,0);
-    mk(new THREE.BoxGeometry(0.26,0.85,0.26),jeans, 0.16,0.43,0);
-    mk(new THREE.BoxGeometry(0.62,0.8,0.36),shirt,0,1.2,0);
-    const la=mk(new THREE.BoxGeometry(0.18,0.72,0.2),shirt,-0.42,1.2,0);
-    const ra=mk(new THREE.BoxGeometry(0.18,0.72,0.2),shirt, 0.42,1.2,0);
+    const shoe=new THREE.MeshStandardMaterial({color:_wc.shoes||'#3b2a1a',roughness:0.85});
+    mk(new THREE.SphereGeometry(0.26,14,12),jeans,0,0.92,0);
+    mk(new THREE.CylinderGeometry(0.13,0.10,0.92,12),jeans,-0.14,0.5,0);
+    mk(new THREE.CylinderGeometry(0.13,0.10,0.92,12),jeans, 0.14,0.5,0);
+    const _lf=mk(new THREE.SphereGeometry(0.13,12,10),shoe,-0.14,0.08,0.06); _lf.scale.set(1,0.55,1.5);
+    const _rf=mk(new THREE.SphereGeometry(0.13,12,10),shoe, 0.14,0.08,0.06); _rf.scale.set(1,0.55,1.5);
+    mk(new THREE.CylinderGeometry(0.30,0.24,0.82,16),shirt,0,1.22,0);
+    mk(new THREE.SphereGeometry(0.30,16,14),shirt,0,1.56,0);
+    mk(new THREE.CylinderGeometry(0.085,0.10,0.16,10),skin,0,1.70,0);
+    const _armG=new THREE.CylinderGeometry(0.085,0.075,0.62,12); _armG.translate(0,-0.31,0);
+    const la=mk(_armG,shirt,-0.33,1.56,0);
+    const ra=mk(_armG.clone(),shirt,0.33,1.56,0);
+    const _lh=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,10),skin); _lh.position.set(0,-0.62,0); _lh.castShadow=true; la.add(_lh);
+    const _rh=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,10),skin); _rh.position.set(0,-0.62,0); _rh.castShadow=true; ra.add(_rh);
     mk(new THREE.SphereGeometry(0.25,18,18),skin,0,1.85,0);
+    const _eyeW=new THREE.MeshStandardMaterial({color:'#ffffff'}), _eyeB=new THREE.MeshStandardMaterial({color:(_wc.eyes||'#141414')}), _mo=new THREE.MeshStandardMaterial({color:'#7a3b2a'});
+    mk(new THREE.SphereGeometry(0.05,8,8),_eyeW,-0.1,1.9,0.19); mk(new THREE.SphereGeometry(0.05,8,8),_eyeW,0.1,1.9,0.19);
+    mk(new THREE.SphereGeometry(0.026,6,6),_eyeB,-0.1,1.9,0.23); mk(new THREE.SphereGeometry(0.026,6,6),_eyeB,0.1,1.9,0.23);
+    mk(new THREE.BoxGeometry(0.11,0.025,0.02),_eyeB,0,1.77,0.22);
+    const _wgl=_wc.glasses||'none';
+    if(_wgl!=='none'){const _wgc=new THREE.MeshStandardMaterial({color:_wgl==='sun'?'#0a0a0a':'#e8eef5'}), _wfr=new THREE.MeshStandardMaterial({color:'#1a1a1a'});
+      mk(new THREE.BoxGeometry(0.26,0.03,0.03),_wfr,0,1.9,0.21);
+      mk(new THREE.BoxGeometry(0.09,0.075,0.02),_wgc,-0.1,1.9,0.22); mk(new THREE.BoxGeometry(0.09,0.075,0.02),_wgc,0.1,1.9,0.22);}
+    const _wbd=_wc.beard||'none';
+    if(_wbd!=='none'){const _wbc=new THREE.MeshStandardMaterial({color:_wc.hair||'#3a2a1a'}); const _wb=mk(new THREE.SphereGeometry(0.24,12,10),_wbc,0,1.72,0.08); _wb.scale.set(1,_wbd==='full'?0.8:0.5,0.78);}
     const hh=mk(new THREE.SphereGeometry(0.27,18,12),hair,0,1.93,-0.02); hh.scale.y=0.6;
     w.position.set(0,0,46); w.rotation.y=Math.PI; this.scene.add(w);
-    this.walker={g:w, h:Math.PI, spd:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?0.012:0.52, turn:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?0.015:0.05, back:8, up:3.3, eye:1.8, lookH:3.1, la, ra};
+    this.walker={g:w, h:Math.PI, spd:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?0.012:0.52, turn:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?0.015:0.05, back:8, up:3.3, eye:1.8, lookH:3.1, la, ra, mats:{skin:skin,shirt:shirt,jeans:jeans,hair:hair,shoe:shoe}};
     // ---- bright-pink Lincoln Navigator stretch limo ----
     // ---- black 2008 C6 Corvette (low + sleek) ----
     const c=new THREE.Group();
@@ -1961,206 +2222,9 @@ class Component extends DCLogic {
 }
 </script>
 <script src="/staff.bundle.js" defer></script>
-
-<script>
-// ── Character builder ────────────────────────────────────────────────────────
-window._swGetChar=function(){
-  try{const c=localStorage.getItem('sw_char');return c?JSON.parse(c):{};}catch(e){return {};}
-};
-window._swSaveChar=function(c){
-  try{localStorage.setItem('sw_char',JSON.stringify(c));}catch(e){}
-  // Push updated char to Firebase player record
-  if(window.__swApp&&window.__swApp._net){
-    const n=window.__swApp._net;
-    try{
-      fetch('https://storewell-3d-default-rtdb.firebaseio.com/players/'+n.uid+'/char.json',
-        {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)}).catch(()=>{});
-    }catch(e){}
-  }
-};
-
-window._swBuildAvatar=function(T,uid,p){
-  const g=new T.Group();
-  const ch=p.char||{};
-  const male=ch.gender!=='female';
-  const skinC=new T.Color(ch.skin||'#FFCC99');
-  const hairC=new T.Color(ch.hair||'#2c1810');
-  const shirtC=new T.Color(ch.shirt||(male?'#3b82f6':'#ec4899'));
-  const pantsC=new T.Color(ch.pants||(male?'#1e3a8a':'#7c3aed'));
-  const shoeC=new T.Color(ch.shoes||'#3b2a1a');
-  const hatType=ch.hat||'none';
-  const hatC=new T.Color(ch.hatColor||'#ff6600');
-  const mk=(geo,col)=>new T.Mesh(geo,new T.MeshLambertMaterial({color:col}));
-  // Head
-  const head=mk(new T.SphereGeometry(.32,10,10),skinC); head.position.y=1.85; g.add(head);
-  // Hair
-  const hair=mk(new T.SphereGeometry(.34,10,6,0,Math.PI*2,0,Math.PI*(male?.42:.6)),hairC);
-  hair.position.y=1.85; g.add(hair);
-  if(!male){const lh=mk(new T.CylinderGeometry(.22,.18,.65,8),hairC);lh.position.set(0,1.52,-.12);g.add(lh);}
-  // Shirt/body
-  const body=mk(new T.CylinderGeometry(.28,.28,.85,8),shirtC); body.position.y=1.15; g.add(body);
-  // Arms
-  const la=mk(new T.CylinderGeometry(.09,.09,.62,6),shirtC);la.rotation.z=.35;la.position.set(-.38,1.18,0);g.add(la);
-  const ra=mk(new T.CylinderGeometry(.09,.09,.62,6),shirtC);ra.rotation.z=-.35;ra.position.set(.38,1.18,0);g.add(ra);
-  // Hands
-  const lh2=mk(new T.SphereGeometry(.1,6,6),skinC);lh2.position.set(-.5,.88,0);g.add(lh2);
-  const rh2=mk(new T.SphereGeometry(.1,6,6),skinC);rh2.position.set(.5,.88,0);g.add(rh2);
-  // Lower body
-  if(!male){
-    // Skirt
-    const sk=mk(new T.CylinderGeometry(.32,.42,.5,8),pantsC);sk.position.y=.62;g.add(sk);
-    // Legs (visible below skirt)
-    const ll=mk(new T.CylinderGeometry(.1,.1,.48,6),skinC);ll.position.set(-.13,.28,0);g.add(ll);
-    const rl=mk(new T.CylinderGeometry(.1,.1,.48,6),skinC);rl.position.set(.13,.28,0);g.add(rl);
-  } else {
-    const ll=mk(new T.CylinderGeometry(.12,.12,.72,6),pantsC);ll.position.set(-.13,.44,0);g.add(ll);
-    const rl=mk(new T.CylinderGeometry(.12,.12,.72,6),pantsC);rl.position.set(.13,.44,0);g.add(rl);
-  }
-  // Shoes
-  const ls=mk(new T.BoxGeometry(.22,.12,.34),shoeC);ls.position.set(-.13,.07,.04);g.add(ls);
-  const rs=mk(new T.BoxGeometry(.22,.12,.34),shoeC);rs.position.set(.13,.07,.04);g.add(rs);
-  // Hat
-  if(hatType==='cap'){
-    const top=mk(new T.CylinderGeometry(.27,.32,.2,10),hatC);top.position.y=2.24;g.add(top);
-    const brim=mk(new T.CylinderGeometry(.4,.4,.05,12),hatC);brim.position.y=2.13;g.add(brim);
-    const bill=mk(new T.BoxGeometry(.42,.04,.22),hatC);bill.position.set(0,2.12,.26);g.add(bill);
-  } else if(hatType==='hardhat'){
-    const dome=mk(new T.SphereGeometry(.38,10,5,0,Math.PI*2,0,Math.PI*.48),hatC);dome.position.y=2.08;g.add(dome);
-    const brim=mk(new T.CylinderGeometry(.46,.46,.05,12),hatC);brim.position.y=2.06;g.add(brim);
-  } else if(hatType==='beanie'){
-    const bn=mk(new T.SphereGeometry(.36,10,8,0,Math.PI*2,0,Math.PI*.58),hatC);bn.position.y=2.02;g.add(bn);
-  } else if(hatType==='cowboy'){
-    const cr=mk(new T.CylinderGeometry(.24,.3,.32,10),hatC);cr.position.y=2.24;g.add(cr);
-    const wb=mk(new T.CylinderGeometry(.62,.62,.05,12),hatC);wb.position.y=2.1;g.add(wb);
-  } else if(hatType==='headband'){
-    const hb=mk(new T.TorusGeometry(.34,.045,6,14),hatC);hb.rotation.x=Math.PI/2;hb.position.y=1.95;g.add(hb);
-  } else if(hatType==='bow'){
-    const b1=mk(new T.SphereGeometry(.12,6,6),hatC);b1.scale.set(1.4,.8,1);b1.position.set(-.18,2.18,0);g.add(b1);
-    const b2=mk(new T.SphereGeometry(.12,6,6),hatC);b2.scale.set(1.4,.8,1);b2.position.set(.18,2.18,0);g.add(b2);
-    const bc=mk(new T.SphereGeometry(.07,6,6),hatC);bc.position.set(0,2.18,0);g.add(bc);
-  }
-  // Name label
-  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
-  const cx=cv.getContext('2d');cx.fillStyle='rgba(0,0,0,.65)';cx.fillRect(0,8,256,48);
-  cx.font='bold 26px sans-serif';cx.fillStyle='#fff';cx.textAlign='center';
-  cx.fillText(p.name||'Guest',128,44);
-  const sp=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(cv),depthTest:false}));
-  sp.scale.set(2.4,.6,1);sp.position.y=2.75;g.add(sp);
-  return g;
-};
-
-// ── Wardrobe Modal ────────────────────────────────────────────────────────────
-window._swShowWardrobe=function(){
-  document.getElementById('sw-wardrobe')?.remove();
-  const ch=window._swGetChar();
-  const ov=document.createElement('div');
-  ov.id='sw-wardrobe';
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;overflow-y:auto;';
-  ov.onclick=function(e){if(e.target===ov)ov.remove();};
-  const male=(ch.gender||'male')==='male';
-  const hatsMale=[['none','None','⬛'],['cap','Cap','🧢'],['hardhat','Hard Hat','⛑️'],['beanie','Beanie','🎿'],['cowboy','Cowboy','🤠']];
-  const hatsFem=[['none','None','⬛'],['cap','Cap','🧢'],['beanie','Beanie','🎿'],['headband','Headband','💜'],['bow','Hair Bow','🎀']];
-  const hats=male?hatsMale:hatsFem;
-  const skins=['#FDDBB4','#F1A875','#C68642','#8D5524','#4A2912'];
-  const hairs=['#FAD5A5','#D4A017','#8B4513','#2c1810','#1a1a1a','#C0C0C0'];
-  const colors=['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#ffffff','#000000','#6b7280','#0ea5e9','#14b8a6'];
-  const shoes=['#3b2a1a','#1a1a1a','#ffffff','#8B4513','#ef4444'];
-
-  function swatch(id,opts,cur,size='32px'){
-    return opts.map(c=>`<div onclick="window._swWardrobeSet('${id}','${c}')" style="width:${size};height:${size};border-radius:6px;background:${c};border:3px solid ${c===cur?'#fff':'transparent'};cursor:pointer;flex-shrink:0;" id="sw-sw-${id}-${c.replace('#','')}"></div>`).join('');
-  }
-  function hatRow(id,opts,cur){
-    return opts.map(([v,lbl,em])=>`<div onclick="window._swWardrobeSet('${id}','${v}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 8px;border-radius:8px;background:${v===cur?'rgba(255,255,255,.25)':'rgba(255,255,255,.07)'};border:2px solid ${v===cur?'#fff':'transparent'};"><span style="font-size:22px;">${em}</span><span style="color:#fff;font-size:9px;font-weight:700;">${lbl}</span></div>`).join('');
-  }
-
-  ov.innerHTML=`
-  <div style="background:linear-gradient(160deg,#1e1e2e,#2a1a3e);border-radius:20px;padding:24px 28px;max-width:520px;width:95%;box-shadow:0 20px 80px #000;color:#fff;">
-    <div style="text-align:center;font-size:22px;font-weight:900;letter-spacing:1px;margin-bottom:16px;">👔 Build Your Character</div>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Your Name</label>
-      <input id="sw-ward-name" placeholder="Enter your name..." style="width:100%;box-sizing:border-box;margin-top:4px;padding:10px 12px;border-radius:10px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:700;outline:none;">
-    </div>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Gender</label>
-      <div style="display:flex;gap:10px;margin-top:6px;">
-        <div id="sw-ward-male" onclick="window._swWardGender('male')" style="flex:1;padding:10px;border-radius:12px;text-align:center;cursor:pointer;border:3px solid ${male?'#60a5fa':'transparent'};background:${male?'rgba(59,130,246,.3)':'rgba(255,255,255,.07)'};font-size:18px;font-weight:900;">♂ Male</div>
-        <div id="sw-ward-fem" onclick="window._swWardGender('female')" style="flex:1;padding:10px;border-radius:12px;text-align:center;cursor:pointer;border:3px solid ${!male?'#f472b6':'transparent'};background:${!male?'rgba(236,72,153,.3)':'rgba(255,255,255,.07)'};font-size:18px;font-weight:900;">♀ Female</div>
-      </div>
-    </div>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Skin Tone</label>
-      <div style="display:flex;gap:8px;margin-top:6px;">${swatch('skin',skins,ch.skin||'#FDDBB4','36px')}</div>
-    </div>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;">Hair Color</label>
-      <div style="display:flex;gap:8px;margin-top:6px;">${swatch('hair',hairs,ch.hair||'#2c1810','32px')}</div>
-    </div>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1px;">${male?'Shirt':'Top'} Color</label>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">${swatch('shirt',colors,ch.shirt||'#3b82f6')}</div>
-    </div>
-    <div style="margin-bottom:12px;">Pants<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">${swatch('pants',colors,ch.pants||'#1a1a1a')}</div></div>
-    <div style="margin-bottom:12px;">Shoes<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">${swatch('shoes',shoes,ch.shoes||'#3b2a1a')}</div></div>
-    <div style="margin-bottom:12px;">Headwear<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">${hatRow('hat',hats,ch.hat||'none')}</div></div>
-    <button id="sw-wardrobe-done" style="width:100%;min-height:44px;border:0;border-radius:9px;background:#1479b8;color:#fff;font-size:16px;cursor:pointer;">Done</button>
-  </div>`;
-  // Assign the name as a DOM property, rather than interpreting it as markup.
-  ov.querySelector('#sw-ward-name').value=ch.name||'';
-  ov.querySelector('#sw-ward-name').addEventListener('change',e=>{const value=window._swGetChar();value.name=e.target.value.trim();window._swSaveChar(value);});
-  ov.querySelector('#sw-wardrobe-done').onclick=()=>ov.remove();
-  document.body.appendChild(ov);
-};
-window._swWardrobeSet=function(key,value){const character=window._swGetChar();character[key]=value;window._swSaveChar(character);window._swShowWardrobe();};
-window._swWardGender=function(gender){window._swWardrobeSet('gender',gender);};
-</script>
-<script>
-(function(){
-  if(!('serviceWorker' in navigator)) return;
-  window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
-  var PUB='BN0xNqqMyTy7gBdyIpDM8dGfOpX6-fIHO5nxEn7-Vzl-3xkIgI6JKaJw9tbM3ApSzFEBcRS4J5DBh23vsil5Y8M';
-  function u8(b64){var p='='.repeat((4-b64.length%4)%4);var s=atob((b64+p).replace(/-/g,'+').replace(/_/g,'/'));var a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
-  function setBell(on){var b=document.getElementById('sw-bell');if(b){b.textContent=on?'🔔✓':'🔔';b.title=on?'Alerts are ON on this device':'Tap to get lock & report alerts on this device';}}
-  function isSubbed(){return navigator.serviceWorker.ready.then(function(reg){return reg.pushManager.getSubscription();}).then(function(s){return !!s;}).catch(function(){return false;});}
-  function subId(ep){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(ep)).then(function(d){return Array.prototype.slice.call(new Uint8Array(d),0,12).map(function(x){return x.toString(16).padStart(2,'0');}).join('');});}
-  function subscribe(){
-    return Notification.requestPermission().then(function(perm){
-      if(perm!=='granted'){alert('Notifications are blocked for this site. Allow them in your browser settings.');return;}
-      return navigator.serviceWorker.ready.then(function(reg){
-        return reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:u8(PUB)});
-      }).then(function(sub){
-        return subId(sub.endpoint).then(function(id){
-          return fetch('https://storewell-3d-default-rtdb.firebaseio.com/pushSubs/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub.toJSON())});
-        });
-      }).then(function(){setBell(true);alert('Alerts are ON. This device will get lock and report notifications.');});
-    }).catch(function(e){alert('Could not turn on alerts: '+e.message);});
-  }
-  window.__swTogglePush=subscribe;
-  window.addEventListener('load', function(){
-    var b=document.createElement('button');
-    b.id='sw-bell'; b.textContent='🔔';
-    b.style.cssText='position:fixed;bottom:14px;left:14px;z-index:99999;font-size:18px;padding:8px 12px;border-radius:999px;border:none;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer';
-    b.onclick=subscribe;
-    document.body.appendChild(b);
-    isSubbed().then(setBell);
-  });
-  var _f=window.fetch.bind(window);
-  window.fetch=function(input,init){
-    var pr=_f(input,init);
-    try{
-      var u=typeof input==='string'?input:((input&&input.url)||'');
-      var m=(init&&init.method)||(input&&input.method)||'GET';
-      if(/lockReady\/[^\/]+\.json/.test(u)&&m==='PUT'){
-        var unit=(u.match(/lockReady\/([^\/.]+)/)||[])[1]||'unit';
-        var val=null;try{val=JSON.parse((init&&init.body)||'null');}catch(e){}
-        pr.then(function(r){if(r&&r.ok){_f('/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(val?{title:'🔓 '+unit+' lock is READY',body:(val.by?('Marked by '+val.by):'')}:{title:'🔒 '+unit+' lock status cleared',body:''})}).catch(function(){});}}).catch(function(){});
-      } else if(u==='/email'&&m==='POST'){
-        pr.then(function(r){if(r&&r.ok){_f('/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'📊 StoreWell report emailed',body:''})}).catch(function(){});}}).catch(function(){});
-      }
-    }catch(e){}
-    return pr;
-  };
-})();
-</script>
-
-
+<script src="/exterior-controls.js" defer></script>
+<script src="/notifications.js" defer></script>
+<script src="/status-sounds.js" defer></script>
 <script src="/command-deck.js" defer></script>
+</body>
+</html>

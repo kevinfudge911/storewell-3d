@@ -1,0 +1,19 @@
+StoreWell's standard character assets were recovered from their original upstream sources.
+
+Soldier.glb and Xbot.glb: three.js r128 examples, originally Mixamo character assets.
+https://github.com/mrdoob/three.js/tree/r128/examples/models/gltf
+Soldier Git blob: 1788f122d03bec6c3c634e7625e6cdfa960eef49
+Xbot Git blob: 3805d73e7c9cecef16f69dd0b0f1ce649f69c653
+
+RobotExpressive.glb: Tomas Laulhe, CC0 1.0; modifications by Don McCurdy.
+https://github.com/mrdoob/three.js/tree/r128/examples/models/gltf/RobotExpressive
+Git blob: 6fec9cfb4b41cb319c70d38cf86965aba5630964
+https://creativecommons.org/publicdomain/zero/1.0/
+
+CesiumMan.glb: Cesium, Creative Commons Attribution 4.0 International.
+https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0/CesiumMan
+Git blob: 516c60aff79dec343f4f65df65da04ce923807c9
+https://creativecommons.org/licenses/by/4.0/
+
+The three.js GLTFLoader license is retained in ../vendor/LICENSES.txt.
+Custom limo, police and firefighter models are retained from Kevin's own StoreWell deployment; see RECOVERY.md in the source repository.

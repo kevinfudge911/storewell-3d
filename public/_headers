@@ -8,3 +8,15 @@
   Cache-Control: no-cache
 /command-deck.css
   Cache-Control: no-cache
+/exterior-characters.js
+  Cache-Control: no-cache
+/exterior-controls.js
+  Cache-Control: no-cache
+/exterior.css
+  Cache-Control: no-cache
+/staff.bundle.js
+  Cache-Control: no-cache
+/notifications.js
+  Cache-Control: no-cache
+/status-sounds.js
+  Cache-Control: no-cache
