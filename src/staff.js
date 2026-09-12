@@ -1081,7 +1081,7 @@ window.__swCheckLogin=function(){
   return localStorage.getItem('sw_user')||null;
 };
 window.__swLogout=function(){
-  localStorage.removeItem('sw_user');
+  localStorage.removeItem('sw_user');localStorage.removeItem('sw_staff_name');
   location.reload();
 };
 window.__swLoginGate=async function(sc){

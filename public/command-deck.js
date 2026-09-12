@@ -65,6 +65,7 @@
   let propertyPlan, selectedPropertyUnit;
   const sceneryPanels=[];
   let view = 'room', yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
+  let appLoginStarted = false;
   let live = false, lastSync = 0, lastFocus, activeFilter = 'all', toastTimer, installPrompt;
   let routeQueue = [], routeCursor = 0;
   window.__swDeckVisible = false;
@@ -93,7 +94,8 @@
     if(e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
-  function openDeck() {
+  async function openDeck() {
+    if(!await login())return;
     closeDialog();
     deck.hidden = false; window.__swDeckVisible = true;
     document.body.classList.add('storewell-deck-open');
@@ -172,9 +174,10 @@
     draw();
   }
   async function login() {
+    if(window.__swCheckLogin?.()&&app?.state.editMode)return true;
     if(!app || !window.__swLoginGate) { toast('Staff sign-in is still loading. Please try again shortly.'); return false; }
     await window.__swLoginGate(app);
-    return !!(window.__swCheckLogin?.() && app.state.editMode);
+    return !!window.__swCheckLogin?.();
   }
   function showUnit(unit) {
     const state = STATUS[unit.status] || ['Unknown'];
@@ -260,6 +263,8 @@
     app=window.__swApp;
     window.__swCommandCenter=openDeck; window.__swPanelOpen=openDeck; window.__swGoCommand=openDeck;
     if(!app?._locks) return;
+    if(!appLoginStarted && window.__swLoginGate){appLoginStarted=true;login().catch(()=>toast('Sign-in could not connect. Please try again.'));}
+    if(window.__swDeckVisible && !window.__swCheckLogin?.())exitDeck();
     if(!window.__swDeckVisible && app._webglAvailable===false && Object.keys(app._locks).length) {
       if(!propertyPlan||propertyPlan.hidden)showPropertyPlan();else updatePropertyPlan();
     }

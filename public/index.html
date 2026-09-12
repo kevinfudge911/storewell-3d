@@ -192,7 +192,7 @@ class Component extends DCLogic {
     super(props);
     this.mountRef = React.createRef();
     this.loadRef = React.createRef();
-    let _sn=''; try{ _sn=localStorage.getItem('sw_staff_name')||''; }catch(e){}
+    let _sn=''; try{ _sn=localStorage.getItem('sw_user')||''; }catch(e){}
     let _touch=false; try{ _touch=('ontouchstart' in window)||(navigator.maxTouchPoints>0); }catch(e){}
     this.state = { mode:'orbit', editMode:!!_sn, staffName:_sn, pickUnit:null, pickStatus:null, showLogin:false, isTouch:_touch, showAdmin:false };
     this._joyRef = React.createRef(); this._joyThumbRef = React.createRef(); this._tk={}; this._talt={};
@@ -216,7 +216,7 @@ class Component extends DCLogic {
     exitRide:()=>{ if(this.mode==='drive') this._exitCar(); else if(this.mode==='fly') this._exitRide(this.flyer); else if(this.mode==='ufo') this._exitRide(this.ufo); else this.setMode('walk'); },
     stopAll:()=>{ this.keys={}; this._kt={}; this._dragging=false; this.lookYaw=0; this.lookPitch=0; },
     goHome:()=>this._goHome(),
-    editMode:this.state.editMode, notEdit:!this.state.editMode, staffName:this.state.staffName||'Staff', isAdmin:this.state.staffName==='Kevin', pickUnit:this.state.pickUnit, pickStatus:this.state.pickStatus,
+    editMode:this.state.editMode, notEdit:!this.state.editMode, staffName:this.state.staffName||'Staff', isAdmin:!!this.state.editMode && !!window.__swCheckLogin?.(), pickUnit:this.state.pickUnit, pickStatus:this.state.pickStatus,
     showHelp:(this.state.helpClosed?false:!this.state.editMode), closeHelp:()=>this.setState({helpClosed:true}),
     showSearch:this.state.showSearch, results:this.state.results||[], nResults:this.state.nResults||0, qRef:this._qRef,
     suggestions:(this.state.suggestions||[]).map(r=>({...r,go:()=>this.locate(r.key)})),
@@ -268,7 +268,7 @@ class Component extends DCLogic {
       try{ var le={type:'login',label:'Login',from:'Offline',to:'Online',who:n,t:Date.now()}; if(window._swPush&&window._swRef&&window._swDB){window._swPush(window._swRef(window._swDB,'lockLog'),le).catch(function(){});}else{fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(le)}).catch(function(){});} }catch(ex){} },
     pinRef:this._pinRef, remRef:this._remRef,
     showLogin:this.state.showLogin, loginErr:false,
-    logout:()=>{ try{ localStorage.removeItem('sw_staff_name'); }catch(e){} this.setState({editMode:false,staffName:'',pickUnit:null,showInv:false}); },
+    logout:()=>{ try{ localStorage.removeItem('sw_staff_name');localStorage.removeItem('sw_user'); }catch(e){} this.setState({editMode:false,staffName:'',pickUnit:null,showInv:false}); },
     closePick:()=>this.setState({pickUnit:null}),
     setStatusBlue:()=>this._pick('blue'), setStatusRed:()=>this._pick('red'), setStatusWhite:()=>this._pick('white'),
     setStatusBlack:()=>this._pick('black'), setStatusGreen:()=>this._pick('green'), setStatusYellow:()=>this._pick('yellow'),

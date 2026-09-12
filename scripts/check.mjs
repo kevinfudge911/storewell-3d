@@ -78,26 +78,32 @@ if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,f
 assert.equal(app._statusOf('E10'),'purple','The upgraded Ready status remains purple');
 assert.equal(app._overrides.E10,'purple','Compatibility does not rewrite stored statuses');
 const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.click();};
-const enter=()=>{
+let adminSession=false;w.__swCheckLogin=()=>adminSession?'Offline admin':null;w.__swLoginGate=async()=>null;
+const enter=async()=>{
   if(noGpu)click('[data-property="command"]');
   else {const entry=w.document.querySelector('#sw-cmd-tab');assert(entry,'Recovered outdoor Command Center tab');entry.click();}
+  await new Promise(resolve=>setTimeout(resolve,10));
 };
-enter();assert.equal(w.__swDeckVisible,true,'Outdoor entry opens the command room');
+await enter();assert.equal(w.__swDeckVisible,false,'Unauthenticated visitors cannot enter the command bridge');
+adminSession=true;app.state.editMode=true;w._swAuth={currentUser:{uid:'offline'}};
+w._swRef=(db,key)=>key;w._swOnValue=(key,onValue)=>{assert.equal(key,'lockLog');onValue({val:()=>({one:{label:'G2',from:'Rented',to:'Locked out',who:'Offline admin',t:123,type:'lock'}})});return ()=>{};};
+await enter();assert.equal(w.__swDeckVisible,true,'Outdoor entry opens the command room');
 assert.equal(renderers,1,'The bridge uses GPU-independent 3D geometry');
 assert(w.document.querySelectorAll('.bridge-surface').length>80,'Room has separate walls, floor and furniture');
 if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,true,'Outdoor fallback is hidden inside');
 click('[data-action="exit"]');assert.equal(w.__swDeckVisible,false,'Exit returns outside');
-enter();assert.equal(renderers,1,'Room re-entry reuses its existing renderer');
+await enter();assert.equal(renderers,1,'Room re-entry reuses its existing renderer');
 click('[data-action="find"]');
 assert(w.document.querySelectorAll('.unit-grid .unit').length>=160,'Find unit lists full catalog');
 const search=w.document.querySelector('#deck-find');search.value='c11-2';search.dispatchEvent(new w.Event('input'));
 assert.equal(w.document.querySelectorAll('.unit-grid .unit').length,1,'Search normalizes hyphens');
 click('[data-unit="C112"]');
 assert(w.document.querySelector('#deck-dialog-title').textContent.replace(/[-\s]/g,'').includes('C112'),w.document.querySelector('#deck-dialog-title').textContent);
+adminSession=false;app.state.editMode=false;
 const before=requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length;
 click('#deck-edit');await new Promise(resolve=>setTimeout(resolve,0));
 assert.equal(requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length,before,'Unauthenticated UI cannot write');
-click('#deck-locate');
+click('#deck-locate');adminSession=true;app.state.editMode=true;
 assert.equal(w.__swDeckVisible,false,'Find on property exits command room');
 if(noGpu){
   assert.equal(w.document.querySelector('#sw-property-fallback').hidden,false,'Find returns to outdoor plan');
@@ -106,7 +112,7 @@ if(noGpu){
   assert(w.document.querySelector('.bridge-log-wall')&&w.document.querySelector('.bridge-roster-wall'),'Lock activity and every unit have wall stations');
   assert(!w.document.querySelector('[data-view="look"]').disabled,'Look around remains available without WebGL');
 }else assert(app._marker?.visible,'Unit location marker appears in original model');
-enter();assert.equal(w.__swDeckVisible,true,'Can return to command room');
+await enter();assert.equal(w.__swDeckVisible,true,'Can return to command room');
 click('[data-action="green"]');assert(w.document.querySelector('#deck-dialog-title').textContent==='Rented');
 assert([...w.document.querySelectorAll('.unit-grid .unit span')].every(e=>e.textContent==='Rented'));
 click('.close-dialog');click('[data-action="report"]');assert(w.document.querySelector('#deck-download'));
@@ -124,8 +130,17 @@ assert(Number(deck.dataset.bridgeZ)>startZ+.2,'WASD actually translates the came
 const stoppedZ=Number(deck.dataset.bridgeZ);await new Promise(resolve=>setTimeout(resolve,90));
 assert.equal(Number(deck.dataset.bridgeZ),stoppedZ,'Releasing a movement key stops walking');
 click('[data-view="history"]');assert.equal(w.document.querySelector('#deck-dialog-title').textContent,'Lock activity history');
-assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('sign in'),'History does not invent records before staff sign in');click('.close-dialog');
+assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('1 saved changes'),'Existing admin session loads actual lock history automatically');assert(!w.document.querySelector('[data-full-lock-history]').textContent.includes('sign in'),'History does not request another sign-in');click('.close-dialog');
 click('[data-view="room"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Bridge overview remains spatial on phones');
+// A remembered app login restores full control without showing another credential form.
+const loginSource=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
+const loginStart=loginSource.indexOf('window.__swCheckLogin=function(){');
+const loginEnd=loginSource.indexOf('window.__swAdminSave=',loginStart);
+const savedCheck=w.__swCheckLogin,savedGate=w.__swLoginGate;
+w.eval(loginSource.slice(loginStart,loginEnd));
+w.localStorage.setItem('sw_user','Mike');app.state.editMode=false;
+await w.__swLoginGate(app);assert.equal(app.state.editMode,true);assert.equal(app.state.staffName,'Mike');assert(!w.document.querySelector('#sw-login-overlay'),'Remembered admin login does not open another sign-in form');
+w.__swCheckLogin=savedCheck;w.__swLoginGate=savedGate;
 // Run the retained staff panel with fake identity and network. No production data is read or written.
 const staff=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
 w.eval(staff.slice(staff.indexOf('window.__swOperationsOpen='),staff.indexOf('window.__swAdminOpen=')));

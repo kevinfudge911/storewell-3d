@@ -10,7 +10,7 @@
     deck.querySelector('.room-ui').append(renderer.domElement);
     deck.classList.add('walkable-bridge');
     const faces = [], obstacles = [], keys = new Set();
-    let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .07, unsubscribe, authUnsubscribe, history = [], historyState = 'Sign in to view lock activity', watched = false;
+    let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .07, unsubscribe, authUnsubscribe, history = [], historyState = 'Connecting to saved lock history…', watched = false;
     const normal = new T.Vector3(), toCamera = new T.Vector3();
     const phone = () => innerWidth <= 700;
     const plane = (name,w,h,x,y,z,ry=0,rx=0,html='') => {
@@ -43,9 +43,9 @@
     const board = new T.CSS3DObject(screen); board.scale.setScalar(.02); board.position.set(0,6.65,-23.5); scene.add(board); faces.push(board);
     const station = (cls,title,sub,w,h,x,y,z,ry,html) => plane('bridge-station '+cls,w,h,x,y,z,ry,0,
       `<header><span>${sub}</span><h2>${title}</h2></header>${html}`);
-    const logWall = station('bridge-log-wall','LOCK ACTIVITY','PORT · OPERATIONS',14,7.8,-21.8,6,2,Math.PI/2,
-      '<div class="bridge-log-state" role="status"></div><div class="bridge-log-rows"></div><footer><button data-station="history">Open full lock history</button><button data-station="login">Staff sign in</button></footer>').element;
-    const rosterWall = station('bridge-roster-wall','UNIT STATUS','STARBOARD · SECURITY',14,7.8,21.8,6,2,-Math.PI/2,
+    const logWall = station('bridge-log-wall','LOCK ACTIVITY','PORT · OPERATIONS',14,7.8,-21.15,6,2,Math.PI/2,
+      '<div class="bridge-log-state" role="status"></div><div class="bridge-log-rows"></div><footer><button data-station="history">Open full lock history</button><button data-station="refresh">Refresh history</button></footer>').element;
+    const rosterWall = station('bridge-roster-wall','UNIT STATUS','STARBOARD · SECURITY',14,7.8,21.15,6,2,-Math.PI/2,
       '<div class="bridge-roster"></div><footer>Live unit status · Select a unit to inspect</footer>').element;
     station('bridge-comms','COMMUNICATIONS','AFT · CREW STATION',11,6,-10,5.3,23.7,Math.PI,
       '<div class="bridge-station-actions"><button data-station="alerts">Push notifications</button><button data-station="report">Save &amp; email report</button><button data-station="gear">Team &amp; ship systems</button></div>');
@@ -143,19 +143,19 @@
       const slot=content.querySelector('[data-full-lock-history]'); if(slot){slot.innerHTML=rowsHtml(history);content.querySelector('[data-lock-history-state]').textContent=historyState;}
     }
     function openHistory() {
-      stop();showDialog('Lock activity history','<p class="muted" data-lock-history-state></p><div class="full-lock-history" data-full-lock-history></div><div class="dialog-actions"><button class="action-button" data-history-login>Staff sign in / refresh</button></div>');
-      drawHistory();content.querySelector('[data-history-login]').onclick=async()=>{if(await login()){watchHistory(true);}};
+      stop();showDialog('Lock activity history','<p class="muted" data-lock-history-state></p><div class="full-lock-history" data-full-lock-history></div><div class="dialog-actions"><button class="action-button" data-history-login>Refresh history</button></div>');
+      drawHistory();content.querySelector('[data-history-login]').onclick=()=>watchHistory(true);
     }
     function watchHistory(retry=false) {
       const signed=window.__swCheckLogin?.() && window._swAuth?.currentUser;
-      if(!signed){if(watched){unsubscribe?.();unsubscribe=null;watched=false;}history=[];historyState='Staff sign in to view lock activity';drawHistory();return;}
+      if(!signed){if(watched){unsubscribe?.();unsubscribe=null;watched=false;}history=[];historyState='Connecting to saved lock history…';drawHistory();return;}
       if(watched&&!retry)return;
       if(!window._swOnValue||!window._swRef)return;
       unsubscribe?.();watched=true;historyState='Loading saved lock history…';drawHistory();
       unsubscribe=window._swOnValue(window._swRef(window._swDB,'lockLog'),snapshot=>{
         history=Object.values(snapshot.val()||{}).filter(r=>r&&(!r.type||r.type==='lock')&&(r.label||r.unit)).sort((a,b)=>(Number(b.t)||0)-(Number(a.t)||0));
         historyState=history.length?`${history.length} saved changes · newest first`:'No saved lock changes yet';drawHistory();
-      },()=>{watched=false;historyState='Lock history could not connect. Sign in / refresh to retry.';drawHistory();});
+      },()=>{watched=false;historyState='Lock history could not connect. Refresh to retry.';drawHistory();});
     }
     let rosterSignature='';
     function refresh() {
@@ -166,7 +166,7 @@
     deck.addEventListener('click',e=>{
       const id=e.target.closest('[data-room-unit]')?.dataset.roomUnit;if(id){stop();const u=units().find(u=>u.id===id);if(u)showUnit(u);return;}
       const action=e.target.closest('[data-station]')?.dataset.station;if(!action)return;stop();
-      ({history:openHistory,login:async()=>{if(await login())watchHistory(true);},gear,alerts,report,exit}[action])?.();
+      ({history:openHistory,refresh:()=>watchHistory(true),gear,alerts,report,exit}[action])?.();
     });
     return {
       open(){active=true;lastTime=0;setView('room');refresh();if(!raf)raf=requestAnimationFrame(frame);},
