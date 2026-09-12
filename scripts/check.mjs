@@ -31,7 +31,8 @@ w.fetch=async(url,opts={})=>{requests.push({url:String(url),opts});return {ok:tr
 w.AbortSignal.timeout=()=>undefined;
 for(const f of ['vendor/three.min.js','vendor/OrbitControls.js','vendor/CSS3DRenderer.js','vendor/react.production.min.js','vendor/react-dom.production.min.js'])w.eval(read(f));
 // A software DOM cannot create a GPU context; keep real scene geometry and stub only rendering.
-w.THREE.WebGLRenderer=class{constructor(){if(noGpu)throw new Error('GPU context unavailable');this.domElement=w.document.createElement('canvas');this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}dispose(){}};
+let renderers=0;
+w.THREE.WebGLRenderer=class{constructor(){renderers++;if(noGpu)throw new Error('GPU context unavailable');this.domElement=w.document.createElement('canvas');this.shadowMap={};}setPixelRatio(){}setSize(){}render(){}dispose(){}};
 w.eval(read('vendor/dc-runtime.js'));
 await new Promise(resolve=>setTimeout(resolve,200));
 const app=w.__swApp;
@@ -46,10 +47,24 @@ assert.equal(app._statusOf('E5'),'blue');
 assert.equal(app._statusOf('E8'),'white');
 w.eval(read('command-deck.js'));
 await new Promise(resolve=>setTimeout(resolve,50));
-assert.equal(w.__swDeckVisible,true,'Command center opens first');
+assert.equal(w.__swDeckVisible,false,'The storage property opens first');
+assert.equal(w.document.querySelector('#sw-deck').hidden,true,'The command room is hidden outside');
+assert.equal(renderers,1,'Only the original property renderer is attempted before room entry');
+assert.equal(app.mode,'walk','The original outdoor walking view is selected');
+assert(app._siteWalls.length>30,'Outdoor plan uses actual model building edges');
+if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,false,'No-GPU startup is the outdoor property plan');
 assert.equal(app._statusOf('E10'),'white','Saved purple Ready status is understood by the restored property');
 assert.equal(app._overrides.E10,'purple','Compatibility does not rewrite stored statuses');
 const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.click();};
+const enter=()=>{
+  if(noGpu)click('[data-property="command"]');
+  else {const entry=[...w.document.querySelectorAll('#dc-root button')].find(b=>b.textContent.includes('Command Center'));assert(entry,'Original outdoor Command Center button');entry.click();}
+};
+enter();assert.equal(w.__swDeckVisible,true,'Outdoor entry opens the command room');
+assert.equal(renderers,2,'The room renderer starts only after entry');
+if(noGpu)assert.equal(w.document.querySelector('#sw-property-fallback').hidden,true,'Outdoor fallback is hidden inside');
+click('[data-action="exit"]');assert.equal(w.__swDeckVisible,false,'Exit returns outside');
+enter();assert.equal(renderers,2,'Room re-entry reuses its existing renderer');
 click('[data-action="find"]');
 assert(w.document.querySelectorAll('.unit-grid .unit').length>=160,'Find unit lists full catalog');
 const search=w.document.querySelector('#deck-find');search.value='c11-2';search.dispatchEvent(new w.Event('input'));
@@ -60,18 +75,15 @@ const before=requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length;
 click('#deck-edit');await new Promise(resolve=>setTimeout(resolve,0));
 assert.equal(requests.filter(r=>r.opts.method&&r.opts.method!=='GET').length,before,'Unauthenticated UI cannot write');
 click('#deck-locate');
+assert.equal(w.__swDeckVisible,false,'Find on property exits command room');
 if(noGpu){
-  assert.equal(w.__swDeckVisible,true,'Keep usable command room open when GPU is unavailable');
+  assert.equal(w.document.querySelector('#sw-property-fallback').hidden,false,'Find returns to outdoor plan');
   assert.equal(w.document.querySelectorAll('[data-plan-unit]').length,Object.keys(app._locks).length,'Property plan preserves every modeled unit');
-  assert(w.document.querySelector('#deck-dialog-title').textContent.replace(/[-\s]/g,'').includes('C112'),'Plan highlights the searched unit');
-  click('#deck-return');
+  assert.equal(w.document.querySelector('.plan-unit.selected').dataset.planUnit,'C112','Plan highlights the searched unit');
   assert.equal(w.document.querySelectorAll('.panorama-panel').length,32,'The CSS room wraps all the way around');
   assert(!w.document.querySelector('[data-view="look"]').disabled,'Look around remains available without WebGL');
-}else{
-  assert.equal(w.__swDeckVisible,false,'Find on property exits command room');
-  assert(app._marker?.visible,'Unit location marker appears in original model');
-}
-w.__swCommandCenter();assert.equal(w.__swDeckVisible,true,'Can return to command room');
+}else assert(app._marker?.visible,'Unit location marker appears in original model');
+enter();assert.equal(w.__swDeckVisible,true,'Can return to command room');
 click('[data-action="green"]');assert(w.document.querySelector('#deck-dialog-title').textContent==='Rented');
 assert([...w.document.querySelectorAll('.unit-grid .unit span')].every(e=>e.textContent==='Rented'));
 click('.close-dialog');click('[data-action="report"]');assert(w.document.querySelector('#deck-download'));
@@ -85,6 +97,33 @@ await new Promise(resolve=>setTimeout(resolve,1400));
 assert.equal(w.document.querySelector('.command-screen').style.display,'none','Looking away hides the display behind the camera');
 click('[data-view="center"]');assert(w.document.querySelector('.mobile-dock .command-screen'),'Center restores usable phone controls');
 assert.notEqual(w.document.querySelector('.mobile-dock .command-screen').style.display,'none','Phone controls become visible again after looking away');
+// Run the retained staff panel with fake identity and network. No production data is read or written.
+const staff=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
+w.eval(staff.slice(staff.indexOf('window.__swOperationsOpen='),staff.indexOf('window.__swAdminOpen=')));
+let signedIn=false;w.__swCheckLogin=()=>signedIn?'Offline test':null;
+w.__swLoginGate=async()=>null;
+click('[data-action="gear"]');click('[data-setting="log"]');
+await new Promise(resolve=>setTimeout(resolve,10));
+assert(!w.document.querySelector('#sw-cmd-panel'),'Cancelled staff sign-in keeps activity log closed');
+signedIn=true;app.state.editMode=true;
+click('[data-action="gear"]');click('[data-setting="log"]');
+await new Promise(resolve=>setTimeout(resolve,20));
+assert.equal(w.document.querySelector('#sw-tab-log').style.display,'block','Gear opens the retained Activity log');
+click('#sw-panel-close');click('[data-action="gear"]');click('[data-setting="contacts"]');
+await new Promise(resolve=>setTimeout(resolve,20));
+assert.equal(w.document.querySelector('#sw-tab-contacts').style.display,'block','Gear opens the retained Team tools');
+assert.equal(w.document.querySelectorAll('#sw-contact-cards [data-field="email"]').length,3,'All original team contact forms remain');
+click('#sw-panel-close');click('[data-action="gear"]');click('[data-setting="chat"]');
+await new Promise(resolve=>setTimeout(resolve,10));
+assert.equal(app.state.chatOpen,true,'Gear opens the original staff chat');
+let characterOpened=false,helpOpened=false;
+w._swShowWardrobe=()=>{characterOpened=true;};w.__swShowHelp=()=>{helpOpened=true;};
+click('[data-action="gear"]');click('[data-setting="character"]');assert(characterOpened);
+click('[data-action="gear"]');click('[data-setting="help"]');assert(helpOpened);
+const locationBefore=app.walker.g.position.clone();
+click('[data-action="exit"]');assert.equal(w.__swDeckVisible,false);
+assert(app.walker.g.position.equals(locationBefore),'Leaving the room preserves the outdoor location');
+assert.equal(app.state.chatOpen,false,'Staff chat closes when returning outside');
 // Exercise the actual save boundary with a fake identity and fake network, never production.
 app.state.editMode=true;w.__swCheckLogin=()=> 'Offline test';
 const original=app._statusOf('G2');w.fetch=async()=>({ok:false});

@@ -33,6 +33,7 @@
   }
   const deck = document.createElement('section');
   deck.id = 'sw-deck';
+  deck.hidden = true;
   deck.setAttribute('aria-label', 'StoreWell 3D command center');
   deck.innerHTML = `<div class="fallback-room"></div><div class="room-canvas"></div><div class="room-ui"></div><div class="room-vignette"></div><div class="mobile-dock"></div>
     <div class="view-help" hidden>Drag to look around · Arrow keys to turn · Center to return</div>
@@ -60,13 +61,13 @@
   dialog.innerHTML = '<div class="dialog-box"><header class="dialog-head"><h2 id="deck-dialog-title"></h2><button class="close-dialog" aria-label="Close dialog">×</button></header><div class="dialog-body"></div></div>';
   document.body.append(dialog);
   const content = dialog.querySelector('.dialog-body');
-  let app, room, renderer, cssRenderer, cssScene, cssCamera, camera, board, raf, lastFrame = 0;
+  let app, room, renderer, cssRenderer, cssScene, cssCamera, camera, board, raf, lastFrame = 0, roomStarted = false;
+  let propertyPlan, selectedPropertyUnit;
   const sceneryPanels=[];
   let view = 'room', yaw = 0, pitch = 0, targetYaw = 0, targetPitch = 0;
   let live = false, lastSync = 0, lastFocus, activeFilter = 'all', toastTimer, installPrompt;
   let routeQueue = [], routeCursor = 0;
-  window.__swDeckVisible = true;
-  document.body.classList.add('storewell-deck-open');
+  window.__swDeckVisible = false;
   const mobile = () => window.innerWidth <= 700;
   const units = () => Object.entries(app?._locks || {}).map(([id, rec]) => ({ id, label: rec.label, size: app._sizeOf(rec.label), status: app._statusOf(rec.label) })).sort((a,b) => a.label.localeCompare(b.label, undefined, {numeric:true}));
   function toast(text) {
@@ -75,11 +76,13 @@
   }
   function showDialog(title, html) {
     lastFocus = document.activeElement;
+    content.onclick = null;
     dialog.querySelector('h2').textContent = title; content.innerHTML = html;
     dialog.hidden = false; deck.inert = true;
+    if(propertyPlan) propertyPlan.inert = true;
     (content.querySelector('input') || dialog.querySelector('.close-dialog')).focus();
   }
-  function closeDialog() { dialog.hidden = true; deck.inert = false; if(lastFocus?.isConnected) lastFocus.focus(); }
+  function closeDialog() { dialog.hidden = true; deck.inert = false; if(propertyPlan) propertyPlan.inert = false; if(lastFocus?.isConnected) lastFocus.focus(); }
   dialog.querySelector('.close-dialog').onclick = closeDialog;
   dialog.addEventListener('click', e => { if(e.target === dialog) closeDialog(); });
   dialog.addEventListener('keydown', e => {
@@ -91,39 +94,70 @@
     else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
   function openDeck() {
+    closeDialog();
     deck.hidden = false; window.__swDeckVisible = true;
     document.body.classList.add('storewell-deck-open');
+    document.body.classList.remove('storewell-property-plan');
+    if(propertyPlan) propertyPlan.hidden = true;
     document.getElementById('sw-dashboard')?.remove();
-    if(app) { app.keys = {}; app._kt = {}; app.setState({showSearch:false,showInv:false,pickUnit:null,helpClosed:true}); }
+    if(app) { app.keys = {}; app._kt = {}; app._tk = {}; app._talt = {}; app._dragging = false; app.setState({showSearch:false,showInv:false,pickUnit:null,chatOpen:false,helpClosed:true}); }
+    if(!roomStarted) { roomStarted = true; setupRoom(); }
+    yaw = pitch = targetYaw = targetPitch = 0;
+    setView('room');
     if(!raf) animate();
   }
   function exitDeck(unit) {
     if(!app?.scene) return toast('The property model is still loading. Please try again in a moment.');
-    if(app._webglAvailable===false) return showPropertyPlan(unit);
     closeDialog(); deck.hidden = true; window.__swDeckVisible = false;
     document.body.classList.remove('storewell-deck-open');
-    app.keys={}; app._kt={}; app.lookYaw=0; app.lookPitch=0;
+    for(const id of ['sw-cmd-panel','sw-help-modal','sw-wardrobe']) document.getElementById(id)?.remove();
+    app.keys={}; app._kt={}; app._tk={}; app._talt={}; app.setState({chatOpen:false});
     if(unit) { app.locate(unit.id); app.setState({showSearch:false,pickUnit:null}); }
-    else { app.setMode('orbit'); app._goHome(); }
+    if(app._webglAvailable===false) showPropertyPlan(unit);
     window.dispatchEvent(new Event('resize'));
   }
   function showPropertyPlan(selected) {
+    if(selected) selectedPropertyUnit = selected;
+    if(!propertyPlan) {
+      propertyPlan = document.createElement('main'); propertyPlan.id = 'sw-property-fallback';
+      propertyPlan.innerHTML = `<header><div><p>OUTSIDE · STORAGE PROPERTY</p><h1>StoreWell Storage</h1></div><nav aria-label="Property controls"><button data-property="find">Find a unit</button><button data-property="command">Enter Command Center</button></nav></header><div class="property-caption"><span>3D graphics are unavailable on this device. Showing the property plan.</span><strong class="property-selection" role="status"></strong></div><div class="property-plan"><svg role="group" aria-label="Storage property and unit locations"></svg></div>`;
+      document.body.append(propertyPlan);
+      propertyPlan.querySelector('[data-property="command"]').onclick = openDeck;
+      propertyPlan.querySelector('[data-property="find"]').onclick = () => showInventory();
+      const select=e=>{const id=e.target.closest('[data-plan-unit]')?.dataset.planUnit;if(id){const unit=units().find(u=>u.id===id);if(unit)showUnit(unit);}};
+      propertyPlan.querySelector('svg').onclick=select;
+      propertyPlan.querySelector('svg').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e);}};
+      drawPropertyPlan();
+    }
+    propertyPlan.hidden = false; document.body.classList.add('storewell-property-plan');
+    updatePropertyPlan();
+    if(selected) propertyPlan.querySelector(`[data-plan-unit="${selected.id}"]`)?.scrollIntoView?.({block:'center',inline:'center'});
+  }
+  function drawPropertyPlan() {
     const rows=units().map(u=>({...u,pos:app._locks[u.id].pos}));
-    const minX=Math.min(...rows.map(u=>u.pos.x))-5,minZ=Math.min(...rows.map(u=>u.pos.z))-5;
-    const width=Math.max(...rows.map(u=>u.pos.x))-minX+5,height=Math.max(...rows.map(u=>u.pos.z))-minZ+5;
-    const pins=rows.map(u=>`<g class="plan-unit" role="button" tabindex="0" aria-label="Unit ${escape(u.label)} · ${STATUS[u.status]?.[0]||'Unknown'}" data-plan-unit="${escape(u.id)}"><circle cx="${u.pos.x}" cy="${u.pos.z}" r="${u.id===selected?.id?2:1.2}" fill="${STATUS[u.status]?.[1]||'#adbdca'}" ${u.id===selected?.id?'stroke="white" stroke-width=".7"':''}/><text x="${u.pos.x}" y="${u.pos.z-1.8}" text-anchor="middle">${escape(u.label)}</text></g>`).join('');
-    showDialog(selected?`Property · Unit ${selected.label}`:'StoreWell property',`<p class="muted">Your browser cannot start the 3D property view. This plan shows the same unit locations. Select a unit for its details.</p><div class="property-plan"><svg viewBox="${minX} ${minZ} ${width} ${height}" aria-label="Storage unit locations">${pins}</svg></div><div class="dialog-actions"><button class="action-button" id="deck-return">Return to command center</button>${routeQueue.length?'<button class="action-button" id="deck-route-next">Next route unit</button>':''}</div>`);
-    const select=e=>{const id=e.target.closest('[data-plan-unit]')?.dataset.planUnit;if(id)showUnit(rows.find(u=>u.id===id));};
-    content.querySelector('.property-plan').onclick=select;
-    content.querySelector('.property-plan').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e);}};
-    content.querySelector('#deck-return').onclick=()=>{closeDialog();openDeck();};
-    const next=content.querySelector('#deck-route-next');if(next)next.onclick=()=>{routeCursor=(routeCursor+1)%routeQueue.length;showPropertyPlan(routeQueue[routeCursor]);};
+    const walls=app._siteWalls||[],points=[...rows.map(u=>u.pos),...walls.flatMap(w=>[{x:w.x1,z:w.z1},{x:w.x2,z:w.z2}])];
+    const minX=Math.min(...points.map(p=>p.x))-6,minZ=Math.min(...points.map(p=>p.z))-6;
+    const width=Math.max(...points.map(p=>p.x))-minX+6,height=Math.max(...points.map(p=>p.z))-minZ+6;
+    const outlines=walls.map(w=>`<path d="M${w.x1} ${w.z1}L${w.x2} ${w.z2}"/>`).join('');
+    const pins=rows.map(u=>`<g class="plan-unit" role="button" tabindex="0" data-plan-unit="${escape(u.id)}"><circle cx="${u.pos.x}" cy="${u.pos.z}" r="1.35"/><text x="${u.pos.x}" y="${u.pos.z-1.9}" text-anchor="middle">${escape(u.label)}</text></g>`).join('');
+    const svg=propertyPlan.querySelector('svg');svg.setAttribute('viewBox',`${minX} ${minZ} ${width} ${height}`);
+    svg.innerHTML=`<rect x="${minX}" y="${minZ}" width="${width}" height="${height}" fill="#e3e5dc"/><g class="property-walls">${outlines}</g>${pins}`;
+  }
+  function updatePropertyPlan(){
+    if(!propertyPlan||propertyPlan.hidden)return;
+    for(const unit of units()){
+      const pin=propertyPlan.querySelector(`[data-plan-unit="${unit.id}"]`);if(!pin)continue;
+      pin.setAttribute('aria-label',`Unit ${unit.label} · ${STATUS[unit.status]?.[0]||'Unknown'}`);
+      pin.classList.toggle('selected',unit.id===selectedPropertyUnit?.id);
+      pin.querySelector('circle').setAttribute('fill',STATUS[unit.status]?.[1]||'#adbdca');
+    }
+    propertyPlan.querySelector('.property-selection').textContent=selectedPropertyUnit?`Unit ${selectedPropertyUnit.label} highlighted`:'Select a unit to view its details';
   }
   function showInventory(filter = 'all', route = false) {
     activeFilter = filter;
     const title = route ? `${STATUS[filter][0]} route` : filter === 'all' ? 'Find a storage unit' : STATUS[filter][0];
     const options = [['all','All units'], ...Object.entries(STATUS).map(([k,v])=>[k,v[0]])];
-    showDialog(title, `<div class="inventory-tools"><div><label for="deck-find">Unit number</label><input id="deck-find" type="search" placeholder="Search, for example C12" autocomplete="off"></div><div><label for="deck-filter">Status</label><select id="deck-filter">${options.map(([k,v])=>`<option value="${k}" ${k===filter?'selected':''}>${v}</option>`).join('')}</select></div></div>${route?'<p class="muted">Choose a unit to open its marked location in the 3D property.</p>':''}<div class="unit-grid"></div><p class="empty-message" hidden></p>`);
+    showDialog(title, `<div class="inventory-tools"><div><label for="deck-find">Unit number</label><input id="deck-find" type="search" placeholder="Search, for example C12" autocomplete="off"></div><div><label for="deck-filter">Status</label><select id="deck-filter">${options.map(([k,v])=>`<option value="${k}" ${k===filter?'selected':''}>${v}</option>`).join('')}</select></div></div>${route?'<p class="muted">Choose a unit to open its marked location on the property.</p>':''}<div class="unit-grid"></div><p class="empty-message" hidden></p>`);
     const search = content.querySelector('input'), select = content.querySelector('select'), grid = content.querySelector('.unit-grid'), empty = content.querySelector('.empty-message');
     function draw() {
       activeFilter = select.value;
@@ -143,7 +177,7 @@
   }
   function showUnit(unit) {
     const state = STATUS[unit.status] || ['Unknown'];
-    showDialog(`Unit ${unit.label}`, `<p class="muted">${escape(unit.size)} · Current status: <strong>${state[0]}</strong></p><div class="dialog-actions"><button class="action-button" id="deck-locate">Find on 3D property</button><button class="action-button" id="deck-edit">Change status</button></div><div id="deck-edit-options"></div>`);
+    showDialog(`Unit ${unit.label}`, `<p class="muted">${escape(unit.size)} · Current status: <strong>${state[0]}</strong></p><div class="dialog-actions"><button class="action-button" id="deck-locate">Find on property</button><button class="action-button" id="deck-edit">Change status</button></div><div id="deck-edit-options"></div>`);
     content.querySelector('#deck-locate').onclick = () => exitDeck(unit);
     content.querySelector('#deck-edit').onclick = async () => {
       if(!await login()) return;
@@ -164,21 +198,24 @@
   function startRoute(filter, first) {
     routeQueue = units().filter(u=>u.status===filter); routeCursor = Math.max(0,routeQueue.findIndex(u=>u.id===first.id));
     if(!routeBanner) {
-      routeBanner=document.createElement('div'); routeBanner.style.cssText='position:fixed;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:12px;padding:12px;background:#071c2eee;border:1px solid #65bfdc;border-radius:12px;color:#e6f7ff;font:14px Arial;max-width:95%'; document.body.append(routeBanner);
+      routeBanner=document.createElement('div'); routeBanner.id='sw-route-banner'; routeBanner.style.cssText='position:fixed;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:12px;padding:12px;background:#071c2eee;border:1px solid #65bfdc;border-radius:12px;color:#e6f7ff;font:14px Arial;max-width:95%'; document.body.append(routeBanner);
     }
     const current=routeQueue[routeCursor]; if(!current) return;
     routeBanner.innerHTML=`<span>${STATUS[filter][0]} · ${escape(current.label)} · ${routeCursor+1}/${routeQueue.length}</span><button style="padding:10px" data-next>Next</button><button style="padding:10px" data-done>Done</button>`;
     routeBanner.querySelector('[data-next]').onclick=()=>{routeCursor=(routeCursor+1)%routeQueue.length;startRoute(filter,routeQueue[routeCursor]);};
-    routeBanner.querySelector('[data-done]').onclick=()=>{routeBanner.remove();routeBanner=null;openDeck();};
+    routeBanner.querySelector('[data-done]').onclick=()=>{routeBanner.remove();routeBanner=null;routeQueue=[];openDeck();};
     exitDeck(current);
   }
   function gear() {
     const name=window.__swCheckLogin?.();
-    showDialog('Command center settings', `<p class="muted">${name ? 'Signed in as '+escape(name) : 'Sign in to change unit statuses or manage staff settings.'}</p><div class="dialog-actions"><button class="action-button" data-setting="login">${name?'Switch staff member':'Staff sign in'}</button><button class="action-button" data-setting="contacts">Staff settings</button><button class="action-button" data-setting="fullscreen">Full screen</button></div><p class="muted">Use Look around to turn in the room. Drag with one finger or use the arrow keys. Center brings the main controls back in front of you.</p>`);
+    showDialog('Command center tools', `<p class="muted">${name ? 'Signed in as '+escape(name) : 'Sign in to use the staff log, team, chat, and unit editing tools.'}</p><div class="dialog-actions"><button class="action-button" data-setting="log">Activity log</button><button class="action-button" data-setting="contacts">Team</button><button class="action-button" data-setting="chat">Staff chat</button><button class="action-button" data-setting="character">My character</button><button class="action-button" data-setting="help">How to navigate</button><button class="action-button" data-setting="login">${name?'Switch staff member':'Staff sign in'}</button><button class="action-button" data-setting="fullscreen">Full screen</button></div><p class="muted">Use Look around to turn in the room. Drag with one finger or use the arrow keys. Center brings the main controls back in front of you. Exit returns you to the outdoor property.</p>`);
     content.onclick=async e=>{
       const action=e.target.closest('[data-setting]')?.dataset.setting;
-      if(action==='login') { if(name) window.__swLogout?.(); else {closeDialog();await login();} }
-      if(action==='contacts') { if(await login()){closeDialog();await window.__swAdminOpen?.();} }
+      if(action==='login') { closeDialog(); if(name) window.__swLogout?.(); else await login(); }
+      if(action==='contacts'||action==='log') { closeDialog(); if(await login())await window.__swOperationsOpen?.(action); }
+      if(action==='chat') { closeDialog(); if(await login())app.setState({chatOpen:true}); }
+      if(action==='character') { closeDialog(); window._swShowWardrobe?.(); }
+      if(action==='help') { closeDialog(); window.__swShowHelp?.(); }
       if(action==='fullscreen'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Full screen is not available in this browser.');}}
     };
   }
@@ -217,6 +254,9 @@
     app=window.__swApp;
     window.__swCommandCenter=openDeck; window.__swPanelOpen=openDeck;
     if(!app?._locks) return;
+    if(!window.__swDeckVisible && app._webglAvailable===false && Object.keys(app._locks).length) {
+      if(!propertyPlan||propertyPlan.hidden)showPropertyPlan();else updatePropertyPlan();
+    }
     const list=units(),counts={all:list.length};for(const u of list)counts[u.status]=(counts[u.status]||0)+1;
     screen.querySelectorAll('[data-count]').forEach(el=>el.textContent=String(counts[el.dataset.count]||0));
     const connection=screen.querySelector('.connection');connection.textContent=live?'Shared inventory connected':'Saved inventory · reconnecting';connection.classList.toggle('live',live);
@@ -332,5 +372,5 @@
   window.addEventListener('resize',resize);window.addEventListener('online',syncHealth);
   window.addEventListener('offline',()=>{live=false;refresh();});
   setInterval(refresh,1000);setInterval(syncHealth,15000);
-  setupRoom();refresh();syncHealth();
+  refresh();syncHealth();
 })();

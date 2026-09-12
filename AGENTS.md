@@ -1,6 +1,6 @@
 # StoreWell project
 
-Production is https://storewell-3d.pages.dev, served by the existing Cloudflare Pages project `storewell-3d`. The app opens in the command room; Exit returns to the original Three.js facility model.
+Production is https://storewell-3d.pages.dev, served by the existing Cloudflare Pages project `storewell-3d`. The app must open OUTSIDE in the original Three.js facility model. Only the Command Center button opens the spaceship command room; Exit returns outside without resetting the visitor’s location. Keep the original outdoor buildings, movement, vehicles, units and staff features. The no-WebGL property plan is an outdoor fallback, never a spaceship dashboard. Gear must retain access to the original activity log, team, chat, character editor and help.
 
 ## Deployment continuity
 
@@ -13,4 +13,4 @@ Production is https://storewell-3d.pages.dev, served by the existing Cloudflare 
 
 Use Node 24. Run `npm ci` and `npm run build` before deployment. The regression checks intercept network requests and must never write to production data. Preserve the original unit status meanings and property locations.
 
-After deployment, verify the actual production URL, including the opening command room, room/desk/look-around controls, phone layout, search, and returning to the property. Report a deployment as complete only after Cloudflare confirms success and the live page is checked.
+After deployment, verify the actual production URL, including the outside starting view, entering the command room, its staff tools, room/desk/look-around controls, phone layout, search, and returning to the property. Report a deployment as complete only after Cloudflare confirms success and the live page is checked.

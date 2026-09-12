@@ -107,11 +107,16 @@ window.__swAdminLoad=async function(){
 
 
 
-window.__swPanelOpen=async function(){
-  // Prevent double-open
-  if(document.getElementById('sw-cmd-panel')) return;
-
+window.__swOperationsOpen=async function(initialTab='overview'){
   const app=window.__swApp;
+  if(!app)return;
+  if(!window.__swCheckLogin?.()||!app.state.editMode){
+    await window.__swLoginGate?.(app);
+    if(!window.__swCheckLogin?.()||!app.state.editMode)return;
+  }
+  const tab=['overview','inventory','log','contacts'].includes(initialTab)?initialTab:'overview';
+  const existing=document.getElementById('sw-cmd-panel');
+  if(existing){existing.querySelector(`[data-tab="${tab}"]`)?.click();return;}
 
   // Fetch contacts from Firebase
   let cfg={};
@@ -226,7 +231,7 @@ window.__swPanelOpen=async function(){
       counts[st]=(counts[st]||0)+1;
     });
     const total=Object.keys(app._locks).length;
-    const rented=(counts.green||0)+(counts.white||0);
+    const rented=counts.green||0;
     const lockedOut=counts.red||0;
     const reserved=counts.blue||0;
     const outOfSvc=counts.black||0;
@@ -249,11 +254,11 @@ window.__swPanelOpen=async function(){
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:20px;">🏪</span>
         <div>
-          <div style="color:#fff;font-weight:900;font-size:14px;letter-spacing:.3px;text-shadow:0 1px 4px rgba(0,0,0,.3);">Command Center</div>
+          <div style="color:#fff;font-weight:900;font-size:14px;letter-spacing:.3px;text-shadow:0 1px 4px rgba(0,0,0,.3);">Staff tools</div>
           <div style="color:rgba(255,255,255,.85);font-size:10px;font-weight:700;">${app&&app.state?app.state.staffName||'Staff':'Staff'} · Online</div>
         </div>
       </div>
-      <button id="sw-panel-close" style="border:none;cursor:pointer;background:rgba(255,255,255,.35);color:#fff;border-radius:8px;width:26px;height:26px;font-size:15px;line-height:1;font-weight:800;">×</button>
+      <button id="sw-panel-close" aria-label="Close staff tools" style="border:none;cursor:pointer;background:rgba(255,255,255,.35);color:#fff;border-radius:8px;width:26px;height:26px;font-size:15px;line-height:1;font-weight:800;">×</button>
     </div>
 
     <div style="display:flex;background:#f8f9fa;border-bottom:2px solid #eee;">
@@ -271,7 +276,7 @@ window.__swPanelOpen=async function(){
         <div id="sw-ov-log" style="max-height:120px;overflow-y:auto;">${'<div style="color:#4a6380;font-size:12px;text-align:center;padding:8px;">Loading...</div>'}</div>
         <div style="margin-top:12px;display:flex;gap:6px;">
           <button id="sw-send-report" style="flex:1;border:none;cursor:pointer;background:linear-gradient(135deg,#FF6B6B,#ee0979);color:#fff;font:700 12px Segoe UI;padding:9px;border-radius:8px;box-shadow:0 3px 10px rgba(238,9,121,.3);">📤 Save & Report</button>
-          <button id="sw-logout-btn" style="border:2px solid #eee;cursor:pointer;background:#f8f9fa;color:#666;font:600 11px Segoe UI;padding:9px 10px;border-radius:8px;">Exit</button>
+          <button id="sw-logout-btn" style="border:2px solid #eee;cursor:pointer;background:#f8f9fa;color:#666;font:600 11px Segoe UI;padding:9px 10px;border-radius:8px;">Sign out</button>
         </div>
       </div>
 
@@ -434,6 +439,12 @@ window.__swPanelOpen=async function(){
     saved.style.display='block';
     setTimeout(()=>saved.style.display='none',2000);
   };
+  panel.querySelector(`[data-tab="${tab}"]`)?.click();
+  // An old saved position may be outside a smaller phone screen.
+  const bounds=panel.getBoundingClientRect();
+  if(bounds.right>innerWidth||bounds.left<0||bounds.top<0||bounds.top>innerHeight-80){
+    panel.style.left='auto';panel.style.right='12px';panel.style.top='12px';
+  }
 };
 
 window.__swAdminOpen=async function(){

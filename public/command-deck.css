@@ -1,6 +1,29 @@
-:root{color-scheme:dark}
+:root{color-scheme:light}
+body.storewell-deck-open #sw-route-banner{display:none!important}
+body.storewell-deck-open #sw-chat-panel{position:fixed!important;z-index:9001!important;max-width:calc(100vw - 28px);color:#1f2a33;color-scheme:light}
+#sw-cmd-panel{max-width:calc(100vw - 24px);color:#1f2a33;color-scheme:light}
+body.storewell-property-plan #dc-root,body.storewell-property-plan #sw-sens-ctrl,body.storewell-property-plan #sw-ward-btn,body.storewell-property-plan #sw-bell{visibility:hidden!important}
+#sw-property-fallback{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;background:#dbe8ed;color:#213d45;font:15px Arial,Helvetica,sans-serif;color-scheme:light}
+#sw-property-fallback[hidden]{display:none!important}
+#sw-property-fallback *{box-sizing:border-box}
+#sw-property-fallback header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 28px;background:linear-gradient(135deg,#f7fbfc,#d8eaf0);border-bottom:1px solid #aac4cb;box-shadow:0 3px 15px #213d4515}
+#sw-property-fallback h1{margin:0;font-size:27px;letter-spacing:-.6px}
+#sw-property-fallback header p{font-size:10px;letter-spacing:2px;font-weight:700;margin:0 0 7px;color:#55777e}
+#sw-property-fallback nav{display:flex;gap:10px}
+#sw-property-fallback button{min-height:46px;padding:10px 16px;border:1px solid #7498a5;border-radius:9px;background:#f9fcfd;color:#244651;font:700 14px Arial;cursor:pointer}
+#sw-property-fallback [data-property="command"]{background:#225c70;border-color:#225c70;color:white}
+#sw-property-fallback .property-caption{display:flex;justify-content:space-between;gap:8px;padding:13px 28px;font-size:12px;background:#f6f9f5;border-bottom:1px solid #bac9c3;line-height:1.5}
+#sw-property-fallback .property-selection{color:#1f566a}
+#sw-property-fallback .property-plan{flex:1;overflow:auto;padding:22px;overscroll-behavior:contain}
+#sw-property-fallback svg{display:block;width:100%;min-width:800px;height:auto;margin:0 auto;border:1px solid #a3b1a6;border-radius:12px;box-shadow:0 8px 30px #29403720}
+#sw-property-fallback .property-walls{fill:none;stroke:#857465;stroke-width:1.15;stroke-linejoin:round}
+#sw-property-fallback .plan-unit{cursor:pointer;outline:none}
+#sw-property-fallback .plan-unit circle{stroke:#385343;stroke-width:.25}
+#sw-property-fallback .plan-unit text{font:bold 1.65px Arial;fill:#293e44;paint-order:stroke;stroke:#eef0e9;stroke-width:.65;pointer-events:none}
+#sw-property-fallback .plan-unit:focus circle,#sw-property-fallback .plan-unit:hover circle,#sw-property-fallback .plan-unit.selected circle{stroke:#005de0;stroke-width:.9}
+#sw-property-fallback :focus-visible{outline:3px solid #005de0;outline-offset:3px}
 body.storewell-deck-open #sw-sens-ctrl,body.storewell-deck-open #sw-ward-btn,body.storewell-deck-open #sw-bell{display:none!important}
-#sw-deck,#sw-deck-dialog{font-family:Arial,Helvetica,sans-serif;color:#e6f7ff;box-sizing:border-box}
+#sw-deck,#sw-deck-dialog{font-family:Arial,Helvetica,sans-serif;color:#e6f7ff;box-sizing:border-box;color-scheme:dark}
 #sw-deck *{box-sizing:border-box}
 #sw-deck{position:fixed;inset:0;z-index:2000;background:#030b13;overflow:hidden;isolation:isolate}
 #sw-deck[hidden],#sw-deck-dialog[hidden]{display:none!important}
@@ -86,6 +109,10 @@ body.storewell-deck-open #sw-sens-ctrl,body.storewell-deck-open #sw-ward-btn,bod
 #sw-deck-dialog .plan-unit text{font:1.65px Arial;fill:#d5e8f2;pointer-events:none}
 #sw-deck-dialog .plan-unit:focus circle,#sw-deck-dialog .plan-unit:hover circle{stroke:white;stroke-width:.8}
 @media(max-width:700px){
+ #sw-property-fallback header{align-items:stretch;flex-direction:column;padding:16px}
+ #sw-property-fallback nav button{flex:1;padding:10px}
+ #sw-property-fallback .property-caption{flex-direction:column;padding:10px 16px}
+ #sw-property-fallback .property-plan{padding:12px}
  #sw-deck.is-fallback .mobile-dock{inset:max(12px,env(safe-area-inset-top)) 12px 91px}
  #sw-deck.is-fallback .command-screen{min-height:0}
  #sw-deck .mobile-dock{display:block;position:absolute;inset:max(12px,env(safe-area-inset-top)) 12px 91px;pointer-events:none}
