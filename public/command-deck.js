@@ -252,6 +252,13 @@
       menuChoice('How to navigate','help','route','#c5a0ff'),menuChoice('Full screen','fullscreen','desk','#65d7ef'),
       menuChoice(name?'Switch staff member':'Staff sign in','login','exit','#ffaaa1')
     ].join('')}</div>`);
+    const soundChoice=content.querySelector('[data-setting="sound"]');
+    function updateSoundChoice(){
+      const enabled=window._swSoundOn!==false;
+      soundChoice.setAttribute('aria-pressed',String(enabled));
+      soundChoice.querySelector('span').innerHTML=`Status sounds<small class="menu-state">${enabled?'On':'Muted'}</small>`;
+    }
+    updateSoundChoice();
     content.onclick=async e=>{
       const action=e.target.closest('[data-setting]')?.dataset.setting;
       if(action==='login') { closeDialog(); if(name) window.__swLogout?.(); else await login(); }
@@ -260,7 +267,10 @@
       if(action==='character') { closeDialog(); window._swShowWardrobe?.(); }
       if(action==='controls'){closeDialog();window.__swGear?.();}
       if(action==='rounds'){closeDialog();if(await login())window.__swRounds?.();}
-      if(action==='sound'){window.__swSoundToggle?.();closeDialog();}
+      if(action==='sound'){
+        if(typeof window.__swSoundToggle!=='function'){toast('Sound controls are still loading.');return;}
+        window.__swSoundToggle();updateSoundChoice();
+      }
       if(action==='reverse'){exitDeck();window.__swReverseWalk?.();}
       if(action==='help') {
         showDialog('Room controls', `<dl class="room-help"><dt>Joystick</dt><dd>Drag up or down to walk. Drag left or right to turn.</dd><dt>Look around</dt><dd>Drag an open part of the room with one finger or your mouse.</dd><dt>Zoom</dt><dd>Spread two fingers to zoom in. Pinch together to zoom out. A mouse wheel also zooms.</dd><dt>Level view</dt><dd>Straighten your view using the button below the joystick.</dd><dt>Main screen</dt><dd>Bring the board closer, then select a colored button to open its menu.</dd><dt>Keyboard</dt><dd>Use the arrow keys to walk and turn. A and D let you step sideways.</dd><dt>Exit</dt><dd>Approach the rear sliding doors, or select Outside to return to the property.</dd></dl>`,{back:gear});

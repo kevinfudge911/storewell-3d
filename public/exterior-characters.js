@@ -958,28 +958,52 @@ window._SWJOBLIST=[
 ];
 window._swPickModel=function(key){var ch=window._swGetChar()||{};ch.model=key;if(ch.rpm)delete ch.rpm;if(window._swSaveChar)window._swSaveChar(ch);window._swApplyLook&&window._swApplyLook();window._swShowWardrobe&&window._swShowWardrobe();};
 window._swOpenRPM=function(){
+  document.getElementById('sw-rpm')?.remove();
   var ov=document.createElement('div'); ov.id='sw-rpm';
-  ov.style.cssText='position:fixed;inset:0;z-index:100002;background:#000;';
+  ov.setAttribute('role','dialog');ov.setAttribute('aria-modal','true');ov.setAttribute('aria-label','Character builder');
+  ov.innerHTML='<div class="rpm-menu"><header><h2>Character builder</h2><button type="button" data-rpm-close aria-label="Close character builder">× Close</button></header><div class="rpm-connection" role="status">Connecting to the character builder…</div><div class="rpm-frame" hidden></div><footer><button type="button" data-rpm-back>Back to character choices</button><button type="button" data-rpm-retry hidden>Try again</button></footer></div>';
   var f=document.createElement('iframe');
+  f.title='External character builder';
   f.allow='camera *; microphone *; clipboard-write';
-  f.style.cssText='width:100%;height:100%;border:none;display:block;';
-  f.src='https://demo.readyplayer.me/avatar?frameApi&bodyType=fullbody&clearCache';
-  var close=document.createElement('button'); close.textContent='✕ Close';
-  close.style.cssText='position:absolute;top:10px;right:10px;z-index:2;background:#cc2b2b;color:#fff;border:none;border-radius:10px;padding:10px 14px;font:700 14px Arial;cursor:pointer;';
-  function cleanup(){ try{ov.remove();}catch(_){} window.removeEventListener('message',handler); }
+  var status=ov.querySelector('.rpm-connection'),frame=ov.querySelector('.rpm-frame'),retry=ov.querySelector('[data-rpm-retry]'),timer;
+  var builderUrl='https://demo.readyplayer.me/avatar?frameApi&bodyType=fullbody&clearCache';
+  function cleanup(){clearTimeout(timer);ov.remove();window.removeEventListener('message',handler);}
+  function connect(){
+    clearTimeout(timer);ov.classList.remove('rpm-ready');frame.hidden=true;retry.hidden=true;status.hidden=false;status.textContent='Connecting to the character builder…';
+    f.src=builderUrl;
+    timer=setTimeout(function(){
+      if(!ov.isConnected)return;
+      status.textContent='The external character builder has not connected. You can still choose your StoreWell characters, or try the builder again.';
+      retry.hidden=false;f.removeAttribute('src');
+    },12000);
+  }
   function handler(e){
+    if(e.source!==f.contentWindow||e.origin!=='https://demo.readyplayer.me')return;
     var d; try{ d=typeof e.data==='string'?JSON.parse(e.data):e.data; }catch(_){ return; }
     if(!d||d.source!=='readyplayerme') return;
-    if(d.eventName==='v1.frame.ready'){ try{ f.contentWindow.postMessage(JSON.stringify({target:'readyplayerme',type:'subscribe',eventName:'v1.**'}),'*'); }catch(_){} }
+    if(d.eventName==='v1.frame.ready'){
+      clearTimeout(timer);status.hidden=true;frame.hidden=false;retry.hidden=true;ov.classList.add('rpm-ready');
+      try{f.contentWindow.postMessage(JSON.stringify({target:'readyplayerme',type:'subscribe',eventName:'v1.**'}),'https://demo.readyplayer.me');}catch(_){}
+    }
     if(d.eventName==='v1.avatar.exported'){
       var url=d.data&&d.data.url;
       if(url){ var ch=window._swGetChar()||{}; ch.rpm=url; if(window._swSaveChar)window._swSaveChar(ch); window._swApplyLook&&window._swApplyLook(); }
       cleanup(); alert('3D avatar saved! It loads on your character now.');
     }
   }
-  close.onclick=cleanup;
+  ov.querySelector('[data-rpm-close]').onclick=cleanup;
+  ov.querySelector('[data-rpm-back]').onclick=function(){cleanup();window._swShowWardrobe();};
+  retry.onclick=connect;
+  ov.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){e.preventDefault();cleanup();}
+    if(e.key==='Tab'){
+      var buttons=Array.from(ov.querySelectorAll('button')).filter(function(b){return !b.hidden;}),first=buttons[0],last=buttons[buttons.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
   window.addEventListener('message',handler);
-  ov.appendChild(f); ov.appendChild(close); document.body.appendChild(ov);
+  frame.appendChild(f);document.body.appendChild(ov);connect();ov.querySelector('[data-rpm-back]').focus();
 };
 window._swClearRPM=function(){ var ch=window._swGetChar()||{}; delete ch.rpm; if(window._swSaveChar)window._swSaveChar(ch); alert('Reverted to the built-in character. Close and reopen the app.'); };
 window._swSets={fire:{shirt:'#b91c1c',pants:'#1a1a1a',shoes:'#0a0a0a',hat:'hardhat',hatColor:'#dc2626'},police:{shirt:'#1e293b',pants:'#1e293b',shoes:'#000000',hat:'cap',hatColor:'#0f172a'},ems:{shirt:'#2563eb',pants:'#1e293b',shoes:'#000000',hat:'none',hatColor:'#2563eb'},limo:{shirt:'#0a0a0a',pants:'#0a0a0a',shoes:'#0a0a0a',hat:'cap',hatColor:'#0a0a0a'},construction:{shirt:'#f59e0b',pants:'#1e293b',shoes:'#3b2a1a',hat:'hardhat',hatColor:'#f59e0b'},security:{shirt:'#1a1a1a',pants:'#1a1a1a',shoes:'#1a1a1a',hat:'cap',hatColor:'#1a1a1a'},business:{shirt:'#ffffff',pants:'#1e293b',shoes:'#1a1a1a',hat:'none',hatColor:'#1e293b'},medical:{shirt:'#14b8a6',pants:'#14b8a6',shoes:'#ffffff',hat:'none',hatColor:'#14b8a6'},mechanic:{shirt:'#475569',pants:'#475569',shoes:'#1a1a1a',hat:'cap',hatColor:'#ef4444'},manager:{shirt:'#9a3b30',pants:'#1e293b',shoes:'#1a1a1a',hat:'cap',hatColor:'#9a3b30'},rancher:{shirt:'#8b5a2b',pants:'#33405a',shoes:'#3b2a1a',hat:'cowboy',hatColor:'#6b4423'},casual:{shirt:'#22c55e',pants:'#33405a',shoes:'#ffffff',hat:'none',hatColor:'#ff6600'}};

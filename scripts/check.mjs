@@ -252,7 +252,7 @@ assert.match(helpMenu.textContent,/Joystick[\s\S]*Spread two fingers/,'Room help
 click('.menu-back');assert.match(helpMenu.textContent,/Command menu/,'Back returns from help to the command choices');click('.close-dialog');
 click('[data-action="gear"]');click('[data-setting="controls"]');assert.equal(w.document.getElementById('sw-sens-panel').style.display,'block','Player controls opens the retained speed settings');click('#sw-sens-save');assert.equal(w.document.getElementById('sw-sens-panel').style.display,'none');
 let roundsOpened=false,soundToggled=false;w.__swRounds=()=>{roundsOpened=true;};w.__swSoundToggle=()=>{soundToggled=true;};
-click('[data-action="gear"]');click('[data-setting="rounds"]');await new Promise(r=>setTimeout(r,0));assert(roundsOpened);click('[data-action="gear"]');click('[data-setting="sound"]');assert(soundToggled);
+click('[data-action="gear"]');click('[data-setting="rounds"]');await new Promise(r=>setTimeout(r,0));assert(roundsOpened);click('[data-action="gear"]');click('[data-setting="sound"]');assert(soundToggled);click('.close-dialog');
 let fullScreenOpened=false;w.document.documentElement.requestFullscreen=async()=>{fullScreenOpened=true;};click('[data-action="gear"]');click('[data-setting="fullscreen"]');await new Promise(r=>setTimeout(r,0));assert(fullScreenOpened);click('.close-dialog');
 let reversed=false;w.__swReverseWalk=()=>{reversed=true;};click('[data-action="gear"]');click('[data-setting="reverse"]');assert(reversed&&w.__swDeckVisible===false,'Turn around outside returns to the property and reverses heading');await enter();
 const locationBefore=app.walker.g.position.clone();
