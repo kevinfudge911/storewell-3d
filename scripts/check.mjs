@@ -243,10 +243,13 @@ assert.equal(w.document.querySelectorAll('#sw-contact-cards [data-field="email"]
 click('#sw-panel-close');click('[data-action="gear"]');click('[data-setting="chat"]');
 await new Promise(resolve=>setTimeout(resolve,10));
 assert.equal(app.state.chatOpen,true,'Gear opens the original staff chat');
-let characterOpened=false,helpOpened=false;
-w._swShowWardrobe=()=>{characterOpened=true;};w.__swShowHelp=()=>{helpOpened=true;};
+let characterOpened=false;
+w._swShowWardrobe=()=>{characterOpened=true;};
 click('[data-action="gear"]');click('[data-setting="character"]');assert(characterOpened);
-click('[data-action="gear"]');click('[data-setting="help"]');assert(helpOpened);
+click('[data-action="gear"]');click('[data-setting="help"]');
+const helpMenu=w.document.querySelector('#sw-deck-dialog');
+assert.match(helpMenu.textContent,/Joystick[\s\S]*Spread two fingers/,'Room help explains the current movement and zoom controls');
+click('.menu-back');assert.match(helpMenu.textContent,/Command menu/,'Back returns from help to the command choices');click('.close-dialog');
 click('[data-action="gear"]');click('[data-setting="controls"]');assert.equal(w.document.getElementById('sw-sens-panel').style.display,'block','Player controls opens the retained speed settings');click('#sw-sens-save');assert.equal(w.document.getElementById('sw-sens-panel').style.display,'none');
 let roundsOpened=false,soundToggled=false;w.__swRounds=()=>{roundsOpened=true;};w.__swSoundToggle=()=>{soundToggled=true;};
 click('[data-action="gear"]');click('[data-setting="rounds"]');await new Promise(r=>setTimeout(r,0));assert(roundsOpened);click('[data-action="gear"]');click('[data-setting="sound"]');assert(soundToggled);

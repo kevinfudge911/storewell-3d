@@ -587,10 +587,10 @@ window.__swRounds=function(){
       function section(colorBar,label,desc,count,chipsHtml,note){
         return '<div style="margin-bottom:16px;">'
           +'<div style="background:'+colorBar+';color:#fff;border-radius:6px 6px 0 0;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">'
-          +'<div><div style="font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;">'+label+'</div>'
-          +'<div style="font-size:11px;opacity:.85;">'+desc+'</div></div>'
+          +'<div><div class="sw-rounds-label" style="font-size:13px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;">'+label+'</div>'
+          +'<div class="sw-rounds-description" style="font-size:11px;opacity:.85;">'+desc+'</div></div>'
           +'<div style="font-size:26px;font-weight:700;font-family:monospace;opacity:.9;">'+count+'</div></div>'
-          +'<div style="border:1.5px solid #E0DCD6;border-top:none;border-radius:0 0 6px 6px;padding:12px;display:flex;flex-wrap:wrap;gap:7px;background:#fff;min-height:52px;">'+chipsHtml+'</div>'
+          +'<div class="sw-rounds-units" style="border:1.5px solid #E0DCD6;border-top:none;border-radius:0 0 6px 6px;padding:12px;display:flex;flex-wrap:wrap;gap:7px;background:#fff;min-height:52px;">'+chipsHtml+'</div>'
           +(note?'<div style="font-size:11px;color:#888;font-style:italic;padding:5px 12px;border:1.5px solid #E0DCD6;border-top:none;">'+note+'</div>':'')
           +'</div>';
       }
@@ -600,7 +600,7 @@ window.__swRounds=function(){
         +'</div>';
       if(late.length||blue.length||purple.length){
         html+='<div style="margin-top:16px;border-top:1.5px solid #E0DCD6;padding-top:14px;">'
-          +'<div style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b6760;margin-bottom:8px;">Also out there</div>'
+          +'<div class="sw-rounds-secondary" style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b6760;margin-bottom:8px;">Also out there</div>'
           +'<div style="display:flex;flex-wrap:wrap;gap:7px;">'
           +chips(late,'#FFFBEB','#92400E','#FCD34D')
           +chips(blue,'#EFF6FF','#1E40AF','#BFDBFE')

@@ -143,6 +143,11 @@ body:not(.storewell-deck-open) #sw-deck .space-planet,body:not(.storewell-deck-o
 #sw-deck-dialog .menu-back svg{width:20px;height:20px}
 #sw-deck-dialog .dialog-body{padding:18px;min-height:0;overflow:auto;touch-action:pan-y pinch-zoom;overscroll-behavior:contain;scrollbar-color:#618eab #10283e;scrollbar-width:thin}
 #sw-deck-dialog .menu-caption{margin:0 0 14px;font:15px Arial;color:#bbd7e6}
+#sw-deck-dialog .room-help{margin:0;display:grid;grid-template-columns:112px minmax(0,1fr);column-gap:16px;font:16px/1.45 Arial}
+#sw-deck-dialog .room-help dt,#sw-deck-dialog .room-help dd{margin:0;padding:12px 0;border-bottom:1px solid #365b73}
+#sw-deck-dialog .room-help dt{font-weight:700;color:#8de4f5}
+#sw-deck-dialog .room-help dd{color:#e0eef6}
+#sw-deck-dialog .room-help dt:last-of-type,#sw-deck-dialog .room-help dd:last-child{border-bottom:0}
 #sw-deck-dialog .dialog-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
 #sw-deck-dialog .action-button{font:700 17px Arial;line-height:1.3;min-height:62px;text-align:left;padding:13px 14px;border:1px solid var(--menu-color,#6bcfe7);border-left:4px solid var(--menu-color,#6bcfe7);border-radius:8px;color:#f2fbff;background:linear-gradient(135deg,#17435d,#0c2941);box-shadow:inset 0 1px #bcecff18;text-decoration:none;cursor:pointer}
 #sw-deck-dialog .menu-choice{display:flex;align-items:center;gap:12px}
@@ -201,7 +206,10 @@ body.storewell-deck-open #sw-wardrobe button div,body.storewell-deck-open #sw-wa
 body.storewell-deck-open #sw-wardrobe input{background:#173b52!important;color:#f2fbff!important;font-size:16px!important;min-height:46px}
 body.storewell-deck-open #sw-rounds-modal{background:#02091455!important;backdrop-filter:none!important}
 body.storewell-deck-open #sw-rounds-modal button{min-height:44px;min-width:44px;color:#edf8ff!important;border-color:#7cacc0!important;font-size:15px!important}
-body.storewell-deck-open #sw-rounds-body>div>div:nth-child(2){background:#14334b!important;border-color:#436780!important}
+body.storewell-deck-open .sw-rounds-units{background:#14334b!important;border-color:#436780!important}
+body.storewell-deck-open .sw-rounds-label,body.storewell-deck-open .sw-rounds-secondary{font-size:15px!important}
+body.storewell-deck-open .sw-rounds-secondary{color:#c9dce7!important}
+body.storewell-deck-open .sw-rounds-description{font-size:14px!important;opacity:1!important}
 body.storewell-deck-open #sw-rounds-ts,body.storewell-deck-open #sw-rounds-body [style*="color:#888"],body.storewell-deck-open #sw-rounds-body [style*="color:#aaa"]{color:#c9dce7!important;font-size:14px!important}
 body.storewell-deck-open .sw-help-box{max-width:560px}
 body.storewell-deck-open .sw-help-header{background:#11364e;padding:16px;border-color:#416b82}
@@ -219,6 +227,7 @@ body.storewell-deck-open .sw-ctrl-desc{font-size:16px;color:#d0e4ef}
  #sw-deck-dialog .dialog-actions{gap:10px}
  #sw-deck-dialog .action-button{padding:12px 10px;font-size:16px;min-height:66px;gap:8px}
  #sw-deck-dialog .menu-choice svg{width:22px;height:22px}
+ #sw-deck-dialog .room-help{grid-template-columns:90px minmax(0,1fr);column-gap:12px;font-size:15px}
  #sw-deck-dialog .inventory-tools{grid-template-columns:1fr}
  #sw-deck-dialog .unit-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
  #sw-deck-dialog .unit{padding:12px 9px}

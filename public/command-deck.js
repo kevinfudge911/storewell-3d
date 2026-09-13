@@ -262,7 +262,9 @@
       if(action==='rounds'){closeDialog();if(await login())window.__swRounds?.();}
       if(action==='sound'){window.__swSoundToggle?.();closeDialog();}
       if(action==='reverse'){exitDeck();window.__swReverseWalk?.();}
-      if(action==='help') { closeDialog(); window.__swShowHelp?.(); }
+      if(action==='help') {
+        showDialog('Room controls', `<dl class="room-help"><dt>Joystick</dt><dd>Drag up or down to walk. Drag left or right to turn.</dd><dt>Look around</dt><dd>Drag an open part of the room with one finger or your mouse.</dd><dt>Zoom</dt><dd>Spread two fingers to zoom in. Pinch together to zoom out. A mouse wheel also zooms.</dd><dt>Level view</dt><dd>Straighten your view using the button below the joystick.</dd><dt>Main screen</dt><dd>Bring the board closer, then select a colored button to open its menu.</dd><dt>Keyboard</dt><dd>Use the arrow keys to walk and turn. A and D let you step sideways.</dd><dt>Exit</dt><dd>Approach the rear sliding doors, or select Outside to return to the property.</dd></dl>`,{back:gear});
+      }
       if(action==='fullscreen'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Full screen is not available in this browser.');}}
     };
   }
