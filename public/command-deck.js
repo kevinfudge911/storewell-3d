@@ -24,7 +24,12 @@
     save: '<path d="M4 3h13l4 4v14H3V3h1Zm3 0v6h10V3M7 21v-8h10v8"/>',
     eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
     center: '<circle cx="12" cy="12" r="6"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5"/>',
-    desk: '<path d="M3 4h18v12H3zM8 21h8m-4-5v5"/>'
+    desk: '<path d="M3 4h18v12H3zM8 21h8m-4-5v5"/>',
+    team: '<circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m1-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5v2"/>',
+    chat: '<path d="M3 3h18v14H9l-6 4V3Zm4 5h10M7 12h7"/>',
+    sound: '<path d="m3 9 4 0 5-5v16l-5-5H3V9Zm13-2a7 7 0 0 1 0 10m3-13a11 11 0 0 1 0 16"/>',
+    download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+    back: '<path d="m10 5-7 7 7 7M3 12h18"/>'
   };
   const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.units}</svg>`;
   const escape = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -58,7 +63,7 @@
   const dialog = document.createElement('dialog');
   dialog.id = 'sw-deck-dialog'; dialog.hidden = true;
   dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'deck-dialog-title');
-  dialog.innerHTML = '<div class="dialog-box"><header class="dialog-head"><div class="window-heading"><span>STOREWELL · COMMAND CENTER</span><h2 id="deck-dialog-title" tabindex="-1"></h2></div><div class="window-actions"><button class="expand-dialog" aria-label="Expand window" aria-pressed="false">⛶</button><button class="close-dialog" aria-label="Close dialog"><span aria-hidden="true">×</span> Close</button></div></header><div class="dialog-body"></div></div>';
+  dialog.innerHTML = `<div class="dialog-box"><header class="dialog-head"><button class="menu-back" hidden>${icon('back')}Back</button><h2 id="deck-dialog-title" tabindex="-1"></h2><button class="close-dialog" aria-label="Close menu"><span aria-hidden="true">×</span> Close</button></header><div class="dialog-body"></div></div>`;
   document.body.append(dialog);
   const content = dialog.querySelector('.dialog-body');
   let app, bridge, roomStarted = false;
@@ -68,7 +73,8 @@
   let appLoginStarted = false;
   let live = false, lastSync = 0, lastFocus, activeFilter = 'all', toastTimer, installPrompt;
   let routeQueue = [], routeCursor = 0;
-  let inventoryDownloadUrl;
+  let inventoryDownloadUrl, menuBack;
+  const menuChoice=(label,setting,symbol,color='#65d7ef')=>`<button class="action-button menu-choice" data-setting="${setting}" style="--menu-color:${color}">${icon(symbol)}<span>${label}</span></button>`;
   function releaseInventoryDownload() {
     if(!inventoryDownloadUrl)return;
     const url=inventoryDownloadUrl;inventoryDownloadUrl=null;
@@ -82,11 +88,13 @@
     const el = deck.querySelector('.toast'); el.textContent = text; el.hidden = false;
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 5000);
   }
-  function showDialog(title, html) {
+  function showDialog(title, html, options={}) {
     bridge?.stop(); if(dialog.hidden)lastFocus = document.activeElement;
     releaseInventoryDownload();
     content.onclick = null;
     dialog.querySelector('h2').textContent = title; content.innerHTML = html;
+    menuBack=options.back;dialog.querySelector('.menu-back').hidden=!menuBack;
+    dialog.dataset.menu=options.kind||'actions';
     const palette=Object.values(STATUS).find(([label])=>title===label||title===label+' route');
     dialog.style.setProperty('--window-accent',palette?.[1]||'#65d7ef');
     dialog.hidden = false; deck.inert = true;
@@ -101,11 +109,11 @@
     const wasOpen=!dialog.hidden;dialog.hidden=true;
     if(typeof dialog.close==='function'&&dialog.open)dialog.close();else dialog.removeAttribute('open');
     deck.inert=false;if(propertyPlan)propertyPlan.inert=false;
-    dialog.classList.remove('is-expanded');dialog.querySelector('.expand-dialog').setAttribute('aria-label','Expand window');dialog.querySelector('.expand-dialog').setAttribute('aria-pressed','false');
+    menuBack=null;
     if(wasOpen&&lastFocus?.isConnected)lastFocus.focus({preventScroll:true});
   }
   dialog.querySelector('.close-dialog').onclick = closeDialog;
-  dialog.querySelector('.expand-dialog').onclick=()=>{const expanded=dialog.classList.toggle('is-expanded');dialog.querySelector('.expand-dialog').setAttribute('aria-label',expanded?'Restore window':'Expand window');dialog.querySelector('.expand-dialog').setAttribute('aria-pressed',String(expanded));};
+  dialog.querySelector('.menu-back').onclick=()=>menuBack?.();
   dialog.addEventListener('cancel',e=>{e.preventDefault();closeDialog();});
   dialog.addEventListener('click', e => { if(e.target === dialog) closeDialog(); });
   dialog.addEventListener('keydown', e => {
@@ -178,11 +186,11 @@
     }
     propertyPlan.querySelector('.property-selection').textContent=selectedPropertyUnit?`Unit ${selectedPropertyUnit.label} highlighted`:'Select a unit to view its details';
   }
-  function showInventory(filter = 'all', route = false) {
+  function showInventory(filter = 'all', route = false, query = '') {
     activeFilter = filter;
     const title = route ? `${STATUS[filter][0]} route` : filter === 'all' ? 'Find a storage unit' : STATUS[filter][0];
     const options = [['all','All units'], ...Object.entries(STATUS).map(([k,v])=>[k,v[0]])];
-    showDialog(title, `<div class="inventory-tools"><div><label for="deck-find">Unit number</label><input id="deck-find" type="search" placeholder="Search, for example C12" autocomplete="off"></div><div><label for="deck-filter">Status</label><select id="deck-filter">${options.map(([k,v])=>`<option value="${k}" ${k===filter?'selected':''}>${v}</option>`).join('')}</select></div></div>${route?'<p class="muted">Choose a unit to open its marked location on the property.</p>':''}<div class="unit-grid"></div><p class="empty-message" hidden></p>`);
+    showDialog(title, `<div class="inventory-tools"><div><label for="deck-find">Unit number</label><input id="deck-find" type="search" placeholder="Search, for example C12" autocomplete="off" value="${escape(query)}"></div><div><label for="deck-filter">Status</label><select id="deck-filter">${options.map(([k,v])=>`<option value="${k}" ${k===filter?'selected':''}>${v}</option>`).join('')}</select></div></div>${route?'<p class="muted">Choose a unit to open its marked location on the property.</p>':''}<div class="unit-grid"></div><p class="empty-message" hidden></p>`,{kind:'inventory'});
     const search = content.querySelector('input'), select = content.querySelector('select'), grid = content.querySelector('.unit-grid'), empty = content.querySelector('.empty-message');
     function draw() {
       activeFilter = select.value;
@@ -192,7 +200,7 @@
       empty.hidden = rows.length > 0; empty.textContent = app ? 'No units match this search.' : 'Loading the property inventory…';
     }
     search.addEventListener('input', draw); select.addEventListener('change', draw);
-    grid.onclick = e => { const b=e.target.closest('[data-unit]'); if(!b) return; const u=units().find(u=>u.id===b.dataset.unit); if(u) route ? startRoute(filter,u) : showUnit(u); };
+    grid.onclick = e => { const b=e.target.closest('[data-unit]'); if(!b) return; const u=units().find(u=>u.id===b.dataset.unit); if(u) route ? startRoute(filter,u) : showUnit(u,()=>showInventory(select.value,false,search.value)); };
     draw();
   }
   async function login() {
@@ -201,9 +209,9 @@
     await window.__swLoginGate(app);
     return !!window.__swCheckLogin?.();
   }
-  function showUnit(unit) {
+  function showUnit(unit, back) {
     const state = STATUS[unit.status] || ['Unknown'];
-    showDialog(`Unit ${unit.label}`, `<p class="muted">${escape(unit.size)} · Current status: <strong>${state[0]}</strong></p><div class="dialog-actions"><button class="action-button" id="deck-locate">Find on property</button><button class="action-button" id="deck-edit">Change status</button></div><div id="deck-edit-options"></div>`);
+    showDialog(`Unit ${unit.label}`, `<p class="muted">${escape(unit.size)} · <strong>${state[0]}</strong></p><div class="dialog-actions"><button class="action-button menu-choice" id="deck-locate">${icon('route')}<span>Find on property</span></button><button class="action-button menu-choice" id="deck-edit">${icon('lock')}<span>Change status</span></button></div><div id="deck-edit-options"></div>`,{back});
     content.querySelector('#deck-locate').onclick = () => exitDeck(unit);
     content.querySelector('#deck-edit').onclick = async () => {
       if(!await login()) return;
@@ -218,7 +226,7 @@
         const result = await app.setStatus(unit.label,status);
         button.textContent=originalText;
         if(result === false) { buttons.forEach(b=>b.disabled=false); return; }
-        refresh(); showUnit({...unit,status});
+        refresh(); showUnit({...unit,status},back);
       };
     };
   }
@@ -236,7 +244,14 @@
   }
   function gear() {
     const name=window.__swCheckLogin?.();
-    showDialog('Command center tools', `<p class="muted">${name ? 'Signed in as '+escape(name) : 'Sign in to use the staff log, team, chat, and unit editing tools.'}</p><div class="dialog-actions"><button class="action-button" data-setting="log">Activity log</button><button class="action-button" data-setting="contacts">Team</button><button class="action-button" data-setting="chat">Staff chat</button><button class="action-button" data-setting="character">My character</button><button class="action-button" data-setting="controls">Player controls</button><button class="action-button" data-setting="rounds">Rounds checklist</button><button class="action-button" data-setting="sound">Status sounds</button><button class="action-button" data-setting="reverse">Turn around outside</button><button class="action-button" data-setting="help">How to navigate</button><button class="action-button" data-setting="login">${name?'Switch staff member':'Staff sign in'}</button><button class="action-button" data-setting="fullscreen">Full screen</button></div><p class="muted">Use the bottom-right joystick to walk and turn, or drag the room to look around. Arrow keys walk and turn; WASD also lets you step sideways. Level view straightens your view. Main screen opens the dashboard. Outside returns to the property.</p>`);
+    showDialog('Command menu', `<p class="menu-caption">${name ? 'Signed in as '+escape(name) : 'Staff tools'}</p><div class="dialog-actions">${[
+      menuChoice('Activity log','log','clock','#c5a0ff'),menuChoice('Team','contacts','team','#65d7ef'),
+      menuChoice('Staff chat','chat','chat','#67e4be'),menuChoice('My character','character','team','#e9bc69'),
+      menuChoice('Player controls','controls','center','#65d7ef'),menuChoice('Rounds checklist','rounds','check','#67e4be'),
+      menuChoice('Status sounds','sound','sound','#e9bc69'),menuChoice('Turn around outside','reverse','back','#65d7ef'),
+      menuChoice('How to navigate','help','route','#c5a0ff'),menuChoice('Full screen','fullscreen','desk','#65d7ef'),
+      menuChoice(name?'Switch staff member':'Staff sign in','login','exit','#ffaaa1')
+    ].join('')}</div>`);
     content.onclick=async e=>{
       const action=e.target.closest('[data-setting]')?.dataset.setting;
       if(action==='login') { closeDialog(); if(name) window.__swLogout?.(); else await login(); }
@@ -252,7 +267,7 @@
     };
   }
   function report() {
-    showDialog('Save & report', '<p class="muted">Download the current unit inventory, or open the existing staff report to review session changes and choose recipients.</p><div class="dialog-actions"><a class="action-button" id="deck-download">Download inventory</a><button class="action-button" id="deck-staff-report">Staff report</button></div>');
+    showDialog('Save & report', `<div class="dialog-actions"><a class="action-button menu-choice" id="deck-download">${icon('download')}<span>Download inventory</span></a><button class="action-button menu-choice" id="deck-staff-report" style="--menu-color:#e9bc69">${icon('save')}<span>Staff report</span></button></div>`);
     const rows=units(),download=content.querySelector('#deck-download');
     if(rows.length){
       const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';

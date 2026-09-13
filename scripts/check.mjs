@@ -199,7 +199,6 @@ touch('pointerdown',200,300,23);touch('pointermove',270,300,23);touch('pointerup
 assert(Number(deck.dataset.bridgeYaw)<Number(beforePinch.yaw)-.1,'Single-finger looking resumes after a pinch is cancelled');
 touch('pointerdown',200,300,24,tile);touch('pointerup',200,300,24,tile);tile.click();assert(!w.document.querySelector('#sw-deck-dialog').hidden,'The next deliberate tap opens its window normally');
 const beforeWindowClose={x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.dataset.bridgeYaw};
-click('.expand-dialog');assert(w.document.querySelector('#sw-deck-dialog').classList.contains('is-expanded'),'A command window can expand');
 w.document.querySelector('#sw-deck-dialog').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
 assert(w.document.querySelector('#sw-deck-dialog').hidden);assert.deepEqual({x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.dataset.bridgeYaw},beforeWindowClose,'Closing a window does not reset the room or move the camera');
 click('[data-view="room"]');assert.equal(Number(deck.dataset.bridgeZoom),1,'Bridge restores normal magnification');

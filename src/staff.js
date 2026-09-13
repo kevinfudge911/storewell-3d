@@ -301,7 +301,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
       <button id="sw-panel-close" style="border:none;cursor:pointer;background:rgba(255,255,255,.35);color:#fff;border-radius:8px;width:26px;height:26px;font-size:15px;line-height:1;font-weight:800;">×</button>
     </div>
 
-    <div style="display:flex;background:#f8f9fa;border-bottom:2px solid #eee;">
+    <div class="sw-operations-tabs" style="display:flex;background:#f8f9fa;border-bottom:2px solid #eee;">
       <button class="sw-tab-btn active" data-tab="overview" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">📊 Stats</button>
       <button class="sw-tab-btn" data-tab="inventory" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">🔒 Units</button>
       <button class="sw-tab-btn" data-tab="log" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">📋 Log</button>
@@ -347,9 +347,9 @@ window.__swOperationsOpen=async function(initialTab='overview'){
       </div>
     </div>
 
-    <div style="flex-shrink:0;border-top:1px solid #eef1f5;background:#fff;padding:10px 12px;display:flex;gap:8px;box-shadow:0 -3px 12px rgba(0,0,0,.06);">
+    <div class="sw-operations-footer" style="flex-shrink:0;border-top:1px solid #eef1f5;background:#fff;padding:10px 12px;display:flex;gap:8px;box-shadow:0 -3px 12px rgba(0,0,0,.06);">
       <button id="sw-send-report" style="flex:1;border:none;cursor:pointer;background:linear-gradient(135deg,#FF6B6B,#ee0979);color:#fff;font:800 14px Segoe UI;padding:13px;border-radius:11px;box-shadow:0 3px 10px rgba(238,9,121,.3);">📤 Save &amp; Report</button>
-      <button id="sw-operations-close" style="border:2px solid #eee;cursor:pointer;background:#f8f9fa;color:#666;font:700 13px Segoe UI;padding:13px 16px;border-radius:11px;">Close window</button>
+      <button id="sw-operations-close" style="border:2px solid #eee;cursor:pointer;background:#f8f9fa;color:#666;font:700 13px Segoe UI;padding:13px 16px;border-radius:11px;">Close menu</button>
     </div>
   `;
 
@@ -361,7 +361,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
     if(!hdr) return;
     let ox=0,oy=0,mx=0,my=0;
     hdr.addEventListener('pointerdown',e=>{
-      if(e.target.id==='sw-panel-close') return;
+      if(e.target.id==='sw-panel-close'||document.body.classList.contains('storewell-deck-open')) return;
       e.preventDefault();
       hdr.setPointerCapture(e.pointerId);
       hdr.style.cursor='grabbing';
@@ -558,22 +558,26 @@ window.__swRounds=function(){
   document.body.appendChild(ov);
   // Fetch live data
   fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides.json')
-    .then(function(r){return r.json();})
+    .then(function(r){if(!r.ok)throw new Error('Lock data unavailable');return r.json();})
     .then(function(data){
+      if(!ov.isConnected)return;
       data=data||{};
       var lockIt=[],lockOff=[],late=[],blue=[],purple=[];
-      Object.keys(data).forEach(function(k){
-        var st=data[k];
-        if(st==='flashred') lockIt.push(k);
-        else if(st==='flashgreen') lockOff.push(k);
-        else if(st==='red') late.push(k);
-        else if(st==='blue') blue.push(k);
-        else if(st==='purple') purple.push(k);
+      var property=window.__swApp, knownLocks=property?._locks||{};
+      // Round stops must be real property units, using the same labels as the board.
+      Object.keys(knownLocks).forEach(function(k){
+        var label=knownLocks[k].label;
+        var st=Object.prototype.hasOwnProperty.call(data,k)?data[k]:property._statusOf(label);
+        if(st==='flashred') lockIt.push(label);
+        else if(st==='flashgreen') lockOff.push(label);
+        else if(st==='red') late.push(label);
+        else if(st==='blue') blue.push(label);
+        else if(st==='purple') purple.push(label);
       });
-      lockIt.sort(); lockOff.sort(); late.sort(); blue.sort(); purple.sort();
+      [lockIt,lockOff,late,blue,purple].forEach(function(rows){rows.sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});});});
       var now=new Date();
       var ts=now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-      document.getElementById('sw-rounds-ts').textContent='Live from Firebase · '+ts;
+      ov.querySelector('#sw-rounds-ts').textContent='Updated · '+ts;
       function chips(arr,bg,clr,brd){
         if(!arr.length) return '<span style="color:#aaa;font-size:13px;font-style:italic;">None</span>';
         return arr.map(function(k){
@@ -590,10 +594,9 @@ window.__swRounds=function(){
           +(note?'<div style="font-size:11px;color:#888;font-style:italic;padding:5px 12px;border:1.5px solid #E0DCD6;border-top:none;">'+note+'</div>':'')
           +'</div>';
       }
-      var lockOffNote = lockOff.some(function(k){return k==='or done';}) ? '⚠ "or done" entry — verify in app' : '';
       var html='<div style="display:flex;gap:16px;flex-wrap:wrap;">'
         +'<div style="flex:1;min-width:220px;">'+section('#B91C1C','⚡ Lock It','Put a lock on these units',lockIt.length,chips(lockIt,'#FDF2F2','#B91C1C','#F4BFBF'))+'</div>'
-        +'<div style="flex:1;min-width:220px;">'+section('#0E7032','✅ Lock Off','Remove lock from these units',lockOff.length,chips(lockOff,'#EDF6F0','#0E7032','#A7D9BA'),lockOffNote)+'</div>'
+        +'<div style="flex:1;min-width:220px;">'+section('#0E7032','✅ Lock Off','Remove lock from these units',lockOff.length,chips(lockOff,'#EDF6F0','#0E7032','#A7D9BA'))+'</div>'
         +'</div>';
       if(late.length||blue.length||purple.length){
         html+='<div style="margin-top:16px;border-top:1.5px solid #E0DCD6;padding-top:14px;">'
@@ -609,9 +612,9 @@ window.__swRounds=function(){
           +(purple.length?'<span style="color:#6B21A8;">■</span> Ready to Rent':'')
           +'</div></div>';
       }
-      document.getElementById('sw-rounds-body').innerHTML=html;
+      ov.querySelector('#sw-rounds-body').innerHTML=html;
     })
-    .catch(function(){ document.getElementById('sw-rounds-body').innerHTML='<p style="color:#B91C1C;">Could not load lock data. Check your connection.</p>'; });
+    .catch(function(){ if(ov.isConnected)ov.querySelector('#sw-rounds-body').innerHTML='<p style="color:#ffaaa1;">Could not load lock data. Check your connection.</p>'; });
 };
 window.__swDashboard=function(){
   var a=window.__swApp; if(!a) return;

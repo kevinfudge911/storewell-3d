@@ -127,50 +127,108 @@ body:not(.storewell-deck-open) #sw-deck .space-planet,body:not(.storewell-deck-o
 #sw-deck .airlock-status{min-height:25px;text-align:center;color:#b5d6e9;font:14px Arial;letter-spacing:.4px}
 #sw-deck .airlock-jamb{background:linear-gradient(90deg,#12283d,#6d91aa,#172f49);border:2px solid #72a4bd;border-bottom:7px solid #dfb362}
 
-/* Top-layer command windows stay above the 3D scene and keep the room visible. */
-#sw-deck-dialog{inset:0;margin:0;width:100%;height:100%;max-width:none;max-height:none;border:0;padding:24px;background:transparent;backdrop-filter:none;overflow:hidden;outline:0;touch-action:pan-y pinch-zoom;--window-accent:#65d7ef}
-#sw-deck-dialog::backdrop{background:#02091470;backdrop-filter:none}
+/* Compact button menus share the bridge palette and leave the room in view. */
+#sw-deck-dialog{inset:0;margin:0;width:100%;height:100%;max-width:none;max-height:none;border:0;padding:20px;background:transparent;backdrop-filter:none;overflow:hidden;outline:0;touch-action:pan-y pinch-zoom;--window-accent:#65d7ef}
+#sw-deck-dialog::backdrop{background:#02091455;backdrop-filter:none}
 #sw-deck-dialog *{box-sizing:border-box}
-#sw-deck-dialog .dialog-box{width:min(960px,100%);max-height:calc(100dvh - 64px);min-width:0;border:2px solid #638aa5;border-top:3px solid var(--window-accent);border-radius:13px;background:#102a40;box-shadow:0 20px 65px #0009,0 0 0 5px #0c2035b3;overflow:hidden}
-#sw-deck-dialog .dialog-head{flex-shrink:0;background:linear-gradient(100deg,#123c56,#10263e);border-bottom:1px solid #5988a4;padding:16px 20px;gap:16px;min-height:90px}
-#sw-deck-dialog .window-heading{flex:1;min-width:0}
-#sw-deck-dialog .window-heading>span{display:block;font:11px Arial;letter-spacing:1.5px;color:#a3c6db;margin-bottom:7px}
-#sw-deck-dialog h2{font-size:25px;line-height:1.2;color:#f2fbff;outline:none;overflow-wrap:anywhere}
-#sw-deck-dialog .window-actions{display:flex;align-items:center;gap:8px}
-#sw-deck-dialog .close-dialog,#sw-deck-dialog .expand-dialog{min-height:46px;min-width:46px;height:46px;width:auto;padding:8px 13px;display:flex;align-items:center;justify-content:center;gap:7px;font:700 15px Arial;border:1px solid #87b1ca;border-radius:7px;background:#1b4059;color:#f0faff}
-#sw-deck-dialog .close-dialog{border-color:#e2ab78;background:#593b2c}
-#sw-deck-dialog .close-dialog>span{font:26px Arial;line-height:1}
-#sw-deck-dialog .expand-dialog{font-size:24px;padding:6px}
-#sw-deck-dialog .dialog-body{padding:22px;min-height:0;overflow:auto;touch-action:pan-y pinch-zoom;overscroll-behavior:contain;scrollbar-color:#618eab #10283e;scrollbar-width:thin}
-#sw-deck-dialog .inventory-tools{grid-template-columns:minmax(0,1fr) minmax(180px,240px);padding-bottom:18px;border-bottom:1px solid #44647b}
-#sw-deck-dialog label{font-size:14px;color:#c6dfed}
-#sw-deck-dialog .unit-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
-#sw-deck-dialog .unit{min-height:104px;padding:14px;background:linear-gradient(125deg,#21465e,#112c43);border-color:#618198;border-left:5px solid var(--unit-color);box-shadow:0 3px 8px #00101f44}
-#sw-deck-dialog .unit strong{font-size:22px}
-#sw-deck-dialog .unit small,#sw-deck-dialog .unit span{font-size:14px;line-height:1.4}
-#sw-deck-dialog .action-button{font-size:16px;background:linear-gradient(#186185,#123d5b);border-color:#83d3ee}
-#sw-deck-dialog a.action-button{display:inline-flex;align-items:center;color:#e6f7ff;text-decoration:none}
+#sw-deck-dialog .dialog-box{width:min(560px,100%);max-height:calc(100dvh - 120px);min-width:0;border:1px solid #57b8d1;border-top:3px solid var(--window-accent);border-radius:12px;background:#092238;box-shadow:0 12px 38px #0008;overflow:hidden}
+#sw-deck-dialog[data-menu="inventory"] .dialog-box{width:min(720px,100%)}
+#sw-deck-dialog .dialog-head{flex-shrink:0;background:#11364e;border-bottom:1px solid #416b82;padding:14px 16px;gap:10px;min-height:66px}
+#sw-deck-dialog h2{flex:1;font-size:22px;line-height:1.2;color:#f2fbff;outline:none;overflow-wrap:anywhere}
+#sw-deck-dialog .close-dialog,#sw-deck-dialog .menu-back{min-height:44px;min-width:78px;height:auto;width:auto;padding:8px 11px;display:flex;align-items:center;justify-content:center;gap:6px;font:700 15px Arial;border:1px solid #759eb5;border-radius:7px;background:#20465d;color:#f0faff}
+#sw-deck-dialog .close-dialog{border-color:#dfb873;background:#58401e}
+#sw-deck-dialog .close-dialog>span{font:24px Arial;line-height:1}
+#sw-deck-dialog .menu-back[hidden]{display:none}
+#sw-deck-dialog svg{width:25px;height:25px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+#sw-deck-dialog .menu-back svg{width:20px;height:20px}
+#sw-deck-dialog .dialog-body{padding:18px;min-height:0;overflow:auto;touch-action:pan-y pinch-zoom;overscroll-behavior:contain;scrollbar-color:#618eab #10283e;scrollbar-width:thin}
+#sw-deck-dialog .menu-caption{margin:0 0 14px;font:15px Arial;color:#bbd7e6}
+#sw-deck-dialog .dialog-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
+#sw-deck-dialog .action-button{font:700 17px Arial;line-height:1.3;min-height:62px;text-align:left;padding:13px 14px;border:1px solid var(--menu-color,#6bcfe7);border-left:4px solid var(--menu-color,#6bcfe7);border-radius:8px;color:#f2fbff;background:linear-gradient(135deg,#17435d,#0c2941);box-shadow:inset 0 1px #bcecff18;text-decoration:none;cursor:pointer}
+#sw-deck-dialog .menu-choice{display:flex;align-items:center;gap:12px}
+#sw-deck-dialog .menu-choice svg{color:var(--menu-color,#75dcf1)}
+#sw-deck-dialog .action-button:hover{background:#1d536b}
+#sw-deck-dialog button:focus-visible,#sw-deck-dialog a:focus-visible{outline:3px solid #f3cd80;outline-offset:2px}
+#sw-deck-dialog .action-button:active{background:#28617a}
 #sw-deck-dialog a.action-button[aria-disabled=true]{opacity:.65;cursor:wait}
-#sw-deck-dialog .muted{font-size:16px;color:#c7dce9}
-#sw-deck-dialog.is-expanded{padding:12px}
-#sw-deck-dialog.is-expanded .dialog-box{width:100%;height:100%;max-height:100%;border-radius:10px}
-#sw-deck-dialog.is-expanded .dialog-body{flex:1}
+#sw-deck-dialog .muted{font-size:16px;color:#c7dce9;margin:0 0 16px}
+#sw-deck-dialog .inventory-tools{grid-template-columns:minmax(0,1fr) minmax(170px,210px);padding-bottom:16px;border-bottom:1px solid #44647b;gap:12px}
+#sw-deck-dialog label{font-size:15px;color:#c6dfed}
+#sw-deck-dialog .unit-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+#sw-deck-dialog .unit{min-height:88px;padding:12px;background:linear-gradient(125deg,#21465e,#112c43);border-color:#618198;border-left:5px solid var(--unit-color);box-shadow:none}
+#sw-deck-dialog .unit strong{font-size:22px}
+#sw-deck-dialog .unit small,#sw-deck-dialog .unit span{font-size:14px;line-height:1.35}
+#sw-deck-dialog .status-options{gap:10px}
+#sw-deck-dialog .status-options button{min-height:54px;font-size:16px;color:#e7f7ff;border-color:var(--unit-color);background:#173b52}
 #sw-deck .mobile-dock{z-index:2}
 #sw-deck.walkable-bridge.screen-focused,#sw-deck.screen-focused .mobile-dock .command-screen{touch-action:pan-y pinch-zoom}
+/* Faces are already culled by the room camera; avoid a second CSS back-face test. */
+#sw-deck .bridge-surface,#sw-deck .command-screen{backface-visibility:visible}
+
+/* Existing staff menus keep their actions and adopt the command-center finish. */
+body.storewell-deck-open #sw-cmd-panel{top:50%!important;left:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;width:min(620px,calc(100vw - 24px))!important;height:auto!important;max-height:calc(100dvh - 120px)!important;background:#092238!important;color:#e7f5fc;border:1px solid #65c8df;border-top:3px solid #e7be70;border-radius:12px!important;box-shadow:0 12px 38px #0008!important}
+body.storewell-deck-open #sw-panel-drag{background:#11364e!important;padding:14px 16px!important;cursor:default!important;flex-shrink:0}
+body.storewell-deck-open #sw-panel-drag>div>div>div:first-child{font-size:21px!important;text-shadow:none!important}
+body.storewell-deck-open #sw-panel-drag>div>div>div:last-child{font-size:14px!important;color:#bfdbea!important}
+body.storewell-deck-open #sw-panel-close{width:44px!important;height:44px!important;font-size:24px!important;background:#58401e!important;border:1px solid #dfb873!important}
+body.storewell-deck-open .sw-operations-tabs{gap:7px;padding:10px;background:#092238!important;border-color:#416b82!important;flex-shrink:0}
+body.storewell-deck-open .sw-tab-btn{min-height:46px;font-size:15px!important;color:#e7f7ff!important;background:#173c55!important;border:1px solid #568aa4!important;border-radius:7px}
+body.storewell-deck-open .sw-tab-btn.active{background:#176182!important;border-color:#86e5f3!important;box-shadow:inset 0 -3px #66e2f3}
+body.storewell-deck-open #sw-panel-body{min-height:0;padding:16px!important;background:#092238!important;overscroll-behavior:contain}
+body.storewell-deck-open .sw-operations-footer{background:#11364e!important;border-color:#416b82!important;box-shadow:none!important}
+body.storewell-deck-open #sw-send-report,body.storewell-deck-open #sw-operations-close,body.storewell-deck-open #sw-save-contacts{min-height:48px;font-size:16px!important;background:#174d68!important;color:#f2fbff!important;border:1px solid #6ed5eb!important;box-shadow:none!important}
+body.storewell-deck-open #sw-operations-close{background:#58401e!important;border-color:#dfb873!important}
+body.storewell-deck-open .sw-row-item{background:#14334b;border-color:#365e77;box-shadow:none;padding:12px}
+body.storewell-deck-open .sw-row-item [style*="color:"]{color:#c9dfeb!important;font-size:14px!important}
+body.storewell-deck-open .sw-row-item>div:first-child>div:first-child{color:#86def4!important;font-size:19px!important}
+body.storewell-deck-open .sw-row-item b{color:#8ce8ba!important}
+body.storewell-deck-open #sw-contact-cards>div{background:#14334b!important;border-color:#456a83!important;box-shadow:none!important}
+body.storewell-deck-open #sw-contact-cards [style*="color:#1f2a37"]{color:#edf8ff!important;font-size:18px!important}
+body.storewell-deck-open #sw-contact-cards [style*="color:#7a8aa0"]{color:#b9d8e8!important;font-size:13px!important}
+body.storewell-deck-open #sw-cmd-panel input,body.storewell-deck-open #sw-cmd-panel select{background:#082033!important;color:#f0f9ff!important;border-color:#6992aa!important;font-size:16px!important;min-height:46px}
+body.storewell-deck-open .sw-inv-filter{min-height:40px;font-size:14px!important;color:#e7f7ff!important;background:#173b52!important;border-color:#557d97!important;padding:7px 10px!important}
+body.storewell-deck-open #sw-sens-panel{width:min(340px,calc(100vw - 24px))!important;max-height:calc(100dvh - 130px);overflow:auto;background:#092238!important;color:#edf8ff!important;border:1px solid #65c8df;border-top:3px solid #e7be70;border-radius:12px!important;box-shadow:0 12px 38px #0008!important}
+body.storewell-deck-open #sw-sens-panel div{color:#d7eaf5!important;font-size:15px!important;line-height:1.4}
+body.storewell-deck-open #sw-sens-panel input{background:#173b52!important;color:#f0faff!important;border-color:#638ca4!important;min-height:46px;font-size:18px!important}
+body.storewell-deck-open #sw-sens-panel button{min-height:46px;background:#145674!important;border:1px solid #74dcef!important;color:#f2fbff!important;font:700 16px Arial!important}
+body.storewell-deck-open #sw-chat-panel{width:min(360px,calc(100vw - 24px))!important;bottom:106px!important;background:#092238!important;color:#eaf7ff!important;border:1px solid #65c8df;border-radius:12px!important;box-shadow:0 12px 38px #0008!important}
+body.storewell-deck-open #sw-chat-panel>div{background:#11364e!important;color:#d7eaf5!important;font:15px Arial!important;line-height:1.4!important}
+body.storewell-deck-open #sw-chat-panel input{min-height:46px;font:16px Arial!important;background:#082033!important;color:#f2fbff!important;border:1px solid #6b9bb4!important}
+body.storewell-deck-open #sw-chat-panel button{min-height:40px;min-width:40px;font:700 16px Arial!important;background:#175673!important;color:#f2fbff!important}
+body.storewell-deck-open #sw-wardrobe>div,body.storewell-deck-open .sw-help-box,body.storewell-deck-open #sw-rounds-modal>div{background:#092238!important;color:#eaf7ff!important;border:1px solid #65c8df;border-top:3px solid #e7be70;border-radius:12px!important;max-height:calc(100dvh - 100px)!important;overflow-y:auto;box-shadow:0 12px 38px #0008!important}
+body.storewell-deck-open #sw-wardrobe button{font-size:16px!important;min-height:48px;border:1px solid #6b9bb4!important;background:#17435d!important;color:#f2fbff!important}
+body.storewell-deck-open #sw-wardrobe button div,body.storewell-deck-open #sw-wardrobe button span{font-size:14px!important}
+body.storewell-deck-open #sw-wardrobe input{background:#173b52!important;color:#f2fbff!important;font-size:16px!important;min-height:46px}
+body.storewell-deck-open #sw-rounds-modal{background:#02091455!important;backdrop-filter:none!important}
+body.storewell-deck-open #sw-rounds-modal button{min-height:44px;min-width:44px;color:#edf8ff!important;border-color:#7cacc0!important;font-size:15px!important}
+body.storewell-deck-open #sw-rounds-body>div>div:nth-child(2){background:#14334b!important;border-color:#436780!important}
+body.storewell-deck-open #sw-rounds-ts,body.storewell-deck-open #sw-rounds-body [style*="color:#888"],body.storewell-deck-open #sw-rounds-body [style*="color:#aaa"]{color:#c9dce7!important;font-size:14px!important}
+body.storewell-deck-open .sw-help-box{max-width:560px}
+body.storewell-deck-open .sw-help-header{background:#11364e;padding:16px;border-color:#416b82}
+body.storewell-deck-open .sw-help-header>div:first-child{display:none}
+body.storewell-deck-open .sw-control-row{padding:12px 0;border-color:#345971}
+body.storewell-deck-open .sw-key{font-size:14px;min-width:90px;text-align:center}
+body.storewell-deck-open .sw-ctrl-desc{font-size:16px;color:#d0e4ef}
 @media(max-width:700px){
- #sw-deck-dialog{padding:14px 10px}
- #sw-deck-dialog .dialog-box{max-height:calc(100dvh - 40px)}
- #sw-deck-dialog .dialog-head{padding:13px 12px;gap:10px;min-height:88px}
- #sw-deck-dialog .window-heading>span{font-size:9px;letter-spacing:.5px}
- #sw-deck-dialog h2{font-size:21px}
- #sw-deck-dialog .window-actions{gap:5px}
- #sw-deck-dialog .close-dialog{padding:8px;min-width:70px;font-size:14px}
+ #sw-deck-dialog{padding:12px}
+ #sw-deck-dialog .dialog-box{max-height:calc(100dvh - 110px)}
+ #sw-deck-dialog .dialog-head{padding:12px;gap:8px;min-height:62px}
+ #sw-deck-dialog h2{font-size:20px}
+ #sw-deck-dialog .close-dialog,#sw-deck-dialog .menu-back{padding:8px;min-width:70px;font-size:14px}
  #sw-deck-dialog .dialog-body{padding:14px}
+ #sw-deck-dialog .dialog-actions{gap:10px}
+ #sw-deck-dialog .action-button{padding:12px 10px;font-size:16px;min-height:66px;gap:8px}
+ #sw-deck-dialog .menu-choice svg{width:22px;height:22px}
  #sw-deck-dialog .inventory-tools{grid-template-columns:1fr}
  #sw-deck-dialog .unit-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
  #sw-deck-dialog .unit{padding:12px 9px}
  #sw-deck-dialog .unit strong{font-size:20px}
- #sw-deck-dialog .status-options{grid-template-columns:1fr}
+ body.storewell-deck-open #sw-cmd-panel{max-height:calc(100dvh - 110px)!important}
+ body.storewell-deck-open .sw-operations-tabs{gap:5px;padding:8px}
+ body.storewell-deck-open .sw-tab-btn{font-size:14px!important}
+}
+@media(max-height:550px){
+ #sw-deck-dialog .dialog-box,body.storewell-deck-open #sw-cmd-panel,body.storewell-deck-open .sw-help-box,body.storewell-deck-open #sw-wardrobe>div,body.storewell-deck-open #sw-rounds-modal>div{max-height:calc(100dvh - 32px)!important}
 }
 @media(prefers-reduced-motion:reduce){
  #sw-deck .space-planet,#sw-deck .space-stars{animation:none}
