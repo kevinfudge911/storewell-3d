@@ -6,7 +6,12 @@
     if (!T?.CSS3DRenderer) throw new Error('3D room renderer unavailable');
     const scene = new T.Scene(); scene.scale.setScalar(100);
     const camera = new T.PerspectiveCamera(55, 1, .1, 160); camera.rotation.order = 'YXZ';
-    const cssCamera = camera.clone(), renderer = new T.CSS3DRenderer();
+    // Flatten each HTML surface before projecting it. This avoids browser
+    // compositor clipping of animated descendants when a room face turns aft.
+    const roomLayer=document.createElement('div');
+    Object.assign(roomLayer.style,{position:'absolute',inset:'0',overflow:'hidden',isolation:'isolate',pointerEvents:'none'});
+    let renderWidth=1,renderHeight=1;
+    const renderer={domElement:roomLayer,setSize(width,height){renderWidth=width;renderHeight=height;}};
     deck.querySelector('.room-ui').append(renderer.domElement);
     deck.classList.add('walkable-bridge');
     const faces = [], obstacles = [], keys = new Set();
@@ -23,16 +28,14 @@
       obj.userData.roomCorners=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>new T.Vector3(x,y,0).applyQuaternion(obj.quaternion).add(obj.position));
       obj.userData.roomBounds=new T.Box3().setFromPoints(obj.userData.roomCorners);
       obj.userData.roomWidth=w;obj.userData.roomHeight=h;obj.userData.inverseRotation=obj.quaternion.clone().invert();
+      obj.userData.roomNormal=new T.Vector3(0,0,1).applyQuaternion(obj.quaternion);
+      obj.userData.layer=document.createElement('div');
+      Object.assign(obj.userData.layer.style,{position:'absolute',left:'0',top:'0',transformOrigin:'0 0',transformStyle:'flat',pointerEvents:'none'});
+      obj.userData.layer.append(obj.element);
+      roomLayer.append(obj.userData.layer);
     };
-    function clipAtCamera(face) {
-      const data=face.userData;
-      if(data.roomCorners.every(point=>viewFrustum.planes[5].distanceToPoint(point)>=0)){
-        face.element.style.clipPath='';return;
-      }
-      // A floor/ceiling can cross the eye plane even though its visible end
-      // is in front of us. Trim its paint polygon before CSS perspective so
-      // the portion behind the eye cannot cover the opposite wall.
-      let polygon=data.roomCorners;
+    function clippedFace(face) {
+      let polygon=face.userData.roomCorners;
       for(const plane of viewFrustum.planes){
         const clipped=[];
         for(let i=0;i<polygon.length;i++){
@@ -41,12 +44,72 @@
           if(da>=0)clipped.push(a);
           if((da>=0)!==(db>=0))clipped.push(a.clone().lerp(b,da/(da-db)));
         }
-        polygon=clipped;if(polygon.length<3){face.visible=false;return;}
+        polygon=clipped;if(polygon.length<3)return null;
       }
-      face.element.style.clipPath='polygon('+polygon.map(point=>{
-        const p=point.clone().sub(face.position).applyQuaternion(data.inverseRotation);
-        return `${((p.x/data.roomWidth+.5)*100).toFixed(5)}% ${((.5-p.y/data.roomHeight)*100).toFixed(5)}%`;
-      }).join(',')+')';
+      return polygon;
+    }
+    const cross2=(a,b,p)=>(b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x);
+    function overlapPolygon(subject,clip) {
+      let result=subject;
+      for(let i=0;i<clip.length;i++){
+        const a=clip[i],b=clip[(i+1)%clip.length],next=[];
+        for(let j=0;j<result.length;j++){
+          const p=result[j],q=result[(j+1)%result.length],dp=cross2(a,b,p),dq=cross2(a,b,q);
+          if(dp>=-1e-9)next.push(p);
+          if((dp>=0)!==(dq>=0)){const t=dp/(dp-dq);next.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t});}
+        }
+        result=next;if(result.length<3)return null;
+      }
+      return result;
+    }
+    const signedArea=polygon=>polygon.reduce((sum,p,i)=>{const q=polygon[(i+1)%polygon.length];return sum+p.x*q.y-q.x*p.y;},0);
+    function paintRoom() {
+      const drawing=[],matrix=new T.Matrix4();
+      for(const face of faces){
+        const data=face.userData,layer=data.layer;
+        layer.style.display=face.visible&&face.parent?'':'none';
+        if(!face.visible||!face.parent)continue;
+        const polygon=clippedFace(face);if(!polygon){face.visible=false;layer.style.display='none';continue;}
+        const projected=polygon.map(point=>{const p=point.clone().project(camera);return {x:p.x,y:p.y};});
+        if(signedArea(projected)<0)projected.reverse();
+        const bounds={left:Math.min(...projected.map(p=>p.x)),right:Math.max(...projected.map(p=>p.x)),bottom:Math.min(...projected.map(p=>p.y)),top:Math.max(...projected.map(p=>p.y))};
+        const width=data.roomWidth*50,height=data.roomHeight*50;
+        const local=polygon.map(point=>{const p=point.clone().sub(face.position).applyQuaternion(data.inverseRotation);return {x:(p.x/data.roomWidth+.5)*width,y:(.5-p.y/data.roomHeight)*height};});
+        const left=Math.max(0,Math.min(...local.map(p=>p.x))),top=Math.max(0,Math.min(...local.map(p=>p.y)));
+        const right=Math.min(width,Math.max(...local.map(p=>p.x))),bottom=Math.min(height,Math.max(...local.map(p=>p.y)));
+        const cropWidth=Math.max(.01,right-left),cropHeight=Math.max(.01,bottom-top);
+        layer.style.width=cropWidth+'px';layer.style.height=cropHeight+'px';
+        layer.style.clipPath='polygon('+local.map(p=>`${((p.x-left)/cropWidth*100).toFixed(5)}% ${((p.y-top)/cropHeight*100).toFixed(5)}%`).join(',')+')';
+        const el=face.element;if(el.parentNode!==layer)layer.append(el);
+        Object.assign(el.style,{display:'',left:-left+'px',top:-top+'px',transform:'none',clipPath:''});
+        face.updateMatrix();matrix.multiplyMatrices(projectionView,face.matrix);
+        const e=matrix.elements,originX=left-width/2,originY=height/2-top;
+        const x=e[12]+e[0]*originX+e[4]*originY,y=e[13]+e[1]*originX+e[5]*originY,w=e[15]+e[3]*originX+e[7]*originY;
+        // Homography from the cropped surface's CSS pixels to viewport pixels.
+        // Its output has z=0; explicit paint order handles room occlusion.
+        const css=[(e[0]+e[3])*renderWidth/2,(e[3]-e[1])*renderHeight/2,0,e[3],(-e[4]-e[7])*renderWidth/2,(e[5]-e[7])*renderHeight/2,0,-e[7],0,0,1,0,(x+w)*renderWidth/2,(w-y)*renderHeight/2,0,w];
+        layer.style.transform='matrix3d('+css.map(v=>Math.abs(v)<1e-12?0:v).join(',')+')';
+        drawing.push({face,layer,polygon:projected,bounds,farther:[],incoming:0,depth:face.position.clone().applyMatrix4(camera.matrixWorldInverse).z});
+      }
+      // Compare depth only where projected faces actually overlap. Sorting by
+      // their centers alone can wrongly put a wall in front of its own screen.
+      for(let i=0;i<drawing.length;i++)for(let j=i+1;j<drawing.length;j++){
+        const a=drawing[i],b=drawing[j],aa=a.bounds,bb=b.bounds;
+        if(aa.left>=bb.right-1e-7||aa.right<=bb.left+1e-7||aa.bottom>=bb.top-1e-7||aa.top<=bb.bottom+1e-7)continue;
+        const overlap=overlapPolygon(a.polygon,b.polygon);if(!overlap||Math.abs(signedArea(overlap))<1e-8)continue;
+        const point=overlap.reduce((p,q)=>({x:p.x+q.x/overlap.length,y:p.y+q.y/overlap.length}),{x:0,y:0});
+        const ray=new T.Vector3(point.x,point.y,.5).unproject(camera).sub(camera.position);
+        const depth=item=>item.face.userData.roomNormal.dot(item.face.position.clone().sub(camera.position))/item.face.userData.roomNormal.dot(ray);
+        const da=depth(a),db=depth(b);if(Math.abs(da-db)<1e-7)continue;
+        const far=da>db?a:b,near=da>db?b:a;far.farther.push(near);near.incoming++;
+      }
+      let rank=0;const remaining=new Set(drawing);
+      while(remaining.size){
+        const ready=[...remaining].filter(item=>!item.incoming);
+        const candidates=ready.length?ready:[...remaining];candidates.sort((a,b)=>a.depth-b.depth);
+        const next=candidates[0];remaining.delete(next);next.layer.style.zIndex=String(++rank);
+        for(const nearer of next.farther)nearer.incoming--;
+      }
     }
     let spaceEpoch = 0;
     // Each pane crops its actual position on one 184-metre perimeter. The
@@ -173,7 +236,6 @@
     function render() {
       camera.rotation.set(pitch,yaw,0,'YXZ'); camera.updateMatrixWorld(true);
       viewFrustum.setFromProjectionMatrix(projectionView.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
-      cssCamera.copy(camera); cssCamera.position.multiplyScalar(100);
       for(const face of faces) {
         normal.set(0,0,1).applyQuaternion(face.quaternion); toCamera.copy(camera.position).sub(face.position);
         const wasVisible=face.visible;
@@ -181,7 +243,6 @@
         // can project enormous CSS paint bounds over the room. Clip against
         // the entire view, including its sides and top/bottom, before drawing.
         face.visible=normal.dot(toCamera)>.015&&viewFrustum.intersectsBox(face.userData.roomBounds);
-        if(face.visible)clipAtCamera(face);
         // CSS animations restart when a culled face becomes visible. Resume
         // the shared sky clock so turning around never restarts that window.
         if(face.userData.spaceWindow&&face.visible&&(!wasVisible||face.userData.syncSpace)){
@@ -189,7 +250,7 @@
           face.userData.syncSpace=false;
         }
       }
-      renderer.render(scene,cssCamera);
+      paintRoom();
       Object.assign(renderedPose,{x:camera.position.x,z:camera.position.z,yaw,pitch});
       deck.dataset.bridgeX=camera.position.x.toFixed(2);deck.dataset.bridgeZ=camera.position.z.toFixed(2);deck.dataset.bridgeYaw=yaw.toFixed(3);deck.dataset.bridgePitch=pitch.toFixed(3);deck.dataset.bridgeFov=String(camera.fov);deck.dataset.bridgeZoom=zoom.toFixed(2);
     }
