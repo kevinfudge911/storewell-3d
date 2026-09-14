@@ -6,7 +6,7 @@
     if (!T?.CSS3DRenderer) throw new Error('3D room renderer unavailable');
     const scene = new T.Scene(); scene.scale.setScalar(100);
     const camera = new T.PerspectiveCamera(55, 1, .1, 160); camera.rotation.order = 'YXZ';
-    const cssCamera = camera.clone(), renderer = new T.CSS3DRenderer({cameraInObjects:true});
+    const cssCamera = camera.clone(), renderer = new T.CSS3DRenderer();
     deck.querySelector('.room-ui').append(renderer.domElement);
     deck.classList.add('walkable-bridge');
     const faces = [], obstacles = [], keys = new Set();
@@ -17,9 +17,11 @@
     let doorOpen=false,doorReady=false,doorManual=false,doorTimer;
     let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .04, unsubscribe, history = [], historyState = 'Connecting to saved lock history…', watched = false;
     const limitPitch = value => Math.max(-.25,Math.min(.22,value));
-    const normal = new T.Vector3(), toCamera = new T.Vector3(), viewDirection = new T.Vector3();
+    const normal = new T.Vector3(), toCamera = new T.Vector3();
+    const viewFrustum = new T.Frustum(), projectionView = new T.Matrix4();
     const setRoomBounds = (obj,w,h) => {
       obj.userData.roomCorners=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>new T.Vector3(x,y,0).applyQuaternion(obj.quaternion).add(obj.position));
+      obj.userData.roomBounds=new T.Box3().setFromPoints(obj.userData.roomCorners);
     };
     let spaceEpoch = 0;
     // Each pane crops its actual position on one 184-metre perimeter. The
@@ -144,12 +146,16 @@
       resize();
     }
     function render() {
-      camera.rotation.set(pitch,yaw,0,'YXZ'); camera.getWorldDirection(viewDirection); cssCamera.copy(camera); cssCamera.position.multiplyScalar(100);
+      camera.rotation.set(pitch,yaw,0,'YXZ'); camera.updateMatrixWorld(true);
+      viewFrustum.setFromProjectionMatrix(projectionView.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));
+      cssCamera.copy(camera); cssCamera.position.multiplyScalar(100);
       for(const face of faces) {
         normal.set(0,0,1).applyQuaternion(face.quaternion); toCamera.copy(camera.position).sub(face.position);
         const wasVisible=face.visible;
-        // Keep partly visible walls, but never paint a face wholly behind us.
-        face.visible=normal.dot(toCamera)>.015&&face.userData.roomCorners.some(corner=>toCamera.copy(corner).sub(camera.position).dot(viewDirection)>.015);
+        // Off-screen consoles and wall sections that cross the camera plane
+        // can project enormous CSS paint bounds over the room. Clip against
+        // the entire view, including its sides and top/bottom, before drawing.
+        face.visible=normal.dot(toCamera)>.015&&viewFrustum.intersectsBox(face.userData.roomBounds);
         // CSS animations restart when a culled face becomes visible. Resume
         // the shared sky clock so turning around never restarts that window.
         if(face.userData.spaceWindow&&face.visible&&(!wasVisible||face.userData.syncSpace)){

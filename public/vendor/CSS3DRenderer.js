@@ -56,10 +56,9 @@
 
 	class CSS3DRenderer {
 
-		constructor( { cameraInObjects = false } = {} ) {
+		constructor() {
 
 			const _this = this;
-			const viewObjectMatrix = new THREE.Matrix4();
 
 			let _width, _height;
 
@@ -112,12 +111,7 @@
 				}
 
 				const cameraCSSMatrix = camera.isOrthographicCamera ? 'scale(' + fov + ')' + 'translate(' + epsilon( tx ) + 'px,' + epsilon( ty ) + 'px)' + getCameraCSSMatrix( camera.matrixWorldInverse ) : 'translateZ(' + fov + 'px)' + getCameraCSSMatrix( camera.matrixWorldInverse );
-				// Keep the containing layer facing the viewport when requested.
-				// Rotating that layer behind the viewer can clip otherwise-visible
-				// room faces in mobile/remote browser compositors. Project each
-				// object into camera space instead; the final geometry is identical.
-				const containerMatrix = cameraInObjects && camera.isPerspectiveCamera ? 'translateZ(' + fov + 'px)' : cameraCSSMatrix;
-				const style = containerMatrix + 'translate(' + _widthHalf + 'px,' + _heightHalf + 'px)';
+				const style = cameraCSSMatrix + 'translate(' + _widthHalf + 'px,' + _heightHalf + 'px)';
 
 				if ( cache.camera.style !== style ) {
 
@@ -164,16 +158,6 @@
 
 			}
 
-			function getViewObjectCSSMatrix( matrix ) {
-
-				const e = matrix.elements;
-				// CSS screen Y runs downward: flip the view's Y row as well as
-				// the object's Y column, just as the two original matrices do.
-				const values = [ e[ 0 ], - e[ 1 ], e[ 2 ], e[ 3 ], - e[ 4 ], e[ 5 ], - e[ 6 ], - e[ 7 ], e[ 8 ], - e[ 9 ], e[ 10 ], e[ 11 ], e[ 12 ], - e[ 13 ], e[ 14 ], e[ 15 ] ];
-				return 'translate(-50%,-50%)matrix3d(' + values.map( epsilon ).join( ',' ) + ')';
-
-			}
-
 			function renderObject( object, scene, camera, cameraCSSMatrix ) {
 
 				if ( object.isCSS3DObject ) {
@@ -201,13 +185,6 @@
 					} else {
 
 						style = getObjectCSSMatrix( object.matrixWorld );
-
-					}
-
-					if ( cameraInObjects && camera.isPerspectiveCamera ) {
-
-						viewObjectMatrix.multiplyMatrices( camera.matrixWorldInverse, object.isCSS3DSprite ? _matrix : object.matrixWorld );
-						style = getViewObjectCSSMatrix( viewObjectMatrix );
 
 					}
 
