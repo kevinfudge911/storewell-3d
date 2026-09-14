@@ -18,11 +18,15 @@
     let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .04, unsubscribe, history = [], historyState = 'Connecting to saved lock history…', watched = false;
     const limitPitch = value => Math.max(-.25,Math.min(.22,value));
     const normal = new T.Vector3(), toCamera = new T.Vector3();
-    const spaceView = index => `<div class="space-scene" aria-hidden="true" style="--space-x:${18+(index%5)*16}%;--space-delay:${-index*7}s"><div class="space-planet"></div><div class="space-stars stars-far"></div><div class="space-stars stars-near"></div></div><div class="window-glass" aria-hidden="true"></div>`;
+    let spaceEpoch = 0;
+    // Each pane crops its actual position on one 184-metre perimeter. The
+    // forward inset windows use the same coordinates as the wall behind them.
+    const spaceView = (offset,top=0,borderTop=15) => `<div class="space-scene" aria-hidden="true" style="--space-x:${offset*50+12}px;--space-y:${top*50+borderTop}px"><div class="space-stars stars-far"></div><div class="space-stars stars-near"></div><div class="space-meteors"></div></div><div class="window-glass" aria-hidden="true"></div>`;
     const plane = (name,w,h,x,y,z,ry=0,rx=0,html='') => {
       const el = document.createElement('div'); el.className = 'bridge-surface '+name;
       el.style.width = w*50+'px'; el.style.height = h*50+'px'; el.innerHTML = html;
       const obj = new T.CSS3DObject(el); obj.scale.setScalar(.02); obj.position.set(x,y,z); obj.rotation.set(rx,ry,0,'YXZ');
+      obj.userData.spaceWindow=!!el.querySelector('.space-scene');
       scene.add(obj); faces.push(obj); return obj;
     };
     const box = (name,x,y,z,w,h,d) => {
@@ -37,13 +41,13 @@
     // Separate bulkheads, ceiling ribs, and windows create depth in every direction.
     for (const side of [-1,1]) {
       for (let z=-18;z<=18;z+=12) {
-        plane('bridge-bulkhead bridge-observation',12,12,side*22,6,z,-side*Math.PI/2,0,spaceView((z+18)/12+(side>0?4:0)));
+        plane('bridge-bulkhead bridge-observation',12,12,side*22,6,z,-side*Math.PI/2,0,spaceView(side>0?62+z:154-z));
         box('bridge-rib',side*21.65,6,z-5.8,.65,12,.6);
       }
-      plane('bridge-window window-'+(side<0?'port':'starboard'),8.8,9.8,side*16.8,6.5,-23.7,0,0,spaceView(side<0?2:3));
+      plane('bridge-window window-'+(side<0?'port':'starboard'),8.8,9.8,side*16.8,6.5,-23.7,0,0,spaceView(22+side*16.8-4.4,.6,12));
     }
-    plane('bridge-bulkhead bridge-observation',44,12,0,6,24,Math.PI,0,spaceView(7));
-    plane('bridge-bulkhead bridge-observation',44,12,0,6,-24,0,0,spaceView(1));
+    plane('bridge-bulkhead bridge-observation',44,12,0,6,24,Math.PI,0,spaceView(92));
+    plane('bridge-bulkhead bridge-observation',44,12,0,6,-24,0,0,spaceView(0));
     for (const z of [-20,-8,4,16]) box('bridge-overhead',0,11.6,z,43,.7,.6);
     for(const x of [-12,12])plane('bridge-light-strip',.4,43,x,11.15,0,0,Math.PI/2);
     for(const side of [-1,1])plane('bridge-wall-wash',46,.35,side*21.2,10.8,0,-side*Math.PI/2);
@@ -139,7 +143,14 @@
       camera.rotation.set(pitch,yaw,0,'YXZ'); cssCamera.copy(camera); cssCamera.position.multiplyScalar(100);
       for(const face of faces) {
         normal.set(0,0,1).applyQuaternion(face.quaternion); toCamera.copy(camera.position).sub(face.position);
+        const wasVisible=face.visible;
         face.visible=normal.dot(toCamera)>.015;
+        // CSS animations restart when a culled face becomes visible. Resume
+        // the shared sky clock so turning around never restarts that window.
+        if(face.userData.spaceWindow&&face.visible&&(!wasVisible||face.userData.syncSpace)){
+          face.element.style.setProperty('--space-delay',`${-(performance.now()-spaceEpoch)/1000}s`);
+          face.userData.syncSpace=false;
+        }
       }
       renderer.render(scene,cssCamera);
       Object.assign(renderedPose,{x:camera.position.x,z:camera.position.z,yaw,pitch});
@@ -275,7 +286,7 @@
       ({history:openHistory,refresh:()=>watchHistory(true),door:openExitDoors,gear,alerts,report,exit}[action])?.();
     });
     return {
-      open(){active=true;lastTime=0;setView('room');refresh();if(!raf)raf=requestAnimationFrame(frame);},
+      open(){active=true;lastTime=0;spaceEpoch=performance.now();for(const face of faces)if(face.userData.spaceWindow)face.userData.syncSpace=true;setView('room');refresh();if(!raf)raf=requestAnimationFrame(frame);},
       close(){active=false;stop();clearTimeout(doorTimer);doorManual=false;setDoor(false);unsubscribe?.();unsubscribe=null;watched=false;history=[];drawHistory();},
       setView,refresh,stop,resize
     };
