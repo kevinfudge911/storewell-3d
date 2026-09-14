@@ -38,6 +38,8 @@ save('bridge-deep-space.svg', `${definitions}<path fill="#000104" d="M0 0H${widt
   <g transform="translate(4220 315)"><circle r="22" fill="url(#sun)"/><circle r="2.2" fill="#e0d0a6"/><circle cx="13" cy="-3" r=".8" fill="#a2a9b5"/><circle cx="-23" cy="5" r="1.4" fill="#716454"/></g>
   <g transform="translate(7590 390)"><circle r="16" fill="url(#sun)"/><circle r="1.7" fill="#d6d5cc"/><circle cx="9" cy="3" r="1" fill="#bb9b75"/></g>`);
 save('bridge-near-stars.svg', stars(155, true));
-save('bridge-space-meteors.svg', `<defs><linearGradient id="trail"><stop stop-color="#b2cbe5" stop-opacity="0"/><stop offset=".9" stop-color="#b2cbe5" stop-opacity=".45"/><stop offset="1" stop-color="#f1f5fa" stop-opacity=".8"/></linearGradient></defs>
-  ${[[530, 185], [4035, 360], [7180, 215]].map(([x,y]) => `<g transform="translate(${x} ${y}) rotate(-17)"><path d="M0 0H76" stroke="url(#trail)" stroke-width="1.3"/><circle cx="76" r="1.2" fill="#dce9f5"/></g>`).join('')}`);
+// Explicit user-space coordinates keep a horizontal stroke's zero-height
+// bounding box from suppressing its gradient in browser SVG renderers.
+save('bridge-space-meteors.svg', `<defs><linearGradient id="trail" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="76" y2="0"><stop stop-color="#b2cbe5" stop-opacity="0"/><stop offset=".9" stop-color="#b2cbe5" stop-opacity=".55"/><stop offset="1" stop-color="#f1f5fa" stop-opacity=".9"/></linearGradient></defs>
+  ${[[145, 200], [4035, 360], [7180, 215]].map(([x,y]) => `<g transform="translate(${x} ${y}) rotate(-17)"><path d="M0 0H76" stroke="url(#trail)" stroke-width="2"/><circle cx="76" r="1.6" fill="#dce9f5"/></g>`).join('')}`);
 console.log('Built the continuous dark-space panorama.');

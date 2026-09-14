@@ -99,7 +99,7 @@
 #sw-deck .bridge-front-frame{background:linear-gradient(115deg,#17324a,#426a86 25%,#142f49 28% 70%,#628aa5 74%,#142d45)}
 @keyframes bridge-space-tiles{from{background-position-x:calc(0px - var(--space-x))}to{background-position-x:calc(-9200px - var(--space-x))}}
 @keyframes bridge-space-travel{from{transform:translateX(0)}to{transform:translateX(-200px)}}
-@keyframes bridge-meteor-pass{0%,87%{opacity:0;background-position:calc(0px - var(--space-x)) calc(0px - var(--space-y))}88%{opacity:.65}94%,100%{opacity:0;background-position:calc(240px - var(--space-x)) calc(-72px - var(--space-y))}}
+@keyframes bridge-meteor-pass{0%,87%{opacity:0;background-position:calc(0px - var(--space-x)) calc(0px - var(--space-y))}88%{opacity:.8}93%{opacity:.65}96%,100%{opacity:0;background-position:calc(260px - var(--space-x)) calc(-78px - var(--space-y))}}
 body:not(.storewell-deck-open) #sw-deck .space-stars,body:not(.storewell-deck-open) #sw-deck .space-meteors{animation-play-state:paused}
 
 /* A full-height, two-leaf automatic exit with a lit passage behind it. */

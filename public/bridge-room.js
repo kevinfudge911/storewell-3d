@@ -17,7 +17,10 @@
     let doorOpen=false,doorReady=false,doorManual=false,doorTimer;
     let view = 'room', active = false, raf = 0, lastTime = 0, drag, yaw = 0, pitch = .04, unsubscribe, history = [], historyState = 'Connecting to saved lock history…', watched = false;
     const limitPitch = value => Math.max(-.25,Math.min(.22,value));
-    const normal = new T.Vector3(), toCamera = new T.Vector3();
+    const normal = new T.Vector3(), toCamera = new T.Vector3(), viewDirection = new T.Vector3();
+    const setRoomBounds = (obj,w,h) => {
+      obj.userData.roomCorners=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>new T.Vector3(x,y,0).applyQuaternion(obj.quaternion).add(obj.position));
+    };
     let spaceEpoch = 0;
     // Each pane crops its actual position on one 184-metre perimeter. The
     // forward inset windows use the same coordinates as the wall behind them.
@@ -26,6 +29,7 @@
       const el = document.createElement('div'); el.className = 'bridge-surface '+name;
       el.style.width = w*50+'px'; el.style.height = h*50+'px'; el.innerHTML = html;
       const obj = new T.CSS3DObject(el); obj.scale.setScalar(.02); obj.position.set(x,y,z); obj.rotation.set(rx,ry,0,'YXZ');
+      setRoomBounds(obj,w,h);
       obj.userData.spaceWindow=!!el.querySelector('.space-scene');
       scene.add(obj); faces.push(obj); return obj;
     };
@@ -53,7 +57,7 @@
     for(const side of [-1,1])plane('bridge-wall-wash',46,.35,side*21.2,10.8,0,-side*Math.PI/2);
     plane('bridge-wall-wash',42,.4,0,11.4,-23.4);
     plane('bridge-front-frame',23.8,11.25,0,6.35,-23.72);
-    const board = new T.CSS3DObject(screen); board.scale.setScalar(.02); board.position.set(0,6.65,-23.5); scene.add(board); faces.push(board);
+    const board = new T.CSS3DObject(screen); board.scale.setScalar(.02); board.position.set(0,6.65,-23.5); setRoomBounds(board,21.2,9.52); scene.add(board); faces.push(board);
     const station = (cls,title,sub,w,h,x,y,z,ry,html) => plane('bridge-station '+cls,w,h,x,y,z,ry,0,
       `<header><span>${sub}</span><h2>${title}</h2></header>${html}`);
     const logWall = station('bridge-log-wall','LOCK ACTIVITY','PORT · OPERATIONS',14,7.8,-21.15,6,2,Math.PI/2,
@@ -140,11 +144,14 @@
       resize();
     }
     function render() {
-      camera.rotation.set(pitch,yaw,0,'YXZ'); cssCamera.copy(camera); cssCamera.position.multiplyScalar(100);
+      camera.rotation.set(pitch,yaw,0,'YXZ'); camera.getWorldDirection(viewDirection); cssCamera.copy(camera); cssCamera.position.multiplyScalar(100);
       for(const face of faces) {
         normal.set(0,0,1).applyQuaternion(face.quaternion); toCamera.copy(camera.position).sub(face.position);
         const wasVisible=face.visible;
-        face.visible=normal.dot(toCamera)>.015;
+        // CSS3D does not discard surfaces behind the camera. Those surfaces
+        // can project over the opposite wall when looking directly backward.
+        // Keep partly visible walls, but never paint a face wholly behind us.
+        face.visible=normal.dot(toCamera)>.015&&face.userData.roomCorners.some(corner=>toCamera.copy(corner).sub(camera.position).dot(viewDirection)>.015);
         // CSS animations restart when a culled face becomes visible. Resume
         // the shared sky clock so turning around never restarts that window.
         if(face.userData.spaceWindow&&face.visible&&(!wasVisible||face.userData.syncSpace)){
