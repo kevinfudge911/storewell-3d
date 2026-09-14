@@ -22,7 +22,32 @@
     const setRoomBounds = (obj,w,h) => {
       obj.userData.roomCorners=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>new T.Vector3(x,y,0).applyQuaternion(obj.quaternion).add(obj.position));
       obj.userData.roomBounds=new T.Box3().setFromPoints(obj.userData.roomCorners);
+      obj.userData.roomWidth=w;obj.userData.roomHeight=h;obj.userData.inverseRotation=obj.quaternion.clone().invert();
     };
+    function clipAtCamera(face) {
+      const data=face.userData;
+      if(data.roomCorners.every(point=>viewFrustum.planes[5].distanceToPoint(point)>=0)){
+        face.element.style.clipPath='';return;
+      }
+      // A floor/ceiling can cross the eye plane even though its visible end
+      // is in front of us. Trim its paint polygon before CSS perspective so
+      // the portion behind the eye cannot cover the opposite wall.
+      let polygon=data.roomCorners;
+      for(const plane of viewFrustum.planes){
+        const clipped=[];
+        for(let i=0;i<polygon.length;i++){
+          const a=polygon[i],b=polygon[(i+1)%polygon.length];
+          const da=plane.distanceToPoint(a),db=plane.distanceToPoint(b);
+          if(da>=0)clipped.push(a);
+          if((da>=0)!==(db>=0))clipped.push(a.clone().lerp(b,da/(da-db)));
+        }
+        polygon=clipped;if(polygon.length<3){face.visible=false;return;}
+      }
+      face.element.style.clipPath='polygon('+polygon.map(point=>{
+        const p=point.clone().sub(face.position).applyQuaternion(data.inverseRotation);
+        return `${((p.x/data.roomWidth+.5)*100).toFixed(5)}% ${((.5-p.y/data.roomHeight)*100).toFixed(5)}%`;
+      }).join(',')+')';
+    }
     let spaceEpoch = 0;
     // Each pane crops its actual position on one 184-metre perimeter. The
     // forward inset windows use the same coordinates as the wall behind them.
@@ -156,6 +181,7 @@
         // can project enormous CSS paint bounds over the room. Clip against
         // the entire view, including its sides and top/bottom, before drawing.
         face.visible=normal.dot(toCamera)>.015&&viewFrustum.intersectsBox(face.userData.roomBounds);
+        if(face.visible)clipAtCamera(face);
         // CSS animations restart when a culled face becomes visible. Resume
         // the shared sky clock so turning around never restarts that window.
         if(face.userData.spaceWindow&&face.visible&&(!wasVisible||face.userData.syncSpace)){
