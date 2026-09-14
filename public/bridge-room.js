@@ -6,7 +6,7 @@
     if (!T?.CSS3DRenderer) throw new Error('3D room renderer unavailable');
     const scene = new T.Scene(); scene.scale.setScalar(100);
     const camera = new T.PerspectiveCamera(55, 1, .1, 160); camera.rotation.order = 'YXZ';
-    const cssCamera = camera.clone(), renderer = new T.CSS3DRenderer();
+    const cssCamera = camera.clone(), renderer = new T.CSS3DRenderer({cameraInObjects:true});
     deck.querySelector('.room-ui').append(renderer.domElement);
     deck.classList.add('walkable-bridge');
     const faces = [], obstacles = [], keys = new Set();
@@ -148,8 +148,6 @@
       for(const face of faces) {
         normal.set(0,0,1).applyQuaternion(face.quaternion); toCamera.copy(camera.position).sub(face.position);
         const wasVisible=face.visible;
-        // CSS3D does not discard surfaces behind the camera. Those surfaces
-        // can project over the opposite wall when looking directly backward.
         // Keep partly visible walls, but never paint a face wholly behind us.
         face.visible=normal.dot(toCamera)>.015&&face.userData.roomCorners.some(corner=>toCamera.copy(corner).sub(camera.position).dot(viewDirection)>.015);
         // CSS animations restart when a culled face becomes visible. Resume
