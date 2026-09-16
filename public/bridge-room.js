@@ -154,8 +154,37 @@
       '<div class="bridge-log-state" role="status"></div><div class="bridge-log-rows"></div><footer><button data-station="history">Open full lock history</button><button data-station="refresh">Refresh history</button></footer>').element;
     const rosterWall = station('bridge-roster-wall','UNIT STATUS','STARBOARD · SECURITY',14,7.8,21.15,6,2,-Math.PI/2,
       '<div class="bridge-roster"></div><footer>Live unit status · Select a unit to inspect</footer>').element;
-    station('bridge-comms','COMMUNICATIONS','AFT · CREW STATION',11,8.4,-10,5.3,23.7,Math.PI,
+    station('bridge-comms','COMMUNICATIONS','PORT · CREW STATION',10,8.4,-21.15,5.3,16,Math.PI/2,
       '<div class="bridge-station-actions"><button data-station="alerts">Push notifications</button><button data-station="report">Save &amp; email report</button><button data-station="gear">Team &amp; ship systems</button></div>');
+    // Preserve the original office's wall boards and real crew photo inside
+    // the upgraded bridge; the observation windows continue behind the fittings.
+    station('bridge-lock-supply','DISC LOCKS','PORT · LOCK SUPPLIES',10,7.5,-21.15,5.8,-14,Math.PI/2,
+      '<div class="disc-lock-board">'+['red','blue','silver'].map(color=>'<div class="disc-lock-row"><span>'+color.toUpperCase()+'</span>'+Array.from({length:4},()=>'<i class="disc-lock '+color+'" aria-hidden="true"></i>').join('')+'</div>').join('')+'</div><footer>Red · Blue · Silver disc locks</footer>');
+    const calendarWall=station('bridge-calendar-wall','TIME & CALENDAR','STARBOARD · LOCAL TIME',11,8.4,21.15,6,-14,-Math.PI/2,
+      '<div class="bridge-clock" role="timer" aria-label="Local time"></div><div class="bridge-clock-date"></div><div class="bridge-calendar" aria-label="Current month calendar"></div>').element;
+    plane('bridge-crew-photo',11,4.8,-9.7,8.4,23.55,Math.PI,0,
+      '<figure><figcaption>IGGY’S — THE CREW</figcaption><img src="/img/limo.jpg" alt="Original limousine photograph outside Iggy’s Diner" draggable="false"></figure>');
+    const bookColors=['#176aba','#c54d56','#2e956c','#dfad42','#905bbd','#e5763c','#0a99b3'];
+    for(const [shelfIndex,x] of [-17.8,-1.6].entries()){
+      box('bridge-bookcase',x,3.05,23.2,4.6,6.1,.18);
+      for(const side of [-1,1])box('bridge-bookcase',x+side*2.25,3.05,22.6,.18,6.1,1.4);
+      for(let row=0;row<5;row++){
+        const y=.15+row*1.45;
+        box('bridge-bookcase',x,y,22.6,4.6,.14,1.4);
+        if(row<4)plane('bridge-books',4.1,1.22,x,y+.68,21.91,Math.PI,0,Array.from({length:14},(_,i)=>'<i style="--book-color:'+bookColors[(i+row+shelfIndex*3)%bookColors.length]+';height:'+(72+(i*13+row*7)%25)+'%;flex:'+(1+(i%3)*.25)+'"></i>').join(''));
+      }
+    }
+    // The original blue lounge, accent cushions, table and rug stay under the photo.
+    plane('bridge-lounge-rug',12,7.3,-9.7,.025,19.5,0,-Math.PI/2);
+    box('bridge-sofa',-9.7,.6,21.2,9.6,1.1,2.4);
+    box('bridge-sofa sofa-back',-9.7,1.85,22.2,9.6,2,.5);
+    for(const x of [-14.4,-5])box('bridge-sofa',x,1.1,21.2,.5,2,2.6);
+    for(let i=-1;i<=1;i++)box('bridge-sofa-cushion',-9.7+i*3,1.25,21.05,2.85,.35,2);
+    box('bridge-lounge-pillow pillow-gold',-12,1.95,21.75,1.1,1.1,.38);
+    box('bridge-lounge-pillow pillow-purple',-7.4,1.95,21.75,1.1,1.1,.38);
+    box('bridge-coffee-table',-9.7,1.12,17.8,5,.2,2.3);
+    for(const x of [-11.8,-7.6])for(const z of [17,18.6])box('bridge-table-leg',x,.5,z,.18,1,.18);
+    obstacles.push({x:-9.7,z:21.2,w:10.2,d:3},{x:-9.7,z:17.8,w:5.4,d:2.7});
     const portal=plane('bridge-airlock-portal',9.4,10.6,7,5.3,23.6,Math.PI,0,
       '<header class="airlock-sign"><span>PROPERTY ACCESS</span><strong>EXIT</strong><i></i></header><div class="airlock-cavity"><div class="airlock-corridor"><svg class="corridor-perspective" viewBox="0 0 400 400" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sw-corridor-wall"><stop stop-color="#40627d"/><stop offset="1" stop-color="#122a42"/></linearGradient></defs><path d="M0 0H400L272 100H128Z" fill="#18334c"/><path d="M0 0 128 100V312L0 400Z M400 0 272 100V312L400 400Z" fill="url(#sw-corridor-wall)" stroke="#4e819e"/><path d="M0 400 128 312H272L400 400Z" fill="#29475e"/><path d="M44 34V370 M88 69V340 M356 34V370 M312 69V340" stroke="#274b65" stroke-width="4"/><path d="M0 40 128 128 M400 40 272 128 M0 385 128 306 M400 385 272 306" stroke="#8aebf0" stroke-width="3"/><path d="M85 0 155 100 M315 0 245 100" stroke="#ffe0a0" stroke-width="4"/><path d="M35 375H365 M78 345H322 M115 320H285 M100 400 165 312 M300 400 235 312" stroke="#688fa8" stroke-width="1.5"/><rect x="128" y="100" width="144" height="212" fill="#071624" stroke="#63c7dc" stroke-width="3"/></svg><div class="corridor-end">STOREWELL<br><small>STORAGE PROPERTY</small></div></div><div class="airlock-leaf leaf-left"><span>SW</span></div><div class="airlock-leaf leaf-right"><span>01</span></div><button class="airlock-trigger" data-station="door" aria-label="Open exit doors"><span class="airlock-prompt">TAP TO OPEN</span></button></div><footer class="airlock-status" role="status">Automatic doors · Approach to open</footer>').element;
     const doorTrigger=portal.querySelector('.airlock-trigger');
@@ -327,14 +356,34 @@
     deck.addEventListener('pointerup',endLook);deck.addEventListener('pointercancel',endLook);deck.addEventListener('lostpointercapture',endLook);
     window.addEventListener('blur',stop);document.addEventListener('visibilitychange',stop);window.addEventListener('resize',resize);
     window.visualViewport?.addEventListener('resize',resize);
-    function rowsHtml(rows) {return rows.map(r=>`<div class="bridge-history-entry"><strong>${escape(r.label||r.unit||'Unit')}</strong><span>${escape(r.from||'—')} → <b>${escape(r.to||r.status||'—')}</b></span><small>${escape(r.who||r.staff||'Staff')} · ${escape(new Date(Number(r.t)||0).toLocaleString())}</small></div>`).join('');}
+    let historyRecords={},historyDownloadUrl=null,clockMinute='',calendarMonth='';
+    const historyTime=r=>Number(r.t)||0;
+    const historyStatus=value=>status[value]?.[0]||value||'—';
+    function rowsHtml(rows) {return rows.map(r=>`<div class="bridge-history-entry"><strong>${escape(r.label||r.unit||'Unit')}</strong><span>${escape(historyStatus(r.from))} → <b>${escape(historyStatus(r.to||r.status))}</b></span><small>${escape(r.who||r.staff||'Staff')} · ${escape(historyTime(r)?new Date(historyTime(r)).toLocaleString():'Time not recorded')}</small></div>`).join('');}
+    function releaseHistoryDownload(){if(historyDownloadUrl){URL.revokeObjectURL(historyDownloadUrl);historyDownloadUrl=null;}}
+    content.closest('dialog')?.addEventListener('close',releaseHistoryDownload);
+    function drawFullHistory(){
+      const slot=content.querySelector('[data-full-lock-history]');if(!slot)return;
+      const query=(content.querySelector('[data-history-search]')?.value||'').trim().replace(/[-\s]/g,'').toLowerCase();
+      const rows=history.filter(r=>(String(r.label||r.unit||'')+' '+String(r.who||r.staff||'')).replace(/[-\s]/g,'').toLowerCase().includes(query));
+      const oldest=content.querySelector('[data-history-order]')?.value==='oldest';
+      if(oldest)rows.reverse();slot.innerHTML=rowsHtml(rows);
+      content.querySelector('[data-lock-history-state]').textContent=historyState;
+      content.querySelector('[data-history-count]').textContent=`Showing ${rows.length} of ${history.length} saved lock changes · ${oldest?'Oldest':'Newest'} first`;
+      const backup=content.querySelector('[data-history-backup]');releaseHistoryDownload();
+      const count=Object.keys(historyRecords).length;
+      if(count){historyDownloadUrl=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),recordCount:count,records:historyRecords},null,2)],{type:'application/json'}));backup.href=historyDownloadUrl;backup.download='storewell-complete-history-'+new Date().toISOString().slice(0,10)+'.json';backup.removeAttribute('aria-disabled');}
+      else{backup.removeAttribute('href');backup.setAttribute('aria-disabled','true');}
+    }
     function drawHistory() {
       logWall.querySelector('.bridge-log-state').textContent=historyState;
       logWall.querySelector('.bridge-log-rows').innerHTML=rowsHtml(history.slice(0,20));
-      const slot=content.querySelector('[data-full-lock-history]'); if(slot){slot.innerHTML=rowsHtml(history);content.querySelector('[data-lock-history-state]').textContent=historyState;}
+      drawFullHistory();
     }
     function openHistory() {
-      stop();showDialog('Lock activity history','<p class="muted" data-lock-history-state></p><div class="full-lock-history" data-full-lock-history></div><div class="dialog-actions"><button class="action-button" data-history-login>Refresh history</button></div>');
+      stop();showDialog('Lock activity history','<p class="muted" data-lock-history-state role="status"></p><div class="history-tools"><div><label for="bridge-history-search">Unit or staff</label><input id="bridge-history-search" data-history-search type="search" placeholder="Unit number or name" autocomplete="off"></div><div><label for="bridge-history-order">History order</label><select id="bridge-history-order" data-history-order><option value="newest">Newest first</option><option value="oldest">Oldest first — from the beginning</option></select></div></div><p class="muted" data-history-count></p><div class="full-lock-history" data-full-lock-history></div><div class="dialog-actions"><button class="action-button" data-history-login>Refresh history</button><a class="action-button" data-history-backup>Back up full history</a></div><p class="history-backup-note">The backup includes every saved activity record, including lock changes, emails and sign-ins.</p>');
+      content.querySelector('[data-history-search]').oninput=drawFullHistory;
+      content.querySelector('[data-history-order]').onchange=drawFullHistory;
       drawHistory();content.querySelector('[data-history-login]').onclick=()=>watchHistory(true);
     }
     function watchHistory(retry=false) {
@@ -344,13 +393,18 @@
       if(!window._swOnValue||!window._swRef)return;
       unsubscribe?.();watched=true;historyState='Loading saved lock history…';drawHistory();
       unsubscribe=window._swOnValue(window._swRef(window._swDB,'lockLog'),snapshot=>{
-        history=Object.values(snapshot.val()||{}).filter(r=>r&&(!r.type||r.type==='lock')&&(r.label||r.unit)).sort((a,b)=>(Number(b.t)||0)-(Number(a.t)||0));
-        historyState=history.length?`${history.length} saved changes · newest first`:'No saved lock changes yet';drawHistory();
+        historyRecords=snapshot.val()||{};
+        history=Object.values(historyRecords).filter(r=>r&&typeof r==='object'&&!['email','login'].includes(r.type)&&(r.label||r.unit)).sort((a,b)=>historyTime(b)-historyTime(a));
+        const dated=history.filter(r=>historyTime(r)>0),first=dated.at(-1),last=dated[0];
+        historyState=history.length?`${history.length} saved lock changes${first?' · '+new Date(historyTime(first)).toLocaleDateString()+' – '+new Date(historyTime(last)).toLocaleDateString():''} · Complete saved history`:'No saved lock changes yet';drawHistory();
       },()=>{watched=false;historyState='Lock history could not connect. Refresh to retry.';drawHistory();});
     }
     let rosterSignature='';
     function refresh() {
       if(!active)return;watchHistory();
+      const now=new Date(),minute=String(Math.floor(now.getTime()/60000)),month=now.getFullYear()+'-'+now.getMonth()+'-'+now.getDate();
+      if(minute!==clockMinute){clockMinute=minute;calendarWall.querySelector('.bridge-clock').textContent=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});calendarWall.querySelector('.bridge-clock-date').textContent=now.toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'});}
+      if(month!==calendarMonth){calendarMonth=month;const first=new Date(now.getFullYear(),now.getMonth(),1).getDay(),days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();calendarWall.querySelector('.bridge-calendar').innerHTML='<strong>'+escape(now.toLocaleDateString([],{month:'long',year:'numeric'}))+'</strong><div>'+['S','M','T','W','T','F','S'].map(d=>'<b>'+d+'</b>').join('')+Array.from({length:first},()=>'<i></i>').join('')+Array.from({length:days},(_,i)=>'<span'+(i+1===now.getDate()?' aria-current="date"':'')+'>'+(i+1)+'</span>').join('')+'</div>';}
       const list=units(),signature=list.map(u=>u.id+u.status).join('|');
       if(signature!==rosterSignature){rosterSignature=signature;rosterWall.querySelector('.bridge-roster').innerHTML=list.map(u=>`<button data-room-unit="${escape(u.id)}" style="--unit-color:${status[u.status]?.[1]||'#adc1d2'}" aria-label="Unit ${escape(u.label)} · ${escape(status[u.status]?.[0]||'Unknown')}">${escape(u.label)}</button>`).join('');}
     }
@@ -396,7 +450,7 @@
     });
     return {
       open(){active=true;lastTime=0;spaceEpoch=performance.now();for(const face of faces)if(face.userData.spaceWindow)face.userData.syncSpace=true;setView('room');refresh();if(!raf)raf=requestAnimationFrame(frame);},
-      close(){active=false;stop();clearTimeout(doorTimer);doorManual=false;setDoor(false);unsubscribe?.();unsubscribe=null;watched=false;history=[];drawHistory();},
+      close(){active=false;stop();clearTimeout(doorTimer);doorManual=false;setDoor(false);unsubscribe?.();unsubscribe=null;watched=false;history=[];historyRecords={};releaseHistoryDownload();drawHistory();},
       setView,refresh,stop,resize
     };
   };

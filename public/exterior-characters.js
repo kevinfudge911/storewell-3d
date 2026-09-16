@@ -533,7 +533,7 @@ window._swBuildOfficeCC=function(){
       var hg=c.createLinearGradient(0,0,HW,0); hg.addColorStop(0,'#0d2145'); hg.addColorStop(1,'#0a3a6e');
       c.fillStyle=hg; c.fillRect(0,0,HW,52);
       c.fillStyle='#fff'; c.font='bold 26px "Courier New",monospace'; c.textAlign='left'; c.textBaseline='middle'; c.fillText('ADMIN ACTION LOG', 20, 27);
-      var now=new Date(); c.fillStyle='#4aa3ff'; c.font='13px monospace'; c.textAlign='right'; c.fillText('LIVE  •  '+now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}), HW-16, 27);
+      var now=new Date(); c.fillStyle='#4aa3ff'; c.font='13px monospace'; c.textAlign='right'; c.fillText(app._histError?'OFFLINE · SAVED VIEW':'LIVE  •  '+now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}), HW-16, 27);
       c.fillStyle='#1a4a8a'; c.fillRect(0,52,HW,2);
       // Column headers
       c.fillStyle='rgba(74,163,255,0.12)'; c.fillRect(0,54,HW,28);
@@ -544,8 +544,8 @@ window._swBuildOfficeCC=function(){
       var log=(app._histLog||[]).filter(function(r){return r.type==='lock'||!r.type;});
       if(!log.length){
         c.fillStyle='#3a6090'; c.font='16px monospace'; c.textAlign='center'; c.textBaseline='middle';
-        c.fillText('No actions logged yet.', HW/2, 300);
-        c.fillStyle='#2a4060'; c.font='13px monospace'; c.fillText('Lock changes will appear here in real time.', HW/2, 330);
+        c.fillText(app._histError?'Saved history could not connect.':'No actions logged yet.', HW/2, 300);
+        c.fillStyle='#2a4060'; c.font='13px monospace'; c.fillText(app._histError?'Sign in and refresh to retry.':'Lock changes will appear here in real time.', HW/2, 330);
         htx.needsUpdate=true; return;
       }
       var y=90, rowH=34;
@@ -573,49 +573,16 @@ window._swBuildOfficeCC=function(){
       htx.needsUpdate=true;
     }
     app._officeCCdrawHist=drawHist;
-    // fetch the lock log — try Firebase SDK first (has auth context), then REST fallback
-    function pullHist(){
-      function useOverridesFallback(){
-        fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides.json')
-          .then(function(r){return r.ok?r.json():null;})
-          .then(function(ov){
-            var synth=[]; var locks=app._locks||{};
-            Object.keys(locks).forEach(function(k){
-              var lock=locks[k]; var st=(ov&&ov[k])||'green';
-              synth.push({label:lock.label||k,from:'—',to:st,who:'Current State',t:Date.now(),type:'lock'});
-            });
-            synth.sort(function(a,b){return (a.label||'').localeCompare(b.label||'');});
-            if(synth.length>0) app._histLog=synth;
-            drawHist();
-          }).catch(function(){ drawHist(); });
-      }
-      function parseLog(d){
-        if(!d||typeof d!=='object'||d.error) return null;
-        var vals=Object.values(d).filter(function(v){return v&&v.t;});
-        return vals.length>0?vals.sort(function(a,b){return b.t-a.t;}):null;
-      }
-      // Try Firebase SDK get() first — works if rules allow read with Firebase app context
+    // Read the complete saved log with the existing staff session. Never
+    // manufacture history from current statuses or truncate old records.
+    let historyLoading=false;
+    async function pullHist(){
+      if(historyLoading)return;historyLoading=true;
       try{
-        get(ref(_db,'lockLog')).then(function(snap){
-          var parsed=parseLog(snap.val());
-          if(parsed){ app._histLog=parsed; drawHist(); }
-          else {
-            // SDK returned empty — try REST API (different auth context)
-            fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json?orderBy=%22t%22&limitToLast=500')
-              .then(function(r){return r.ok?r.json():null;})
-              .then(function(d2){
-                var parsed2=parseLog(d2);
-                if(parsed2){ app._histLog=parsed2; drawHist(); }
-                else useOverridesFallback();
-              }).catch(useOverridesFallback);
-          }
-        }).catch(function(){
-          fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json')
-            .then(function(r){return r.ok?r.json():null;})
-            .then(function(d2){ var p=parseLog(d2); if(p){app._histLog=p;drawHist();}else useOverridesFallback(); })
-            .catch(useOverridesFallback);
-        });
-      }catch(e){ useOverridesFallback(); }
+        if(!window.__swReadLockHistory)throw new Error('History reader is loading');
+        app._histLog=await window.__swReadLockHistory();app._histError=false;
+      }catch(e){app._histError=true;}
+      finally{historyLoading=false;drawHist();}
     }
     // Draw loading state immediately, then fetch and redraw
     (function(){

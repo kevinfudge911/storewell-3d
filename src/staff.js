@@ -59,7 +59,7 @@ window.__swMobileLook=(function(){
     for(const t of e.changedTouches){ if(t.identifier===lookId) lookId=null; }
   },{passive:true});
 })();
-window.__swClearLog=async function(){ try{ await remove(ref(_db,'lockLog')); console.log('Log cleared'); }catch(e){ console.warn('clear failed',e); } };
+// Saved activity is retained. There is deliberately no client-side clear-history action.
 const SC={Kevin:'#2a6fdb',Mike:'#1f9d4d',Brad:'#9b3fcf'};
 function _uidColor(u){let h=0;for(let c of u)h=c.charCodeAt(0)+((h<<5)-h);return((Math.abs(h)>>16&0xff)|0x44)<<16|((Math.abs(h)>>8&0xff)|0x44)<<8|(Math.abs(h)&0xff)|0x44;}
 function _myName(){try{return localStorage.getItem('sw_staff_name')||'';}catch(e){return '';}}

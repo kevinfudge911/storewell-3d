@@ -192,7 +192,24 @@ assert(Number(deck.dataset.bridgeX)>9&&Number(deck.dataset.bridgeX)<12,'A walkin
 w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'w',bubbles:true}));await new Promise(r=>setTimeout(r,2700));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'w',bubbles:true}));
 assert(Number(deck.dataset.bridgeZ)<-20&&Number(deck.dataset.bridgeZ)>-21.51,'Walking around the furniture reaches the command wall and stops at its boundary');w._swWalkSpd=0;
 click('[data-view="history"]');assert.equal(w.document.querySelector('#deck-dialog-title').textContent,'Lock activity history');
-assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('1 saved changes'),'Existing admin session loads actual lock history automatically');assert(!w.document.querySelector('[data-full-lock-history]').textContent.includes('sign in'),'History does not request another sign-in');click('.close-dialog');
+assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('1 saved lock changes'),'Existing admin session loads actual lock history automatically');assert(!w.document.querySelector('[data-full-lock-history]').textContent.includes('sign in'),'History does not request another sign-in');
+// A full archive must retain early history and every original record ID, even
+// when the wall itself only previews recent lock changes.
+const originalHistoryWatcher=w._swOnValue,originalBlobUrl=w.URL.createObjectURL;let archiveBlob;
+const archive=Object.fromEntries(Array.from({length:650},(_,i)=>['saved-'+i,{type:'lock',label:'History unit '+i,from:'green',to:'red',who:'Offline archive test',t:Date.UTC(2024,0,1+i)}]));
+archive.legacy={type:'status',unit:'Legacy unit',from:'green',to:'blue',t:Date.UTC(2023,0,1)};
+archive.email={type:'email',label:'Email',t:Date.UTC(2025,0,1)};archive.login={type:'login',label:'Login',t:Date.UTC(2025,0,2)};
+w.URL.createObjectURL=blob=>{archiveBlob=blob;return originalBlobUrl(blob);};
+w._swOnValue=(key,onValue)=>{assert.equal(key,'lockLog');onValue({val:()=>archive});return ()=>{};};click('[data-history-login]');
+assert.equal(w.document.querySelectorAll('[data-full-lock-history] .bridge-history-entry').length,651,'Complete history includes older and legacy lock records beyond 500 entries');
+const historyOrder=w.document.querySelector('[data-history-order]');historyOrder.value='oldest';historyOrder.dispatchEvent(new w.Event('change'));
+assert.equal(w.document.querySelector('[data-full-lock-history] .bridge-history-entry strong').textContent,'Legacy unit','Oldest first reaches the first saved change');
+const backup=await new Promise((resolve,reject)=>{const reader=new w.FileReader();reader.onload=()=>resolve(JSON.parse(reader.result));reader.onerror=reject;reader.readAsText(archiveBlob);});
+assert.equal(backup.recordCount,653);assert.deepEqual(Object.keys(backup.records).sort(),Object.keys(archive).sort(),'Backup preserves all original history keys, including emails and sign-ins');
+const historySearch=w.document.querySelector('[data-history-search]');historySearch.value='Legacy';historySearch.dispatchEvent(new w.Event('input'));assert.equal(w.document.querySelectorAll('[data-full-lock-history] .bridge-history-entry').length,1,'History search narrows the view without removing archived records');
+w._swOnValue=originalHistoryWatcher;w.URL.createObjectURL=originalBlobUrl;click('[data-history-login]');click('.close-dialog');
+assert.equal(w.document.querySelector('.bridge-crew-photo img').getAttribute('src'),'/img/limo.jpg','The original real limo photo remains in the bridge');
+for(const cls of ['bridge-lock-supply','bridge-log-wall','bridge-roster-wall','bridge-calendar-wall','bridge-comms'])assert(w.document.querySelector('.'+cls),'Retained wall fitting: '+cls);
 click('[data-view="room"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Bridge overview remains spatial on phones');
 // Two-finger zoom works over the main-board tiles without activating a tile or tilting the camera.
 const touch=(type,x,y,id,target=deck)=>{const event=new w.MouseEvent(type,{clientX:x,clientY:y,bubbles:true,cancelable:true,button:0});Object.defineProperties(event,{pointerId:{value:id},pointerType:{value:'touch'}});target.dispatchEvent(event);};
