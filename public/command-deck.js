@@ -194,13 +194,15 @@
     const search = content.querySelector('input'), select = content.querySelector('select'), grid = content.querySelector('.unit-grid'), empty = content.querySelector('.empty-message');
     function draw() {
       activeFilter = select.value;
+      const currentTitle=select.value==='all'?'All units':STATUS[select.value][0];
+      dialog.querySelector('h2').textContent=route?currentTitle+' route':select.value==='all'?'Find a storage unit':currentTitle;
       const q = search.value.trim().replace(/[-\s]/g,'').toUpperCase();
       const rows = units().filter(u => (select.value==='all'||u.status===select.value) && u.id.includes(q));
       grid.innerHTML = rows.map(u => `<button class="unit" data-unit="${escape(u.id)}" style="--unit-color:${STATUS[u.status]?.[1] || '#adc1d2'}"><strong>${escape(u.label)}</strong><small>${escape(u.size || 'Size on file')}</small><span>${escape(STATUS[u.status]?.[0] || 'Unknown')}</span></button>`).join('');
       empty.hidden = rows.length > 0; empty.textContent = app ? 'No units match this search.' : 'Loading the property inventory…';
     }
     search.addEventListener('input', draw); select.addEventListener('change', draw);
-    grid.onclick = e => { const b=e.target.closest('[data-unit]'); if(!b) return; const u=units().find(u=>u.id===b.dataset.unit); if(u) route ? startRoute(filter,u) : showUnit(u,()=>showInventory(select.value,false,search.value)); };
+      grid.onclick = e => { const b=e.target.closest('[data-unit]'); if(!b) return; const u=units().find(u=>u.id===b.dataset.unit); if(u) route ? startRoute(select.value,u) : showUnit(u,()=>showInventory(select.value,false,search.value)); };
     draw();
   }
   async function login() {
@@ -230,14 +232,23 @@
       };
     };
   }
+  // The retained staff inventory uses the same readable unit menu and the
+  // same confirmed-save path as the main board.
+  window.__swOpenUnitMenu=label=>{
+    const id=String(label).replace(/[-\s]/g,'').toUpperCase(),unit=units().find(u=>u.id===id);
+    if(!unit)return false;
+    document.getElementById('sw-cmd-panel')?.remove();document.getElementById('sw-drop-menu')?.remove();
+    showUnit(unit);return true;
+  };
   let routeBanner;
   function startRoute(filter, first) {
-    routeQueue = units().filter(u=>u.status===filter); routeCursor = Math.max(0,routeQueue.findIndex(u=>u.id===first.id));
+    routeQueue = units().filter(u=>filter==='all'||u.status===filter); routeCursor = routeQueue.findIndex(u=>u.id===first.id);
+    if(routeCursor<0){toast('That unit has changed status. Please choose the route again.');return;}
     if(!routeBanner) {
       routeBanner=document.createElement('div'); routeBanner.id='sw-route-banner'; routeBanner.style.cssText='position:fixed;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:12px;padding:12px;background:#071c2eee;border:1px solid #65bfdc;border-radius:12px;color:#e6f7ff;font:14px Arial;max-width:95%'; document.body.append(routeBanner);
     }
     const current=routeQueue[routeCursor]; if(!current) return;
-    routeBanner.innerHTML=`<span>${STATUS[filter][0]} · ${escape(current.label)} · ${routeCursor+1}/${routeQueue.length}</span><button style="padding:10px" data-next>Next</button><button style="padding:10px" data-done>Done</button>`;
+    routeBanner.innerHTML=`<span>${filter==='all'?'All units':STATUS[filter][0]} · ${escape(current.label)} · ${routeCursor+1}/${routeQueue.length}</span><button style="padding:10px" data-next>Next</button><button style="padding:10px" data-done>Done</button>`;
     routeBanner.querySelector('[data-next]').onclick=()=>{routeCursor=(routeCursor+1)%routeQueue.length;startRoute(filter,routeQueue[routeCursor]);};
     routeBanner.querySelector('[data-done]').onclick=()=>{routeBanner.remove();routeBanner=null;routeQueue=[];openDeck();};
     exitDeck(current);
@@ -275,7 +286,14 @@
       if(action==='help') {
         showDialog('Room controls', `<dl class="room-help"><dt>Joystick</dt><dd>Drag up or down to walk. Drag left or right to turn.</dd><dt>Look around</dt><dd>Drag an open part of the room with one finger or your mouse.</dd><dt>Zoom</dt><dd>Spread two fingers to zoom in. Pinch together to zoom out. A mouse wheel also zooms.</dd><dt>Level view</dt><dd>Straighten your view using the button below the joystick.</dd><dt>Main screen</dt><dd>Bring the board closer, then select a colored button to open its menu.</dd><dt>Keyboard</dt><dd>Use the arrow keys to walk and turn. A and D let you step sideways.</dd><dt>Exit</dt><dd>Approach the rear sliding doors, or select Outside to return to the property.</dd></dl>`,{back:gear});
       }
-      if(action==='fullscreen'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Full screen is not available in this browser.');}}
+      if(action==='fullscreen'){
+        let feedback=content.querySelector('[data-fullscreen-feedback]');
+        if(!feedback){feedback=document.createElement('p');feedback.dataset.fullscreenFeedback='';feedback.className='menu-caption';feedback.setAttribute('role','status');content.prepend(feedback);}
+        try{
+          if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();
+          feedback.textContent=document.fullscreenElement?'Full screen is on. Select Full screen again to leave.':'Full screen is off.';
+        }catch{feedback.textContent='Full screen is not available in this browser. You can still use the entire room here.';}
+      }
     };
   }
   function report() {

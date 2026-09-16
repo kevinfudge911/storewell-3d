@@ -14,6 +14,8 @@
   Cache-Control: no-cache
 /exterior-characters.js
   Cache-Control: no-cache
+/character-menu.js
+  Cache-Control: no-cache
 /exterior-controls.js
   Cache-Control: no-cache
 /exterior.css

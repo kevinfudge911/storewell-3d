@@ -39,6 +39,7 @@ w.eval(read('vendor/GLTFLoader.js'));
 const ModelLoader=w.THREE.GLTFLoader;
 w.THREE.GLTFLoader=class extends ModelLoader{load(url,onLoad,progress,onError){modelRequests.push(url);try{const bytes=fs.readFileSync(path.join(root,'public',new URL(url,'https://storewell.test').pathname));this.parse(new w.Uint8Array(bytes).buffer,'/',onLoad,onError);}catch(e){onError?.(e);}}};
 w.eval(read('exterior-characters.js'));
+w.eval(read('character-menu.js'));
 w.eval(read('exterior-controls.js'));
 // A software DOM cannot create a GPU context; keep real scene geometry and stub only rendering.
 let renderers=0;
@@ -126,6 +127,11 @@ for(const filter of ['all','green','black','red','flashred','flashgreen','blue',
 }
 for(const filter of ['flashred','flashgreen']){click(`[data-action="route-${filter}"]`);assert(w.document.querySelector('#deck-dialog-title').textContent.endsWith('route'),'Each Route button opens its matching route');click('.close-dialog');}
 click('[data-action="route-flashgreen"]');click('.unit-grid .unit');assert.equal(w.__swDeckVisible,false,'A route opens the marked property location');click('[data-next]');click('[data-done]');await new Promise(r=>setTimeout(r,20));assert.equal(w.__swDeckVisible,true,'Route Done returns to the bridge');
+click('[data-action="route-flashgreen"]');
+const routeFilter=w.document.querySelector('#deck-filter');routeFilter.value='red';routeFilter.dispatchEvent(new w.Event('change'));
+const chosenRouteUnit=w.document.querySelector('.unit-grid .unit');const chosenRouteLabel=chosenRouteUnit.querySelector('strong').textContent;chosenRouteUnit.click();
+assert(w.document.querySelector('#sw-route-banner').textContent.includes('Locked out · '+chosenRouteLabel+' ·'),'Changing the route filter starts at the unit actually selected');click('[data-done]');await new Promise(r=>setTimeout(r,20));
+click('[data-action="route-flashgreen"]');const allRoute=w.document.querySelector('#deck-filter');allRoute.value='all';allRoute.dispatchEvent(new w.Event('change'));click('.unit-grid .unit');assert(w.document.querySelector('#sw-route-banner').textContent.includes('All units ·'),'The All units route remains usable');click('[data-done]');await new Promise(r=>setTimeout(r,20));
 click('[data-action="install"]');assert(w.document.querySelector('#deck-dialog-title').textContent==='Install StoreWell');click('.close-dialog');
 let installOpened=false;const installEvent=new w.Event('beforeinstallprompt',{cancelable:true});installEvent.prompt=async()=>{installOpened=true;};w.dispatchEvent(installEvent);click('[data-action="install"]');await new Promise(r=>setTimeout(r,0));assert(installOpened,'Install button uses the available browser install prompt');
 click('[data-action="alerts"]');assert(w.document.querySelector('.toast').textContent.includes('does not support'),'Unsupported alert browsers receive a visible explanation');
@@ -142,7 +148,8 @@ click('[data-view="desk"]');assert(w.document.querySelector('.mobile-dock .comma
 assert(w.document.querySelector('.bridge-joystick').hidden,'Movement controls do not cover the focused screen');
 click('[data-view="room"]');
 Object.defineProperty(w,'innerWidth',{configurable:true,value:393});w.dispatchEvent(new w.Event('resize'));
-assert(Number(w.document.querySelector('#sw-deck').dataset.bridgeFov)<=80,'Portrait phone uses a normal lens instead of an extreme ceiling-dominated view');
+const phoneFov=Number(w.document.querySelector('#sw-deck').dataset.bridgeFov);
+assert(Math.abs(2*Math.atan(Math.tan(phoneFov*Math.PI/360)*w.innerWidth/w.innerHeight)*180/Math.PI-74)<.01,'Portrait phone preserves the approved horizontal bridge framing');
 assert(!w.document.querySelector('.mobile-dock .command-screen'),'Phone bridge starts in the room without covering it');
 click('[data-view="desk"]');assert(w.document.querySelector('.mobile-dock .command-screen'),'Main screen gives the phone a readable focused display');
 click('[data-view="room"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Bridge restores the display to the room');
@@ -178,12 +185,12 @@ pointer('pointerdown',80,520);w.dispatchEvent(new w.Event('blur'));const blurZ=d
 pointer('pointerdown',80,520);click('[data-action="find"]');const modalZ=deck.dataset.bridgeZ;await new Promise(r=>setTimeout(r,80));assert.equal(deck.dataset.bridgeZ,modalZ,'Opening a dialog stops movement');click('.close-dialog');
 click('[data-view="room"]');w._swWalkSpd=.5;
 w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'w',bubbles:true}));await new Promise(r=>setTimeout(r,3100));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'w',bubbles:true}));
-assert(Number(deck.dataset.bridgeZ)<-20&&Number(deck.dataset.bridgeZ)>-21.51,'A clear central aisle reaches the command screen and collision stops at the wall');w._swWalkSpd=0;
-click('[data-view="room"]');w._swWalkSpd=.5;w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await new Promise(r=>setTimeout(r,350));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));
-assert(Number(deck.dataset.bridgeZ)<12.01,'The command chair stops movement through its solid base');
-w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'d',bubbles:true}));await new Promise(r=>setTimeout(r,350));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'d',bubbles:true}));
-w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await new Promise(r=>setTimeout(r,500));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));
-assert(Number(deck.dataset.bridgeX)>3&&Number(deck.dataset.bridgeZ)>16,'Walking around furniture can reach the rear of the room');w._swWalkSpd=0;
+assert(Number(deck.dataset.bridgeZ)>=3&&Number(deck.dataset.bridgeZ)<3.7,'The restored captain chair is solid furniture in front of the opening view');
+assert(Number(deck.dataset.bridgeY)>5.4,'Walking onto the raised command deck raises the viewpoint');
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'d',bubbles:true}));await new Promise(r=>setTimeout(r,850));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'d',bubbles:true}));
+assert(Number(deck.dataset.bridgeX)>9&&Number(deck.dataset.bridgeX)<12,'A walking aisle remains alongside the chair and paired consoles');
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'w',bubbles:true}));await new Promise(r=>setTimeout(r,2700));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'w',bubbles:true}));
+assert(Number(deck.dataset.bridgeZ)<-20&&Number(deck.dataset.bridgeZ)>-21.51,'Walking around the furniture reaches the command wall and stops at its boundary');w._swWalkSpd=0;
 click('[data-view="history"]');assert.equal(w.document.querySelector('#deck-dialog-title').textContent,'Lock activity history');
 assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('1 saved changes'),'Existing admin session loads actual lock history automatically');assert(!w.document.querySelector('[data-full-lock-history]').textContent.includes('sign in'),'History does not request another sign-in');click('.close-dialog');
 click('[data-view="room"]');assert(!w.document.querySelector('.mobile-dock .command-screen'),'Bridge overview remains spatial on phones');
@@ -244,6 +251,11 @@ click('#sw-panel-close');click('[data-action="gear"]');click('[data-setting="cha
 await new Promise(resolve=>setTimeout(resolve,10));
 assert.equal(app.state.chatOpen,true,'Gear opens the original staff chat');
 let characterOpened=false;
+// Draft character choices must not alter the saved character until Save.
+const savedCharacter=w.localStorage.getItem('sw_char');w._swShowWardrobe();click('[data-character-model="none"]');click('[data-character-uniform="fire"]');
+assert.equal(w.localStorage.getItem('sw_char'),savedCharacter,'Trying a character or uniform remains an unsaved draft');click('[data-character-cancel]');
+assert(!w.document.querySelector('#sw-wardrobe'),'Cancel closes the character menu');
+w._swShowWardrobe();assert(!w.document.querySelector('#sw-wardrobe iframe'),'Character choices no longer launch the unresponsive external builder');click('[data-character-close]');
 w._swShowWardrobe=()=>{characterOpened=true;};
 click('[data-action="gear"]');click('[data-setting="character"]');assert(characterOpened);
 click('[data-action="gear"]');click('[data-setting="help"]');

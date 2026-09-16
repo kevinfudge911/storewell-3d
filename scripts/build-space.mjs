@@ -20,7 +20,29 @@ function stars(count, near = false) {
     return `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" opacity="${opacity}"/>`;
   }).join('');
 }
+// A restrained band of distant starlight, with irregular dark dust lanes.
+// Its sine-wave center wraps cleanly at the perimeter seam. Fine individual
+// stars keep the field black between clouds instead of washing out the glass.
+function milkyWay() {
+  const originalSeed=seed;
+  const center=x=>290+130*Math.sin(x/width*Math.PI*2);
+  let body='';
+  for(let i=0;i<125;i++){
+    const x=random()*width,y=center(x)+(random()-.5)*70;
+    const rx=n(45+random()*130),ry=n(14+random()*32),opacity=n(.12+random()*.22);
+    for(const wrappedX of [x,...(x<rx?[x+width]:x>width-rx?[x-width]:[])])body+=`<ellipse cx="${n(wrappedX)}" cy="${n(y)}" rx="${rx}" ry="${ry}" fill="url(#star-dust)" opacity="${opacity}"/>`;
+  }
+  for(let i=0;i<4200;i++){
+    const x=random()*width,spread=(random()+random()+random()-1.5)*65,y=center(x)+spread;
+    const lane=10*Math.sin(x/91)+8*Math.sin(x/37);
+    if(Math.abs(spread-lane)<8&&random()<.85)continue;
+    body+=`<circle cx="${n(x)}" cy="${n(y)}" r="${n(.25+random()*.6)}" fill="${random()>.86?'#c4bcb0':'#b4bdcf'}" opacity="${n(.08+random()*.28)}"/>`;
+  }
+  seed=originalSeed;
+  return body;
+}
 const definitions = `<defs>
+  <radialGradient id="star-dust"><stop stop-color="#73768a" stop-opacity=".34"/><stop offset=".5" stop-color="#36384c" stop-opacity=".15"/><stop offset="1" stop-color="#0b0c16" stop-opacity="0"/></radialGradient>
   <radialGradient id="blue" cx="23%" cy="23%" r="82%"><stop stop-color="#829aaa"/><stop offset=".26" stop-color="#2d465b"/><stop offset=".62" stop-color="#080e19"/><stop offset="1" stop-color="#000104"/></radialGradient>
   <radialGradient id="amber" cx="22%" cy="25%" r="80%"><stop stop-color="#ab9572"/><stop offset=".24" stop-color="#504335"/><stop offset=".63" stop-color="#120f10"/><stop offset="1" stop-color="#000104"/></radialGradient>
   <radialGradient id="sun"><stop stop-color="#e8d4a3" stop-opacity=".3"/><stop offset=".2" stop-color="#a88950" stop-opacity=".12"/><stop offset="1" stop-color="#000104" stop-opacity="0"/></radialGradient>
@@ -31,7 +53,7 @@ function planet(x, y, r, color, ring = false) {
   const frontRing = ring ? `<path d="M-${rx} 0 A${rx} ${ry} 0 0 0 ${rx} 0" fill="none" stroke="#aaa08a" stroke-width="2" opacity=".45"/>` : '';
   return `<g transform="translate(${x} ${y}) rotate(-24)">${rings}<circle r="${r}" fill="url(#${color})" stroke="#76818b" stroke-opacity=".13" stroke-width=".6"/>${frontRing}</g>`;
 }
-save('bridge-deep-space.svg', `${definitions}<path fill="#000104" d="M0 0H${width}V${height}H0Z"/>${stars(1100)}
+save('bridge-deep-space.svg', `${definitions}<path fill="#000104" d="M0 0H${width}V${height}H0Z"/>${milkyWay()}${stars(1100)}
   ${planet(245, 294, 25, 'blue')}${planet(1925, 235, 18, 'amber', true)}
   ${planet(3290, 195, 16, 'amber')}${planet(5335, 300, 22, 'blue')}
   ${planet(6460, 165, 10, 'amber')}${planet(8270, 255, 17, 'blue', true)}

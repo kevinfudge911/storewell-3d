@@ -4,6 +4,8 @@ Production is https://storewell-3d.pages.dev, served by the existing Cloudflare 
 
 Keep the approved navy, cyan and gold command-room design. Exterior wall panels are observation windows with gently moving space. Movement controls remain bottom right; support two-finger room zoom. Main-board tiles open readable command windows without automatically opening the phone keyboard. The rear exit is a working sliding double door that returns to the existing property.
 
+The September 16 reference restores the original spatial composition: the captain's chair is centered at z=1, on the command dais centered at z=-1, in front of the entry camera (0, 5.2, 10). Paired consoles at x=±4.7, z=-10 lead to the distant wall-mounted board. Preserve the 74-degree horizontal overview on phones, visible chair and deck edges, dark metal finish, and beveled illuminated board buttons. Walk around the furniture; do not move the chair behind the camera to clear the center aisle. Space stays mostly black with distant stars and a restrained Milky Way. The Main screen focus is optional; entry and Bridge show the actual room.
+
 ## Deployment continuity
 
 - Changes to `main` run `.github/workflows/deploy-storewell.yml`, which builds, checks, and deploys the `public` directory with the existing Pages functions.

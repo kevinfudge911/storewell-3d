@@ -1004,6 +1004,7 @@ window.__swCycleStatus=function(label){ window.__swCycleNext(label); };
 
 // Dropdown menu on click — pick any status directly
 window.__swCycleNext=function(label,srcEvent){
+  if(window.__swOpenUnitMenu?.(label))return;
   document.getElementById('sw-drop-menu')?.remove();
   const app=window.__swApp; if(!app) return;
   if(!app.state||!app.state.staffName){ var _nt=document.createElement('div');_nt.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1f2a37;color:#fff;font-size:14px;font-weight:900;padding:12px 24px;border-radius:32px;box-shadow:0 6px 28px rgba(0,0,0,.45);z-index:999999;pointer-events:none;white-space:nowrap;';_nt.textContent='🔒 Log in first to change lock status';document.body.appendChild(_nt);setTimeout(()=>_nt.remove(),2500);if(app.setState)app.setState({showLogin:true});return; }

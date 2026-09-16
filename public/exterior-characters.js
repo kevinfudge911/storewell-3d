@@ -5,7 +5,7 @@ window._swGetChar=function(){
   return {model:'soldier'}; // everyone starts on the realistic 3D character (no wardrobe needed)
 };
 window._swSaveChar=function(c){
-  try{localStorage.setItem('sw_char',JSON.stringify(c));}catch(e){}
+  try{localStorage.setItem('sw_char',JSON.stringify(c));}catch(e){return false;}
   // Push updated char to Firebase player record
   if(window.__swApp&&window.__swApp._net){
     const n=window.__swApp._net;
@@ -14,6 +14,7 @@ window._swSaveChar=function(c){
         {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)}).catch(()=>{});
     }catch(e){}
   }
+  return true;
 };
 
 // Load the same 3D GLB character model the local player uses, onto a remote avatar group
@@ -59,7 +60,7 @@ window._swBuildAvatar=function(T,uid,p){
   const shirtC=new T.Color(ch.shirt||(male?'#3b82f6':'#ec4899'));
   const pantsC=new T.Color(ch.pants||(male?'#1e3a8a':'#7c3aed'));
   const shoeC=new T.Color(ch.shoes||'#3b2a1a');
-  const hatType=ch.hat||'none';
+  const hatType=window._swUniHat?.[ch.uniform]?'none':ch.hat||'none';
   const hatC=new T.Color(ch.hatColor||'#ff6600');
   const mk=(geo,col)=>new T.Mesh(geo,new T.MeshLambertMaterial({color:col}));
   // Head
@@ -129,7 +130,8 @@ window._swBuildAvatar=function(T,uid,p){
   sp.scale.set(1.3,.41,1);sp.position.y=1.5;g.add(sp);
   // Load the SAME realistic 3D model the local player uses; it hides the block figure once it arrives.
   if(ch.rpm&&typeof ch.rpm==='string'){ try{ window._swLoadAvatarModel(T,g,{url:ch.rpm}); }catch(e){} }
-  else { var _amk=(ch.model&&ch.model!=='none')?ch.model:'soldier'; var _amd=window._SWMODELS&&window._SWMODELS[_amk]; if(_amd){ try{ window._swLoadAvatarModel(T,g,_amd); }catch(e){} } }
+  else if(ch.model!=='none'){ var _amk=ch.model||'soldier'; var _amd=window._SWMODELS&&window._SWMODELS[_amk]; if(_amd){ try{ window._swLoadAvatarModel(T,g,_amd); }catch(e){} } }
+  if(ch.model==='none'&&ch.uniform&&window._swUniform){const kit=window._swUniform(T,ch.uniform,1.95);if(kit)g.add(kit);}
   return g;
 };
 

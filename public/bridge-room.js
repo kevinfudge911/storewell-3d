@@ -16,7 +16,7 @@
     deck.classList.add('walkable-bridge');
     const faces = [], obstacles = [], keys = new Set();
     const joystick={id:null,x:0,y:0};
-    const renderedPose={x:NaN,z:NaN,yaw:NaN,pitch:NaN};
+    const renderedPose={x:NaN,y:NaN,z:NaN,yaw:NaN,pitch:NaN};
     const touches=new Map();
     let pinch=null,zoom=1,suppressTapUntil=0;
     let doorOpen=false,doorReady=false,doorManual=false,doorTimer;
@@ -167,23 +167,27 @@
       plane('bridge-console-top',w,d,x,1.94,z,0,-1.32,instrument);
       obstacles.push({x,z,w:w+1,d:d+1});
     }
-    consoleDesk(-7.5,-10,7,3.8); consoleDesk(7.5,-10,7,3.8);
-    for (const side of [-1,1]) { consoleDesk(side*17,-12,4.5,7); consoleDesk(side*17,11,4.5,6); }
-    // Keep the chair behind the entry position and a six-metre center aisle clear to the display.
-    box('bridge-chair',0,.75,14,2.3,1.5,2.5);
-    box('bridge-chair chair-back',0,2.25,15.05,2.4,3,.55);
-    for (const x of [-1.45,1.45]) box('bridge-chair chair-arm',x,1.35,14,.55,1.6,2.9);
-    obstacles.push({x:0,z:14,w:4.2,d:4});
-    // A low dais and floor lights mark the command station without blocking movement.
-    plane('bridge-dais',11,9,0,.012,14,0,-Math.PI/2);
-    plane('bridge-aisle',6,32,0,.025,-5,0,-Math.PI/2);
+    consoleDesk(-4.7,-10,7.5,3.8); consoleDesk(4.7,-10,7.5,3.8);
+    for (const side of [-1,1]) { consoleDesk(side*16,-11,5.5,8); consoleDesk(side*16,10,5.5,6); }
+    // Reference composition: enter behind the captain's chair, facing the
+    // paired consoles and distant wall display. Both sides remain walkable.
+    const daisHeight=.28;
+    box('bridge-chair',0,.75+daisHeight,1,2.3,1.5,2.5);
+    box('bridge-chair chair-back',0,2.25+daisHeight,2.05,2.4,3,.55);
+    for (const x of [-1.45,1.45]) box('bridge-chair chair-arm',x,1.35+daisHeight,1,.55,1.6,2.9);
+    obstacles.push({x:0,z:1,w:4.2,d:4});
+    // The command deck has a visible solid edge. A shallow perimeter ramp
+    // raises the walking camera naturally instead of blocking the player.
+    box('bridge-dais-riser',0,daisHeight/2,-1,12,daisHeight,11);
+    plane('bridge-dais',12,11,0,daisHeight+.012,-1,0,-Math.PI/2);
+    function deckHeight(x,z){return daisHeight*Math.max(0,Math.min(1,(6-Math.abs(x))/.8,(5.5-Math.abs(z+1))/.8));}
     const controls=document.createElement('div');controls.className='bridge-joystick';
     controls.innerHTML='<span class="joystick-caption">MOVE / TURN</span><button class="joystick-pad" aria-label="Bridge joystick" aria-describedby="bridge-joystick-help"><span class="joystick-ring"></span><span class="joystick-direction north" aria-hidden="true">↑</span><span class="joystick-direction south" aria-hidden="true">↓</span><span class="joystick-direction west" aria-hidden="true">↶</span><span class="joystick-direction east" aria-hidden="true">↷</span><span class="joystick-stick"><i></i></span></button><span id="bridge-joystick-help">Drag up or down to walk. Drag left or right to turn.</span><button class="level-view" type="button">Level view</button>';
     deck.append(controls);const pad=controls.querySelector('.joystick-pad'),stick=controls.querySelector('.joystick-stick');
     function releaseJoystick(){const id=joystick.id;joystick.id=null;if(id!==null&&pad.hasPointerCapture?.(id))pad.releasePointerCapture(id);joystick.x=joystick.y=0;stick.style.transform='translate(0px,0px)';pad.classList.remove('held');}
     function releaseLook(){const id=drag?.id;if((drag?.travel||0)>8)suppressTapUntil=performance.now()+500;drag=null;if(id!==undefined&&deck.hasPointerCapture?.(id))deck.releasePointerCapture(id);}
     function stop(){keys.clear();const ids=[...touches.keys()];touches.clear();pinch=null;releaseLook();releaseJoystick();for(const id of ids)if(deck.hasPointerCapture?.(id))deck.releasePointerCapture(id);}
-    function blocked() { return !active || deck.inert || !document.getElementById('sw-deck-dialog').hidden || !!document.querySelector('#sw-cmd-panel,#sw-help-modal,#sw-wardrobe,#sw-pref-panel,#sw-save-report-modal,#sw-rounds-modal,#sw-login-overlay') || document.getElementById('sw-sens-panel')?.style.display==='block'; }
+    function blocked() { return !active || deck.inert || !document.getElementById('sw-deck-dialog').hidden || !!document.querySelector('#sw-cmd-panel,#sw-help-modal,#sw-wardrobe,#sw-rpm,#sw-pref-panel,#sw-save-report-modal,#sw-rounds-modal,#sw-login-overlay') || document.getElementById('sw-sens-panel')?.style.display==='block'; }
     function canStand(x,z) { return Math.abs(x)<20.5 && z>-21.5 && (z<21.8||(doorReady&&Math.abs(x-7)<3.5&&z<25.5)) && !obstacles.some(o=>Math.abs(x-o.x)<o.w/2&&Math.abs(z-o.z)<o.d/2); }
     function move(dx,dz) { const x=camera.position.x+dx,z=camera.position.z+dz; if(canStand(x,camera.position.z))camera.position.x=x; if(canStand(camera.position.x,z))camera.position.z=z; }
     function setDoor(open) {
@@ -209,8 +213,9 @@
     }
     function resize() {
       const width=deck.clientWidth||innerWidth,height=deck.clientHeight||innerHeight;
-      // A normal vertical lens keeps the ceiling from filling a portrait phone.
-      camera.aspect=width/height; camera.fov=width<=700?78:58;camera.zoom=zoom;camera.updateProjectionMatrix(); renderer.setSize(width,height);
+      // Preserve the reference's 74-degree horizontal framing on phones: the
+      // chair, paired consoles, wall display and both windows share one view.
+      camera.aspect=width/height; camera.fov=2*Math.atan(Math.tan(74*Math.PI/360)/camera.aspect)*180/Math.PI;camera.zoom=zoom;camera.updateProjectionMatrix(); renderer.setSize(width,height);
       const focus=view==='desk'; deck.classList.toggle('screen-focused',focus);controls.hidden=focus;
       if(focus) {scene.remove(board); deck.querySelector('.mobile-dock').append(screen); screen.style.display='';}
       else if(!board.parent)scene.add(board);
@@ -223,7 +228,7 @@
       else if(next==='door') {camera.position.set(7,5.2,(deck.clientWidth||innerWidth)<=700?9.5:13.5);yaw=Math.PI;pitch=0;zoom=1;view='walk';}
       else {
         view=next;
-        if(next==='room') {camera.position.set(0,5.2,10);yaw=0;pitch=.04;zoom=1;doorManual=false;setDoor(false);}
+        if(next==='room') {camera.position.set(0,5.2,10);yaw=0;pitch=.035;zoom=1;doorManual=false;setDoor(false);}
         if(next==='desk') {camera.position.set(0,4.7,-5);yaw=0;pitch=.105;}
         if(next==='walk' && !canStand(camera.position.x,camera.position.z))camera.position.set(0,5.2,10);
       }
@@ -251,8 +256,8 @@
         }
       }
       paintRoom();
-      Object.assign(renderedPose,{x:camera.position.x,z:camera.position.z,yaw,pitch});
-      deck.dataset.bridgeX=camera.position.x.toFixed(2);deck.dataset.bridgeZ=camera.position.z.toFixed(2);deck.dataset.bridgeYaw=yaw.toFixed(3);deck.dataset.bridgePitch=pitch.toFixed(3);deck.dataset.bridgeFov=String(camera.fov);deck.dataset.bridgeZoom=zoom.toFixed(2);
+      Object.assign(renderedPose,{x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw,pitch});
+      deck.dataset.bridgeX=camera.position.x.toFixed(2);deck.dataset.bridgeY=camera.position.y.toFixed(2);deck.dataset.bridgeZ=camera.position.z.toFixed(2);deck.dataset.bridgeYaw=yaw.toFixed(3);deck.dataset.bridgePitch=pitch.toFixed(3);deck.dataset.bridgeFov=String(camera.fov);deck.dataset.bridgeZoom=zoom.toFixed(2);
     }
     function frame(now) {
       if(!active){raf=0;return;} raf=requestAnimationFrame(frame);
@@ -266,11 +271,13 @@
         if(Math.abs(forward)+Math.abs(side)>.05&&!drag)pitch+=(.04-pitch)*Math.min(1,dt*6);
         const length=Math.max(1,Math.hypot(forward,side));forward/=length;side/=length;
         move((-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed,(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed);
+        camera.position.y+=(5.2+deckHeight(camera.position.x,camera.position.z)-camera.position.y)*Math.min(1,dt*10);
+        if(Math.abs(camera.position.y-5.2-deckHeight(camera.position.x,camera.position.z))<.001)camera.position.y=5.2+deckHeight(camera.position.x,camera.position.z);
         if(doorManual&&Math.hypot(camera.position.x-7,camera.position.z-24)>16)doorManual=false;
         setDoor(doorManual||(Math.abs(camera.position.x-7)<5&&camera.position.z>17));
         if(doorReady&&Math.abs(camera.position.x-7)<3.5&&camera.position.z>23.8){exit();return;}
       }
-      if(camera.position.x!==renderedPose.x||camera.position.z!==renderedPose.z||yaw!==renderedPose.yaw||pitch!==renderedPose.pitch)render();
+      if(camera.position.x!==renderedPose.x||camera.position.y!==renderedPose.y||camera.position.z!==renderedPose.z||yaw!==renderedPose.yaw||pitch!==renderedPose.pitch)render();
     }
     const keyMap={w:'forward',s:'back',a:'left',d:'right',q:'turnleft',e:'turnright',ArrowLeft:'turnleft',ArrowRight:'turnright',ArrowUp:'forward',ArrowDown:'back'};
     document.addEventListener('keydown',e=>{
