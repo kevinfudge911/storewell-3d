@@ -358,8 +358,12 @@
     window.visualViewport?.addEventListener('resize',resize);
     let historyRecords={},historyDownloadUrl=null,clockMinute='',calendarMonth='';
     const historyTime=r=>Number(r.t)||0;
+    // A retained diagnostic record contains t=1, a placeholder rather than a
+    // business date. Keep it and its raw timestamp in the archive without
+    // presenting the Unix epoch as the beginning of StoreWell's history.
+    const datedHistory=r=>historyTime(r)>=86400000;
     const historyStatus=value=>status[value]?.[0]||value||'—';
-    function rowsHtml(rows) {return rows.map(r=>`<div class="bridge-history-entry"><strong>${escape(r.label||r.unit||'Unit')}</strong><span>${escape(historyStatus(r.from))} → <b>${escape(historyStatus(r.to||r.status))}</b></span><small>${escape(r.who||r.staff||'Staff')} · ${escape(historyTime(r)?new Date(historyTime(r)).toLocaleString():'Time not recorded')}</small></div>`).join('');}
+    function rowsHtml(rows) {return rows.map(r=>`<div class="bridge-history-entry"><strong>${escape(r.label||r.unit||'Unit')}</strong><span>${escape(historyStatus(r.from))} → <b>${escape(historyStatus(r.to||r.status))}</b></span><small>${escape(r.who||r.staff||'Staff')} · ${escape(datedHistory(r)?new Date(historyTime(r)).toLocaleString():'Unverified date · original timestamp '+String(r.t??'not recorded'))}</small></div>`).join('');}
     function releaseHistoryDownload(){if(historyDownloadUrl){URL.revokeObjectURL(historyDownloadUrl);historyDownloadUrl=null;}}
     content.closest('dialog')?.addEventListener('close',releaseHistoryDownload);
     function drawFullHistory(){
@@ -367,7 +371,7 @@
       const query=(content.querySelector('[data-history-search]')?.value||'').trim().replace(/[-\s]/g,'').toLowerCase();
       const rows=history.filter(r=>(String(r.label||r.unit||'')+' '+String(r.who||r.staff||'')).replace(/[-\s]/g,'').toLowerCase().includes(query));
       const oldest=content.querySelector('[data-history-order]')?.value==='oldest';
-      if(oldest)rows.reverse();slot.innerHTML=rowsHtml(rows);
+      rows.sort((a,b)=>datedHistory(a)!==datedHistory(b)?datedHistory(a)?-1:1:oldest?historyTime(a)-historyTime(b):historyTime(b)-historyTime(a));slot.innerHTML=rowsHtml(rows);
       content.querySelector('[data-lock-history-state]').textContent=historyState;
       content.querySelector('[data-history-count]').textContent=`Showing ${rows.length} of ${history.length} saved lock changes · ${oldest?'Oldest':'Newest'} first`;
       const backup=content.querySelector('[data-history-backup]');releaseHistoryDownload();
@@ -395,8 +399,8 @@
       unsubscribe=window._swOnValue(window._swRef(window._swDB,'lockLog'),snapshot=>{
         historyRecords=snapshot.val()||{};
         history=Object.values(historyRecords).filter(r=>r&&typeof r==='object'&&!['email','login'].includes(r.type)&&(r.label||r.unit)).sort((a,b)=>historyTime(b)-historyTime(a));
-        const dated=history.filter(r=>historyTime(r)>0),first=dated.at(-1),last=dated[0];
-        historyState=history.length?`${history.length} saved lock changes${first?' · '+new Date(historyTime(first)).toLocaleDateString()+' – '+new Date(historyTime(last)).toLocaleDateString():''} · Complete saved history`:'No saved lock changes yet';drawHistory();
+        const dated=history.filter(datedHistory),first=dated.at(-1),last=dated[0],unverified=history.length-dated.length;
+        historyState=history.length?`${history.length} saved lock changes${first?' · '+new Date(historyTime(first)).toLocaleDateString()+' – '+new Date(historyTime(last)).toLocaleDateString():''}${unverified?' · '+unverified+' with an unverified date':''} · Complete saved history`:'No saved lock changes yet';drawHistory();
       },()=>{watched=false;historyState='Lock history could not connect. Refresh to retry.';drawHistory();});
     }
     let rosterSignature='';

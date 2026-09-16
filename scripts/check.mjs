@@ -198,14 +198,16 @@ assert(w.document.querySelector('[data-lock-history-state]').textContent.include
 const originalHistoryWatcher=w._swOnValue,originalBlobUrl=w.URL.createObjectURL;let archiveBlob;
 const archive=Object.fromEntries(Array.from({length:650},(_,i)=>['saved-'+i,{type:'lock',label:'History unit '+i,from:'green',to:'red',who:'Offline archive test',t:Date.UTC(2024,0,1+i)}]));
 archive.legacy={type:'status',unit:'Legacy unit',from:'green',to:'blue',t:Date.UTC(2023,0,1)};
+archive.undated={type:'lock',label:'Undated record',from:'green',to:'red',t:1};
 archive.email={type:'email',label:'Email',t:Date.UTC(2025,0,1)};archive.login={type:'login',label:'Login',t:Date.UTC(2025,0,2)};
 w.URL.createObjectURL=blob=>{archiveBlob=blob;return originalBlobUrl(blob);};
 w._swOnValue=(key,onValue)=>{assert.equal(key,'lockLog');onValue({val:()=>archive});return ()=>{};};click('[data-history-login]');
-assert.equal(w.document.querySelectorAll('[data-full-lock-history] .bridge-history-entry').length,651,'Complete history includes older and legacy lock records beyond 500 entries');
+assert.equal(w.document.querySelectorAll('[data-full-lock-history] .bridge-history-entry').length,652,'Complete history includes older and legacy lock records beyond 500 entries');
 const historyOrder=w.document.querySelector('[data-history-order]');historyOrder.value='oldest';historyOrder.dispatchEvent(new w.Event('change'));
 assert.equal(w.document.querySelector('[data-full-lock-history] .bridge-history-entry strong').textContent,'Legacy unit','Oldest first reaches the first saved change');
+assert(w.document.querySelector('[data-full-lock-history] .bridge-history-entry:last-child').textContent.includes('Unverified date'),'Placeholder timestamps are retained and labeled without pretending to be historical dates');
 const backup=await new Promise((resolve,reject)=>{const reader=new w.FileReader();reader.onload=()=>resolve(JSON.parse(reader.result));reader.onerror=reject;reader.readAsText(archiveBlob);});
-assert.equal(backup.recordCount,653);assert.deepEqual(Object.keys(backup.records).sort(),Object.keys(archive).sort(),'Backup preserves all original history keys, including emails and sign-ins');
+assert.equal(backup.recordCount,654);assert.equal(backup.records.undated.t,1,'The original diagnostic timestamp is preserved in the backup');assert.deepEqual(Object.keys(backup.records).sort(),Object.keys(archive).sort(),'Backup preserves all original history keys, including emails and sign-ins');
 const historySearch=w.document.querySelector('[data-history-search]');historySearch.value='Legacy';historySearch.dispatchEvent(new w.Event('input'));assert.equal(w.document.querySelectorAll('[data-full-lock-history] .bridge-history-entry').length,1,'History search narrows the view without removing archived records');
 w._swOnValue=originalHistoryWatcher;w.URL.createObjectURL=originalBlobUrl;click('[data-history-login]');click('.close-dialog');
 assert.equal(w.document.querySelector('.bridge-crew-photo img').getAttribute('src'),'/img/limo.jpg','The original real limo photo remains in the bridge');
