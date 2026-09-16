@@ -215,7 +215,11 @@
       const width=deck.clientWidth||innerWidth,height=deck.clientHeight||innerHeight;
       // Preserve the reference's 74-degree horizontal framing on phones: the
       // chair, paired consoles, wall display and both windows share one view.
-      camera.aspect=width/height; camera.fov=2*Math.atan(Math.tan(74*Math.PI/360)/camera.aspect)*180/Math.PI;camera.zoom=zoom;camera.updateProjectionMatrix(); renderer.setSize(width,height);
+      // Wider screens need more floor in view. Step back in the room overview
+      // and keep enough vertical field of view to show the complete chair/dais.
+      camera.aspect=width/height; camera.fov=Math.max(55,2*Math.atan(Math.tan(74*Math.PI/360)/camera.aspect)*180/Math.PI);
+      if(view==='room')camera.position.set(0,5.2,Math.max(10,Math.min(16,4.5+8*camera.aspect)));
+      camera.zoom=zoom;camera.updateProjectionMatrix(); renderer.setSize(width,height);
       const focus=view==='desk'; deck.classList.toggle('screen-focused',focus);controls.hidden=focus;
       if(focus) {scene.remove(board); deck.querySelector('.mobile-dock').append(screen); screen.style.display='';}
       else if(!board.parent)scene.add(board);
