@@ -150,7 +150,7 @@ window.__swHistoryPanel=function(){
   const COL={green:'#37d67a',red:'#ff5a5a',blue:'#4aa3ff',white:'#c9d3df',black:'#9aa6b2',yellow:'#ffd23f',flashred:'#ff3b3b',flashgreen:'#3dff8a',purple:'#c07bff'};
   function render(list){ const el=document.getElementById('sw-hist-list'); if(!el) return;
     if(!list||!list.length){ el.innerHTML='<div style="color:#7f9bc0;text-align:center;padding:24px;">No activity logged yet.</div>'; return; }
-    el.innerHTML=list.map(function(r){ const d=new Date(r.t); const ds=d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); const tc=COL[r.to]||'#fff';
+    el.innerHTML=list.map(function(r){ const d=new Date(Number(r.t)); const ds=Number(r.t)>=86400000&&Number.isFinite(d.getTime())?d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'Unverified date'; const tc=COL[r.to]||'#fff';
       return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;background:#12203a;margin-bottom:7px;"><div style="min-width:0;"><div style="color:#e6eefb;font-weight:800;font-size:14px;">Unit '+(r.label||'?')+'</div><div style="color:#9fb3d4;font-size:12px;margin-top:2px;">'+(r.from||'?')+' → <b style="color:'+tc+';">'+String(r.to||'').toUpperCase()+'</b></div><div style="color:#7f95ba;font-size:11px;margin-top:2px;">by '+(r.who||'Staff')+'</div></div><div style="color:#8aa0c4;font-size:12px;text-align:right;white-space:nowrap;">'+ds+'</div></div>';
     }).join('');
   }
@@ -241,9 +241,10 @@ window.__swOperationsOpen=async function(initialTab='overview'){
   function buildLogRows(entries){
     if(!entries||!entries.length) return '<div style="color:#4a6380;font-size:13px;padding:20px;text-align:center;">No activity yet</div>';
     return entries.map(r=>{
-      const d=new Date(r.t);
-      const dateStr=d.toLocaleDateString([],{month:'short',day:'numeric'});
-      const timeStr=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      const d=new Date(Number(r.t));
+      const dated=Number(r.t)>=86400000&&Number.isFinite(d.getTime());
+      const dateStr=dated?d.toLocaleDateString([],{month:'short',day:'numeric'}):'Unverified date';
+      const timeStr=dated?d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
       return `<div class="sw-row-item">
         <div style="flex:1;">
           <div style="color:#1f2a37;font-size:13px;font-weight:800;">${r.label}</div>
