@@ -169,10 +169,11 @@ window.__swOperationsOpen=async function(initialTab='overview'){
   if(existing){existing.querySelector(`[data-tab="${tab}"]`)?.click();return;}
 
   // Fetch contacts from Firebase
-  let cfg={};
+  let cfg={},contactsLoaded=false;
   try{
     const _sr5r=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');
-    cfg=(_sr5r.ok?(await _sr5r.json()):{})||{};
+    if(!_sr5r.ok)throw new Error('Team contacts could not load');
+    cfg=(await _sr5r.json())||{};contactsLoaded=true;
   }catch(e){}
 
   // Inject styles once
@@ -343,8 +344,8 @@ window.__swOperationsOpen=async function(initialTab='overview'){
             </div>
           </div>`).join('')}
         </div>
-        <button id="sw-save-contacts" style="margin-top:10px;width:100%;border:none;cursor:pointer;background:linear-gradient(135deg,#3C3B6E,#2a2a5a);color:#fff;font:700 12px Segoe UI;padding:9px;border-radius:8px;">💾 Save Contacts</button>
-        <div id="sw-contacts-saved" style="display:none;color:#00d68f;font-size:11px;text-align:center;margin-top:6px;">✅ Saved!</div>
+        <button id="sw-save-contacts" ${contactsLoaded?'':'disabled'} style="margin-top:10px;width:100%;border:none;cursor:pointer;background:linear-gradient(135deg,#3C3B6E,#2a2a5a);color:#fff;font:700 12px Segoe UI;padding:9px;border-radius:8px;">💾 Save Contacts</button>
+        <div id="sw-contacts-saved" role="status" style="display:${contactsLoaded?'none':'block'};color:#245c78;font-size:13px;line-height:1.5;text-align:center;margin-top:6px;">${contactsLoaded?'':'Team contacts could not load. Close and reopen before saving.'}</div>
       </div>
     </div>
 
@@ -465,16 +466,23 @@ window.__swOperationsOpen=async function(initialTab='overview'){
 
   // ── Save contacts ──
   document.getElementById('sw-save-contacts').onclick=async()=>{
+    if(!contactsLoaded)return;
     const updated={};
     panel.querySelectorAll('[data-name][data-field]').forEach(el=>{
       const n=el.dataset.name,f=el.dataset.field;
+      const original=contacts.find(c=>c.name===n);
+      if(el.value===String(original?.[f]??''))return;
       if(!updated[n])updated[n]={};
       updated[n][f]=el.value;
     });
-    await window.__swAdminSave(Object.entries(updated).map(([name,v])=>({name,...v})),'');
-    const saved=document.getElementById('sw-contacts-saved');
-    saved.style.display='block';
-    setTimeout(()=>saved.style.display='none',2000);
+    const button=document.getElementById('sw-save-contacts'),saved=document.getElementById('sw-contacts-saved');
+    button.disabled=true;saved.style.display='block';saved.textContent='Saving contacts…';
+    try{
+      await window.__swAdminSave(Object.entries(updated).map(([name,v])=>({name,...v})));
+      for(const [name,values] of Object.entries(updated))Object.assign(contacts.find(c=>c.name===name),values);
+      saved.textContent='Contacts saved.';
+    }catch(e){saved.textContent='Contacts were not saved. '+(e.message||'Please retry.');}
+    finally{button.disabled=false;}
   };
   panel.querySelector(`[data-tab="${tab}"]`)?.click();
 };
@@ -1177,10 +1185,23 @@ window.__swLoginGate=async function(sc){
 
 
 window.__swAdminSave=async function(contacts,ejsKey){
-  const _sr6=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');const existing=await _sr6.json()||{};
-  const obj={_ejsKey:ejsKey,_tbKey:existing._tbKey||''};
-  contacts.forEach(c=>{obj[c.name]={email:c.email||'',phone:c.phone||'',carrier:c.carrier||'',pref:c.pref||'email'};});
-  await set(ref(_db,'staffConfig'),obj);
+  if(!window.__swCheckLogin?.())throw new Error('Staff sign in is required.');
+  if(navigator.onLine===false)throw new Error('Reconnect before saving contacts.');
+  const patch={};
+  for(const c of contacts){
+    if(!['Kevin','Mike','Brad'].includes(c.name))throw new Error('Unknown staff member.');
+    for(const field of ['email','phone','carrier','pref']){
+      if(!Object.prototype.hasOwnProperty.call(c,field))continue;
+      const value=String(c[field]??'').trim();
+      if(field==='email'&&value&&!/^\S+@\S+\.\S+$/.test(value))throw new Error('Enter a valid email address for '+c.name+'.');
+      patch[c.name+'/'+field]=value;
+    }
+  }
+  // Contact edits must not replace other staff fields or erase retained settings.
+  if(typeof ejsKey==='string'&&ejsKey.trim())patch._ejsKey=ejsKey.trim();
+  if(!Object.keys(patch).length)return;
+  await window.__swEnsureFirebase();
+  await update(ref(_db,'staffConfig'),patch);
 };
 window.__swStaffReport=async function(fromName,changes){
   if(!fromName||!changes?.length)return;

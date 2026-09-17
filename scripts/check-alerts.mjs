@@ -49,6 +49,18 @@ await w.__swTestNotif();
 assert.deepEqual([...testRequests[0].recipients],['Offline test'],'Testing alerts never broadcasts to the whole team');
 assert(w.document.querySelector('#sw-alert-notice').textContent.startsWith('No device'),'Zero recipients are not presented as successful delivery');
 w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.length,1,'An unsigned visitor cannot send a staff test');
+// Editing one contact field cannot replace the team configuration or erase keys.
+let contactPatch,contactSaves=0;
+w.__swCheckLogin=()=>true;w.__swEnsureFirebase=async()=>{};w._db={};w.ref=(_,path)=>path;
+w.update=async(path,patch)=>{assert.equal(path,'staffConfig');contactPatch=patch;contactSaves++;};
+w.eval(staff.slice(staff.indexOf('window.__swAdminSave=async function('),staff.indexOf('window.__swStaffReport=async function(')));
+await w.__swAdminSave([{name:'Kevin',email:'owner@example.test'}],'');
+assert.deepEqual(Object.keys(contactPatch),['Kevin/email'],'The patch contains only the edited field, preserving all other staff and settings');
+assert.equal(contactPatch['Kevin/email'],'owner@example.test');
+await assert.rejects(w.__swAdminSave([{name:'Brad',email:'invalid'}]),/valid email/);
+assert.equal(contactSaves,1,'Invalid addresses never reach the database');
+w.update=async()=>{throw new Error('Connection interrupted');};
+await assert.rejects(w.__swAdminSave([{name:'Kevin',phone:'5550100'}]),/Connection interrupted/,'A rejected save is not reported as successful');
 dom.window.close();
 // The service worker displays the actual event payload rather than a shared database record.
 const events={},shown=[];const scope={addEventListener:(name,fn)=>events[name]=fn,registration:{showNotification:async(...args)=>shown.push(args)}};
