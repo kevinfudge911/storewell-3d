@@ -82,7 +82,7 @@
         if(right-left<1e-7||bottom-top<1e-7)return;
         const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
         const depths=corners.map(depthAt),near=Math.min(...depths),far=Math.max(...depths);
-        if(near>0&&far<=near*2.01){result.push({left,top,right,bottom});return;}
+        if(near>0&&far<=near*1.95){result.push({left,top,right,bottom,far});return;}
         const axis=Math.abs(depths[1]-depths[0])>=Math.abs(depths[3]-depths[0])?'x':'y';
         const mid=axis==='x'?(left+right)/2:(top+bottom)/2;
         for(const sign of [-1,1]){
@@ -130,7 +130,11 @@
         const patches=paintPatches(local,p=>-(e[14]+e[2]*(p.x-width/2)+e[6]*(height/2-p.y)));
         const source=face.element,markup=patches.length>1?source.innerHTML:'';
         for(let i=0;i<patches.length;i++){
-          const {left,top,right,bottom}=patches[i];
+          const part=patches[i],bleed=.7*part.far*50/focal;
+          // Adjacent subpixel clips need a screen-pixel overlap; otherwise
+          // antialiasing exposes dotted seams across the floor and ceiling.
+          const left=Math.max(0,part.left-bleed),top=Math.max(0,part.top-bleed);
+          const right=Math.min(width,part.right+bleed),bottom=Math.min(height,part.bottom+bleed);
           let projection=data.patches[i],newPatch=!projection;
           if(!projection){
             projection=data.projection.cloneNode(false);projection.setAttribute('aria-hidden','true');projection.inert=true;
