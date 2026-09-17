@@ -6,8 +6,8 @@
     if (!T?.CSS3DRenderer) throw new Error('3D room renderer unavailable');
     const scene = new T.Scene(); scene.scale.setScalar(100);
     const camera = new T.PerspectiveCamera(55, 1, .1, 160); camera.rotation.order = 'YXZ';
-    // Flatten each HTML surface before projecting it. This avoids browser
-    // compositor clipping of animated descendants when a room face turns aft.
+    // Keep the viewport clip outside the perspective transform. Mobile GPU
+    // compositors must not project a clip mask or unbounded off-screen content.
     const roomLayer=document.createElement('div');
     Object.assign(roomLayer.style,{position:'absolute',inset:'0',overflow:'hidden',isolation:'isolate',pointerEvents:'none'});
     let renderWidth=1,renderHeight=1;
@@ -30,8 +30,13 @@
       obj.userData.roomWidth=w;obj.userData.roomHeight=h;obj.userData.inverseRotation=obj.quaternion.clone().invert();
       obj.userData.roomNormal=new T.Vector3(0,0,1).applyQuaternion(obj.quaternion);
       obj.userData.layer=document.createElement('div');
-      Object.assign(obj.userData.layer.style,{position:'absolute',left:'0',top:'0',transformOrigin:'0 0',transformStyle:'flat',pointerEvents:'none'});
-      obj.userData.layer.append(obj.element);
+      obj.userData.layer.className='bridge-face-viewport';
+      Object.assign(obj.userData.layer.style,{position:'absolute',overflow:'hidden',isolation:'isolate',pointerEvents:'none'});
+      obj.userData.projection=document.createElement('div');
+      obj.userData.projection.className='bridge-face-projection';
+      Object.assign(obj.userData.projection.style,{position:'absolute',left:'0',top:'0',transformOrigin:'0 0',transformStyle:'flat',overflow:'hidden',contain:'paint',pointerEvents:'none'});
+      obj.userData.projection.append(obj.element);
+      obj.userData.layer.append(obj.userData.projection);
       roomLayer.append(obj.userData.layer);
     };
     function clippedFace(face) {
@@ -65,30 +70,37 @@
     const signedArea=polygon=>polygon.reduce((sum,p,i)=>{const q=polygon[(i+1)%polygon.length];return sum+p.x*q.y-q.x*p.y;},0);
     function paintRoom() {
       const drawing=[],matrix=new T.Matrix4();
+      const focal=camera.projectionMatrix.elements[5]*renderHeight/2;
       for(const face of faces){
-        const data=face.userData,layer=data.layer;
+        const data=face.userData,layer=data.layer,projection=data.projection;
         layer.style.display=face.visible&&face.parent?'':'none';
         if(!face.visible||!face.parent)continue;
         const polygon=clippedFace(face);if(!polygon){face.visible=false;layer.style.display='none';continue;}
         const projected=polygon.map(point=>{const p=point.clone().project(camera);return {x:p.x,y:p.y};});
         if(signedArea(projected)<0)projected.reverse();
         const bounds={left:Math.min(...projected.map(p=>p.x)),right:Math.max(...projected.map(p=>p.x)),bottom:Math.min(...projected.map(p=>p.y)),top:Math.max(...projected.map(p=>p.y))};
+        const screenLeft=(bounds.left+1)*renderWidth/2,screenTop=(1-bounds.top)*renderHeight/2;
+        Object.assign(layer.style,{left:screenLeft+'px',top:screenTop+'px',width:(bounds.right-bounds.left)*renderWidth/2+'px',height:(bounds.top-bounds.bottom)*renderHeight/2+'px'});
+        // This polygon lives in ordinary viewport pixels, never in the tilted
+        // face's coordinate system. Its bounds stay finite at every camera angle.
+        layer.style.clipPath='polygon('+projected.map(p=>`${((p.x+1)*renderWidth/2-screenLeft).toFixed(4)}px ${((1-p.y)*renderHeight/2-screenTop).toFixed(4)}px`).join(',')+')';
         const width=data.roomWidth*50,height=data.roomHeight*50;
         const local=polygon.map(point=>{const p=point.clone().sub(face.position).applyQuaternion(data.inverseRotation);return {x:(p.x/data.roomWidth+.5)*width,y:(.5-p.y/data.roomHeight)*height};});
         const left=Math.max(0,Math.min(...local.map(p=>p.x))),top=Math.max(0,Math.min(...local.map(p=>p.y)));
         const right=Math.min(width,Math.max(...local.map(p=>p.x))),bottom=Math.min(height,Math.max(...local.map(p=>p.y)));
         const cropWidth=Math.max(.01,right-left),cropHeight=Math.max(.01,bottom-top);
-        layer.style.width=cropWidth+'px';layer.style.height=cropHeight+'px';
-        layer.style.clipPath='polygon('+local.map(p=>`${((p.x-left)/cropWidth*100).toFixed(5)}% ${((p.y-top)/cropHeight*100).toFixed(5)}%`).join(',')+')';
-        const el=face.element;if(el.parentNode!==layer)layer.append(el);
+        projection.style.width=cropWidth+'px';projection.style.height=cropHeight+'px';
+        const el=face.element;if(el.parentNode!==projection)projection.append(el);
         Object.assign(el.style,{display:'',left:-left+'px',top:-top+'px',transform:'none',clipPath:''});
-        face.updateMatrix();matrix.multiplyMatrices(projectionView,face.matrix);
+        face.updateMatrix();matrix.multiplyMatrices(camera.matrixWorldInverse,face.matrix);
         const e=matrix.elements,originX=left-width/2,originY=height/2-top;
-        const x=e[12]+e[0]*originX+e[4]*originY,y=e[13]+e[1]*originX+e[5]*originY,w=e[15]+e[3]*originX+e[7]*originY;
-        // Homography from the cropped surface's CSS pixels to viewport pixels.
-        // Its output has z=0; explicit paint order handles room occlusion.
-        const css=[(e[0]+e[3])*renderWidth/2,(e[3]-e[1])*renderHeight/2,0,e[3],(-e[4]-e[7])*renderWidth/2,(e[5]-e[7])*renderHeight/2,0,-e[7],0,0,1,0,(x+w)*renderWidth/2,(w-y)*renderHeight/2,0,w];
-        layer.style.transform='matrix3d('+css.map(v=>Math.abs(v)<1e-12?0:v).join(',')+')';
+        const x=e[12]+e[0]*originX+e[4]*originY,y=e[13]+e[1]*originX+e[5]*originY,z=e[14]+e[2]*originX+e[6]*originY;
+        // Use an ordinary affine 3D pose plus CSS perspective, rather than a
+        // flattened z=0 homography with a non-unit homogeneous component. The
+        // pixels match Three's camera; each viewport then flattens its own face.
+        const scale=50;
+        const css=[e[0]*scale,-e[1]*scale,e[2]*scale,0,-e[4]*scale,e[5]*scale,-e[6]*scale,0,e[8]*scale,-e[9]*scale,e[10]*scale,0,x*scale,-y*scale,focal+z*scale,1];
+        projection.style.transform=`translate(${renderWidth/2-screenLeft}px,${renderHeight/2-screenTop}px) perspective(${focal}px) matrix3d(${css.map(v=>Math.abs(v)<1e-12?0:v).join(',')})`;
         drawing.push({face,layer,polygon:projected,bounds,farther:[],incoming:0,depth:face.position.clone().applyMatrix4(camera.matrixWorldInverse).z});
       }
       // Compare depth only where projected faces actually overlap. Sorting by

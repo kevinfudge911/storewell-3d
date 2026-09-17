@@ -5,6 +5,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { transform } from 'esbuild';
+import { checkRoomProjection } from './check-room-projection.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const read=f=>fs.readFileSync(path.join(root,'public',f),'utf8');
 const html=read('index.html');
@@ -171,6 +172,15 @@ assert(Number(deck.dataset.bridgeYaw)<yawBefore-.1,'Joystick steers like the out
 const yawAfter=Number(deck.dataset.bridgeYaw);await new Promise(r=>setTimeout(r,80));assert.equal(Number(deck.dataset.bridgeYaw),yawAfter,'Pointer cancellation stops turning');
 // Phone look stays near eye level, with independent look and joystick fingers.
 const look=(type,x,y,id=2)=>{const event=new w.MouseEvent(type,{clientX:x,clientY:y,bubbles:true,button:0});Object.defineProperty(event,'pointerId',{value:id});deck.dispatchEvent(event);};
+for(const width of [393,1363]){
+  Object.defineProperty(w,'innerWidth',{configurable:true,value:width});w.dispatchEvent(new w.Event('resize'));
+  click('[data-view="room"]');
+  for(let heading=0;heading<16;heading++){
+    checkRoomProjection(w);
+    look('pointerdown',200,300);look('pointermove',200+Math.PI/8/.0028,300);look('pointerup',200+Math.PI/8/.0028,300);
+  }
+}
+Object.defineProperty(w,'innerWidth',{configurable:true,value:393});w.dispatchEvent(new w.Event('resize'));click('[data-view="room"]');
 look('pointerdown',200,300);look('pointermove',200,-2000);await new Promise(r=>setTimeout(r,40));
 assert(Number(deck.dataset.bridgePitch)<=.22,'Looking up cannot strand the camera staring at the ceiling');
 const beforeBoth=Number(deck.dataset.bridgeYaw);pointer('pointerdown',80,520);look('pointermove',260,-2000);pointer('pointerup',80,520);look('pointermove',290,-2000);look('pointerup',290,-2000);await new Promise(r=>setTimeout(r,40));
