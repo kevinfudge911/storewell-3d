@@ -37,6 +37,7 @@
       Object.assign(obj.userData.projection.style,{position:'absolute',left:'0',top:'0',transformOrigin:'0 0',transformStyle:'flat',overflow:'hidden',contain:'paint',pointerEvents:'none'});
       obj.userData.projection.append(obj.element);
       obj.userData.layer.append(obj.userData.projection);
+      obj.userData.patches=[obj.userData.projection];
       roomLayer.append(obj.userData.layer);
     };
     function clippedFace(face) {
@@ -68,11 +69,49 @@
       return result;
     }
     const signedArea=polygon=>polygon.reduce((sum,p,i)=>{const q=polygon[(i+1)%polygon.length];return sum+p.x*q.y-q.x*p.y;},0);
+    // Clipping a polygon is not enough: its local bounding rectangle can still
+    // cross behind the eye when the camera turns. Chrome must rasterize that
+    // rectangle before the viewport clip, producing an unbounded paint surface.
+    // Split only those rectangles; every painted corner stays in front of the
+    // camera and each patch has at most a 2:1 perspective depth range.
+    function paintPatches(polygon,depthAt) {
+      const result=[];
+      const split=points=>{
+        const left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x));
+        const top=Math.min(...points.map(p=>p.y)),bottom=Math.max(...points.map(p=>p.y));
+        if(right-left<1e-7||bottom-top<1e-7)return;
+        const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
+        const depths=corners.map(depthAt),near=Math.min(...depths),far=Math.max(...depths);
+        if(near>0&&far<=near*2.01){result.push({left,top,right,bottom});return;}
+        const axis=Math.abs(depths[1]-depths[0])>=Math.abs(depths[3]-depths[0])?'x':'y';
+        const mid=axis==='x'?(left+right)/2:(top+bottom)/2;
+        for(const sign of [-1,1]){
+          const clipped=[];
+          for(let i=0;i<points.length;i++){
+            const a=points[i],b=points[(i+1)%points.length],da=(a[axis]-mid)*sign,db=(b[axis]-mid)*sign;
+            if(da>=0)clipped.push(a);
+            if((da>=0)!==(db>=0)){const t=da/(da-db);clipped.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});}
+          }
+          if(clipped.length>=3)split(clipped);
+        }
+      };
+      split(polygon);return result;
+    }
+    function syncPaintCopies() {
+      for(const face of faces){
+        if(face.userData.patches.length<2)continue;
+        const source=face.element,markup=source.innerHTML;
+        for(const patch of face.userData.patches.slice(1)){
+          const copy=patch.firstElementChild;copy.className=source.className;
+          if(patch._markup!==markup){copy.innerHTML=markup;copy.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));patch._markup=markup;}
+        }
+      }
+    }
     function paintRoom() {
       const drawing=[],matrix=new T.Matrix4();
       const focal=camera.projectionMatrix.elements[5]*renderHeight/2;
       for(const face of faces){
-        const data=face.userData,layer=data.layer,projection=data.projection;
+        const data=face.userData,layer=data.layer;
         layer.style.display=face.visible&&face.parent?'':'none';
         if(!face.visible||!face.parent)continue;
         const polygon=clippedFace(face);if(!polygon){face.visible=false;layer.style.display='none';continue;}
@@ -86,21 +125,36 @@
         layer.style.clipPath='polygon('+projected.map(p=>`${((p.x+1)*renderWidth/2-screenLeft).toFixed(4)}px ${((1-p.y)*renderHeight/2-screenTop).toFixed(4)}px`).join(',')+')';
         const width=data.roomWidth*50,height=data.roomHeight*50;
         const local=polygon.map(point=>{const p=point.clone().sub(face.position).applyQuaternion(data.inverseRotation);return {x:(p.x/data.roomWidth+.5)*width,y:(.5-p.y/data.roomHeight)*height};});
-        const left=Math.max(0,Math.min(...local.map(p=>p.x))),top=Math.max(0,Math.min(...local.map(p=>p.y)));
-        const right=Math.min(width,Math.max(...local.map(p=>p.x))),bottom=Math.min(height,Math.max(...local.map(p=>p.y)));
-        const cropWidth=Math.max(.01,right-left),cropHeight=Math.max(.01,bottom-top);
-        projection.style.width=cropWidth+'px';projection.style.height=cropHeight+'px';
-        const el=face.element;if(el.parentNode!==projection)projection.append(el);
-        Object.assign(el.style,{display:'',left:-left+'px',top:-top+'px',transform:'none',clipPath:''});
         face.updateMatrix();matrix.multiplyMatrices(camera.matrixWorldInverse,face.matrix);
-        const e=matrix.elements,originX=left-width/2,originY=height/2-top;
-        const x=e[12]+e[0]*originX+e[4]*originY,y=e[13]+e[1]*originX+e[5]*originY,z=e[14]+e[2]*originX+e[6]*originY;
-        // Use an ordinary affine 3D pose plus CSS perspective, rather than a
-        // flattened z=0 homography with a non-unit homogeneous component. The
-        // pixels match Three's camera; each viewport then flattens its own face.
-        const scale=50;
-        const css=[e[0]*scale,-e[1]*scale,e[2]*scale,0,-e[4]*scale,e[5]*scale,-e[6]*scale,0,e[8]*scale,-e[9]*scale,e[10]*scale,0,x*scale,-y*scale,focal+z*scale,1];
-        projection.style.transform=`translate(${renderWidth/2-screenLeft}px,${renderHeight/2-screenTop}px) perspective(${focal}px) matrix3d(${css.map(v=>Math.abs(v)<1e-12?0:v).join(',')})`;
+        const e=matrix.elements;
+        const patches=paintPatches(local,p=>-(e[14]+e[2]*(p.x-width/2)+e[6]*(height/2-p.y)));
+        const source=face.element,markup=patches.length>1?source.innerHTML:'';
+        for(let i=0;i<patches.length;i++){
+          const {left,top,right,bottom}=patches[i];
+          let projection=data.patches[i],newPatch=!projection;
+          if(!projection){
+            projection=data.projection.cloneNode(false);projection.setAttribute('aria-hidden','true');projection.inert=true;
+            const copy=source.cloneNode(true);copy.removeAttribute('id');copy.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));
+            projection.append(copy);data.patches.push(projection);layer.append(projection);
+          }
+          const patchWasHidden=projection.style.display==='none';
+          projection.style.display='';projection.style.width=(right-left)+'px';projection.style.height=(bottom-top)+'px';
+          const el=i?projection.firstElementChild:source;
+          if(el.parentNode!==projection)projection.append(el);
+          if(i){
+            const spaceDelay=data.spaceWindow&&(newPatch||patchWasHidden||data.paintBecameVisible)?`${-(performance.now()-spaceEpoch)/1000}s`:el.style.getPropertyValue('--space-delay');
+            el.className=source.className;el.style.cssText=source.style.cssText;
+            if(projection._markup!==markup){el.innerHTML=markup;el.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));projection._markup=markup;}
+            if(spaceDelay)el.style.setProperty('--space-delay',spaceDelay);
+          }
+          Object.assign(el.style,{display:'',left:-left+'px',top:-top+'px',transform:'none',clipPath:''});
+          const originX=left-width/2,originY=height/2-top;
+          const x=e[12]+e[0]*originX+e[4]*originY,y=e[13]+e[1]*originX+e[5]*originY,z=e[14]+e[2]*originX+e[6]*originY;
+          const scale=50;
+          const css=[e[0]*scale,-e[1]*scale,e[2]*scale,0,-e[4]*scale,e[5]*scale,-e[6]*scale,0,e[8]*scale,-e[9]*scale,e[10]*scale,0,x*scale,-y*scale,focal+z*scale,1];
+          projection.style.transform=`translate(${renderWidth/2-screenLeft}px,${renderHeight/2-screenTop}px) perspective(${focal}px) matrix3d(${css.map(v=>Math.abs(v)<1e-12?0:v).join(',')})`;
+        }
+        for(let i=patches.length;i<data.patches.length;i++)data.patches[i].style.display='none';
         drawing.push({face,layer,polygon:projected,bounds,farther:[],incoming:0,depth:face.position.clone().applyMatrix4(camera.matrixWorldInverse).z});
       }
       // Compare depth only where projected faces actually overlap. Sorting by
@@ -238,11 +292,13 @@
       doorTrigger.setAttribute('aria-label',open?'Exit doors opening':'Open exit doors');
       portal.querySelector('.airlock-prompt').textContent=open?'OPENING…':'TAP TO OPEN';
       portal.querySelector('.airlock-status').textContent=open?'Opening exit doors…':'Automatic doors · Approach to open';
+      syncPaintCopies();
       if(open)doorTimer=setTimeout(()=>{
         if(!active||!doorOpen)return;doorReady=true;doorTrigger.disabled=false;deck.dataset.bridgeDoor='open';
         doorTrigger.setAttribute('aria-label','Exit to storage property');
         portal.querySelector('.airlock-prompt').textContent='RETURN OUTSIDE';
         portal.querySelector('.airlock-status').textContent='Walk through · or tap to exit';
+        syncPaintCopies();
       },window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?0:760);
     }
     function openExitDoors() {
@@ -293,6 +349,7 @@
         // can project enormous CSS paint bounds over the room. Clip against
         // the entire view, including its sides and top/bottom, before drawing.
         face.visible=normal.dot(toCamera)>.015&&viewFrustum.intersectsBox(face.userData.roomBounds);
+        face.userData.paintBecameVisible=face.visible&&!wasVisible;
         // CSS animations restart when a culled face becomes visible. Resume
         // the shared sky clock so turning around never restarts that window.
         if(face.userData.spaceWindow&&face.visible&&(!wasVisible||face.userData.syncSpace)){
@@ -302,7 +359,7 @@
       }
       paintRoom();
       Object.assign(renderedPose,{x:camera.position.x,y:camera.position.y,z:camera.position.z,yaw,pitch});
-      deck.dataset.bridgeX=camera.position.x.toFixed(2);deck.dataset.bridgeY=camera.position.y.toFixed(2);deck.dataset.bridgeZ=camera.position.z.toFixed(2);deck.dataset.bridgeYaw=yaw.toFixed(3);deck.dataset.bridgePitch=pitch.toFixed(3);deck.dataset.bridgeFov=String(camera.fov);deck.dataset.bridgeZoom=zoom.toFixed(2);
+      deck.dataset.bridgeX=camera.position.x.toFixed(6);deck.dataset.bridgeY=camera.position.y.toFixed(6);deck.dataset.bridgeZ=camera.position.z.toFixed(6);deck.dataset.bridgeYaw=yaw.toFixed(6);deck.dataset.bridgePitch=pitch.toFixed(6);deck.dataset.bridgeFov=String(camera.fov);deck.dataset.bridgeZoom=String(zoom);
     }
     function frame(now) {
       if(!active){raf=0;return;} raf=requestAnimationFrame(frame);
@@ -394,6 +451,7 @@
     function drawHistory() {
       logWall.querySelector('.bridge-log-state').textContent=historyState;
       logWall.querySelector('.bridge-log-rows').innerHTML=rowsHtml(history.slice(0,20));
+      syncPaintCopies();
       drawFullHistory();
     }
     function openHistory() {
@@ -423,6 +481,7 @@
       if(month!==calendarMonth){calendarMonth=month;const first=new Date(now.getFullYear(),now.getMonth(),1).getDay(),days=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();calendarWall.querySelector('.bridge-calendar').innerHTML='<strong>'+escape(now.toLocaleDateString([],{month:'long',year:'numeric'}))+'</strong><div>'+['S','M','T','W','T','F','S'].map(d=>'<b>'+d+'</b>').join('')+Array.from({length:first},()=>'<i></i>').join('')+Array.from({length:days},(_,i)=>'<span'+(i+1===now.getDate()?' aria-current="date"':'')+'>'+(i+1)+'</span>').join('')+'</div>';}
       const list=units(),signature=list.map(u=>u.id+u.status).join('|');
       if(signature!==rosterSignature){rosterSignature=signature;rosterWall.querySelector('.bridge-roster').innerHTML=list.map(u=>`<button data-room-unit="${escape(u.id)}" style="--unit-color:${status[u.status]?.[1]||'#adc1d2'}" aria-label="Unit ${escape(u.label)} · ${escape(status[u.status]?.[0]||'Unknown')}">${escape(u.label)}</button>`).join('');}
+      syncPaintCopies();
     }
     function localBounds(node,surface) {
       let x=0,y=0,el=node;

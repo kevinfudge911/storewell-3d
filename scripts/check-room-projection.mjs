@@ -14,6 +14,16 @@ export function checkRoomProjection(w) {
     assert([x,y,width,height].every(Number.isFinite),'Visible paint bounds stay finite');
     assert(x>=-.01&&y>=-.01&&x+width<=w.innerWidth+.01&&y+height<=w.innerHeight+.01,'Visible paint bounds stay inside the viewport');
     assert(!layer.style.transform,'The viewport clip never gets a perspective transform');
+    for(const part of layer.querySelectorAll('.bridge-face-projection')){
+      if(part.style.display==='none')continue;
+      const t=part.style.transform,focal=Number(t.match(/perspective\(([-\d.e+]+)px\)/)[1]);
+      const m=t.match(/matrix3d\(([^)]+)\)/)[1].split(',').map(Number);
+      const cw=parseFloat(part.style.width),ch=parseFloat(part.style.height);
+      const cornerW=[[0,0],[cw,0],[cw,ch],[0,ch]].map(([x,y])=>1-(m[2]*x+m[6]*y+m[14])/focal);
+      const minW=Math.min(...cornerW),maxW=Math.max(...cornerW);
+      assert(minW>0,part.firstElementChild.className+' paint rectangle crosses the camera at yaw '+d.bridgeYaw+' (w='+minW+')');
+      assert(maxW/minW<=2.02,'Each raster rectangle has bounded perspective magnification');
+    }
   }
   for(const [selector,world,local] of [
     ['.bridge-floor',[0,0,0],[1100,1200]],

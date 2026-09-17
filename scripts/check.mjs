@@ -173,12 +173,19 @@ assert(Number(deck.dataset.bridgeYaw)<yawBefore-.1,'Joystick steers like the out
 const yawAfter=Number(deck.dataset.bridgeYaw);await new Promise(r=>setTimeout(r,80));assert.equal(Number(deck.dataset.bridgeYaw),yawAfter,'Pointer cancellation stops turning');
 // Phone look stays near eye level, with independent look and joystick fingers.
 const look=(type,x,y,id=2)=>{const event=new w.MouseEvent(type,{clientX:x,clientY:y,bubbles:true,button:0});Object.defineProperty(event,'pointerId',{value:id});deck.dispatchEvent(event);};
-for(const width of [393,1363]){
-  Object.defineProperty(w,'innerWidth',{configurable:true,value:width});w.dispatchEvent(new w.Event('resize'));
-  click('[data-view="room"]');
-  for(let heading=0;heading<16;heading++){
-    checkRoomProjection(w);
-    look('pointerdown',200,300);look('pointermove',200+Math.PI/8/.0028,300);look('pointerup',200+Math.PI/8/.0028,300);
+for(const [width,height] of [[393,852],[980,2050],[1363,936]]){
+  Object.defineProperty(w,'innerWidth',{configurable:true,value:width});
+  Object.defineProperty(w,'innerHeight',{configurable:true,value:height});w.dispatchEvent(new w.Event('resize'));
+  for(const wheelDelta of [0,500,-1000]){
+    click('[data-view="room"]');
+    if(wheelDelta)deck.dispatchEvent(new w.WheelEvent('wheel',{deltaY:wheelDelta,bubbles:true,cancelable:true}));
+    for(let heading=0;heading<16;heading++){
+      checkRoomProjection(w);
+      const headingBefore=deck.dataset.bridgeYaw;
+      look('pointerdown',200,300);look('pointermove',200+Math.PI/8/.0028,300);look('pointerup',200+Math.PI/8/.0028,300);
+      await until(()=>deck.dataset.bridgeYaw!==headingBefore);
+      checkRoomProjection(w);
+    }
   }
 }
 Object.defineProperty(w,'innerWidth',{configurable:true,value:393});w.dispatchEvent(new w.Event('resize'));click('[data-view="room"]');
@@ -201,7 +208,7 @@ assert(Number(deck.dataset.bridgeY)>5.4,'Walking onto the raised command deck ra
 w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'d',bubbles:true}));await until(()=>Number(deck.dataset.bridgeX)>=10,8000);w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'d',bubbles:true}));
 assert(Number(deck.dataset.bridgeX)>9&&Number(deck.dataset.bridgeX)<12,'A walking aisle remains alongside the chair and paired consoles');
 w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'w',bubbles:true}));await until(()=>Number(deck.dataset.bridgeZ)<-20.1,12000);w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'w',bubbles:true}));
-assert(Number(deck.dataset.bridgeZ)<-20&&Number(deck.dataset.bridgeZ)>-21.51,'Walking around the furniture reaches the command wall and stops at its boundary');w._swWalkSpd=0;
+assert(Number(deck.dataset.bridgeZ)<-20&&Number(deck.dataset.bridgeZ)>-21.51,'Walking around the furniture reaches the command wall and stops at its boundary');w._swWalkSpd=0;checkRoomProjection(w);
 click('[data-view="history"]');assert.equal(w.document.querySelector('#deck-dialog-title').textContent,'Lock activity history');
 assert(w.document.querySelector('[data-lock-history-state]').textContent.includes('1 saved lock changes'),'Existing admin session loads actual lock history automatically');assert(!w.document.querySelector('[data-full-lock-history]').textContent.includes('sign in'),'History does not request another sign-in');
 // A full archive must retain early history and every original record ID, even
@@ -239,18 +246,18 @@ const beforeWindowClose={x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.
 w.document.querySelector('#sw-deck-dialog').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
 assert(w.document.querySelector('#sw-deck-dialog').hidden);assert.deepEqual({x:deck.dataset.bridgeX,z:deck.dataset.bridgeZ,yaw:deck.dataset.bridgeYaw},beforeWindowClose,'Closing a window does not reset the room or move the camera');
 click('[data-view="room"]');assert.equal(Number(deck.dataset.bridgeZoom),1,'Bridge restores normal magnification');
-assert.equal(w.document.querySelectorAll('.bridge-observation .space-scene').length,10,'All exterior wall panels have space behind observation glass');
+assert.equal(w.document.querySelectorAll('.bridge-face-projection:not([aria-hidden]) .bridge-observation .space-scene').length,10,'All exterior wall panels have space behind observation glass');
 assert([...w.document.querySelectorAll('.bridge-window')].every(el=>el.querySelector('.space-stars')),'Every forward window also has moving space');
 // The rear doorway opens two leaves, permits passage, and retains the outdoor location.
 const doorLocation=app.walker.g.position.clone();
-click('[data-station="door"]');assert.equal(deck.dataset.bridgeDoor,'opening');assert.equal(w.document.querySelectorAll('.airlock-leaf').length,2);assert(w.document.querySelector('.airlock-trigger').disabled,'Door waits for its opening animation before exit');
+click('[data-station="door"]');assert.equal(deck.dataset.bridgeDoor,'opening');assert.equal(w.document.querySelectorAll('.bridge-face-projection:not([aria-hidden]) .airlock-leaf').length,2);assert(w.document.querySelector('.airlock-trigger').disabled,'Door waits for its opening animation before exit');
 await new Promise(r=>setTimeout(r,810));assert.equal(deck.dataset.bridgeDoor,'open');click('[data-station="door"]');assert.equal(w.__swDeckVisible,false,'Tapping the open doorway returns to the property');assert(app.walker.g.position.equals(doorLocation));
 await enter();assert.equal(deck.dataset.bridgeDoor,'closed','Re-entering resets the doorway');
 w._swWalkSpd=.5;
-w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'d',bubbles:true}));await new Promise(r=>setTimeout(r,560));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'d',bubbles:true}));
-w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await new Promise(r=>setTimeout(r,750));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));
-assert(['opening','open'].includes(deck.dataset.bridgeDoor),'Approaching the doorway opens it automatically');await new Promise(r=>setTimeout(r,800));
-w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await new Promise(r=>setTimeout(r,750));w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));w._swWalkSpd=0;
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'d',bubbles:true}));await until(()=>Number(deck.dataset.bridgeX)>=7,8000);w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'d',bubbles:true}));
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await until(()=>['opening','open'].includes(deck.dataset.bridgeDoor),8000);w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));
+assert(['opening','open'].includes(deck.dataset.bridgeDoor),'Approaching the doorway opens it automatically');await until(()=>deck.dataset.bridgeDoor==='open');
+w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'s',bubbles:true}));await until(()=>!w.__swDeckVisible,8000);w.document.dispatchEvent(new w.KeyboardEvent('keyup',{key:'s',bubbles:true}));w._swWalkSpd=0;
 assert.equal(w.__swDeckVisible,false,'Walking through the open doorway exits the room');assert(app.walker.g.position.equals(doorLocation),'The animated exit preserves the outdoor position');await enter();
 // A remembered app login restores full control without showing another credential form.
 const loginSource=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
