@@ -346,6 +346,12 @@ window.__swOperationsOpen=async function(initialTab='overview'){
         </div>
         <button id="sw-save-contacts" ${contactsLoaded?'':'disabled'} style="margin-top:10px;width:100%;border:none;cursor:pointer;background:linear-gradient(135deg,#3C3B6E,#2a2a5a);color:#fff;font:700 12px Segoe UI;padding:9px;border-radius:8px;">💾 Save Contacts</button>
         <div id="sw-contacts-saved" role="status" style="display:${contactsLoaded?'none':'block'};color:#245c78;font-size:13px;line-height:1.5;text-align:center;margin-top:6px;">${contactsLoaded?'':'Team contacts could not load. Close and reopen before saving.'}</div>
+        <p style="color:#355d76;font-size:13px;line-height:1.5;">Check delivery to your own saved email address and devices.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="sw-test-my-email" ${contactsLoaded?'':'disabled'} style="padding:10px 14px;border:1px solid #428fb4;border-radius:8px;background:#dceffc;color:#173e59;font:700 14px Arial;">Test my email</button>
+          <button id="sw-test-my-push" style="padding:10px 14px;border:1px solid #428fb4;border-radius:8px;background:#dceffc;color:#173e59;font:700 14px Arial;">Test my push</button>
+        </div>
+        <p id="sw-test-delivery-result" role="status" style="color:#245c78;font-size:13px;line-height:1.5;"></p>
       </div>
     </div>
 
@@ -483,6 +489,24 @@ window.__swOperationsOpen=async function(initialTab='overview'){
       saved.textContent='Contacts saved.';
     }catch(e){saved.textContent='Contacts were not saved. '+(e.message||'Please retry.');}
     finally{button.disabled=false;}
+  };
+  const deliveryResult=panel.querySelector('#sw-test-delivery-result');
+  panel.querySelector('#sw-test-my-email').onclick=async e=>{
+    const me=contacts.find(c=>c.name===app.state.staffName);
+    if(!window.__swCheckLogin?.()){deliveryResult.textContent='Sign in before testing your email.';return;}
+    if(!me?.email){deliveryResult.textContent='Add and save your email address first.';return;}
+    const button=e.currentTarget;button.disabled=true;deliveryResult.textContent='Sending a test to '+me.email+'…';
+    try{await _sendEmail(me.email,me.name,me.name,'StoreWell email delivery test for '+me.name+'. No unit statuses were changed.');deliveryResult.textContent='Email service accepted the test for '+me.email+'. Check your inbox to confirm receipt.';}
+    catch(error){deliveryResult.textContent='Test email was not sent. '+error.message;}
+    finally{button.disabled=false;}
+  };
+  panel.querySelector('#sw-test-my-push').onclick=async e=>{
+    const button=e.currentTarget;button.disabled=true;
+    const showResult=event=>{deliveryResult.textContent=event.detail;};
+    window.addEventListener('sw-notification-notice',showResult);
+    try{if(!window.__swTestNotif)throw new Error('Push service is still loading.');await window.__swTestNotif();}
+    catch(error){deliveryResult.textContent=error.message;}
+    finally{window.removeEventListener('sw-notification-notice',showResult);button.disabled=false;}
   };
   panel.querySelector(`[data-tab="${tab}"]`)?.click();
 };
