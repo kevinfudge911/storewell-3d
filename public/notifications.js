@@ -54,7 +54,15 @@
     catch(e){notice('Status saved. Push alerts could not be sent: '+e.message);throw e;}
   };
   window.__swNotifyReport=(body,recipients)=>post('/notify',{type:'report',title:'StoreWell report',body, ...(recipients?{recipients}:{})});
-  window.__swTestNotif=async()=>{try{const d=await post('/notify',{type:'report',title:'StoreWell test notification',body:'Push notifications are connected.'});notice('Push service accepted '+d.sent+' notification(s); '+d.failed+' failed.');}catch(e){notice(e.message);}};
+  window.__swTestNotif=async()=>{
+    const who=staffName();
+    if(!who||!window.__swCheckLogin?.())return notice('Staff sign in is needed to test your alerts');
+    try{
+      const d=await post('/notify',{type:'report',title:'StoreWell test notification',body:'Test alert for '+who+'.',recipients:[who]});
+      if(!d.sent)return notice('No device for '+who+' has Reports alerts enabled. Open Alerts on your phone to enable them.');
+      notice('Push service accepted '+d.sent+' test notification(s) for '+who+'. Check that it appears on your device.');
+    }catch(e){notice(e.message);}
+  };
   function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));}
   if(document.readyState==='complete')start();else window.addEventListener('load',start);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));});

@@ -40,6 +40,15 @@ w.__swSaveReport();await new Promise(r=>setTimeout(r,10));await w.document.query
 assert.equal(w.__swApp.state.sessionLog.length,1,'Email failure retains the report');assert(w.document.querySelector('#sw-sr-status').textContent.includes('Still pending'));
 w.__swApp.state.sessionLog.push(newer);attempt++;await w.document.querySelector('#sw-sr-send').onclick();
 assert.equal(emails.filter(e=>e==='kevin@example.test').length,1,'Retry does not duplicate an accepted email');assert.equal(emails.filter(e=>e==='mike@example.test').length,2);assert.equal(w.__swApp.state.sessionLog.length,1);assert.equal(w.__swApp.state.sessionLog[0],newer,'Finishing a report preserves changes made during delivery');
+// The staff test button targets only its signed-in owner and distinguishes a
+// service accepting a request from an actual eligible receiving device.
+const testRequests=[];
+w.fetch=async(url,init)=>{testRequests.push(JSON.parse(init.body));return {ok:true,json:async()=>({success:true,sent:0,failed:0})};};
+w.eval(fs.readFileSync(new URL('../public/notifications.js',import.meta.url),'utf8'));
+await w.__swTestNotif();
+assert.deepEqual([...testRequests[0].recipients],['Offline test'],'Testing alerts never broadcasts to the whole team');
+assert(w.document.querySelector('#sw-alert-notice').textContent.startsWith('No device'),'Zero recipients are not presented as successful delivery');
+w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.length,1,'An unsigned visitor cannot send a staff test');
 dom.window.close();
 // The service worker displays the actual event payload rather than a shared database record.
 const events={},shown=[];const scope={addEventListener:(name,fn)=>events[name]=fn,registration:{showNotification:async(...args)=>shown.push(args)}};
