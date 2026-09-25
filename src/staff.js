@@ -164,7 +164,8 @@ window.__swOperationsOpen=async function(initialTab='overview'){
     await window.__swLoginGate?.(app);
     if(!window.__swCheckLogin?.()||!app.state.editMode)return;
   }
-  const tab=['overview','inventory','log','contacts'].includes(initialTab)?initialTab:'overview';
+  const tabAlias={overview:'action',inventory:'all',log:'activity',contacts:'control'};
+  const tab=tabAlias[initialTab]||(['action','all','activity','control'].includes(initialTab)?initialTab:'action');
   const existing=document.getElementById('sw-cmd-panel');
   if(existing){existing.querySelector(`[data-tab="${tab}"]`)?.click();return;}
 
@@ -224,19 +225,31 @@ window.__swOperationsOpen=async function(initialTab='overview'){
     return ['email','text','both','none'].map(v=>`<option value="${v}"${v===val?' selected':''}>${{email:'Email only',text:'Push notifications',both:'Email + push',none:'No notifications'}[v]}</option>`).join('');
   }
 
-  function buildInvRows(){
-    if(!app||!app._locks) return '<div style="color:#999;font-size:12px;padding:16px;text-align:center;">No data</div>';
-    const statusColor={blue:'#00aaff',red:'#ff1111',green:'#00ff44',white:'#ffffff',black:'#aaaaaa',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44',purple:'#9b30d1'};
-    const cells=[];
-    Object.keys(app._locks).sort().forEach(k=>{
-      const rec=app._locks[k];
-      const st=app._statusOf?app._statusOf(rec.label):'green';
-      const col=statusColor[st]||'#1f9d4d';
-      const flash=st==='flashred'?'animation:sw-flash-red .5s infinite;':st==='flashgreen'?'animation:sw-flash-green .5s infinite;':'';
-      const cid='swc-'+rec.label.replace(/[^a-z0-9]/gi,'');
-      cells.push(`<div onclick="window.__swCycleNext('${rec.label}')" oncontextmenu="event.preventDefault();window.__swApp&&window.__swApp.locate&&window.__swApp.locate('${rec.label}'.replace(/[-\\s]/g,'').toUpperCase());window.__swApp&&window.__swApp.setState&&window.__swApp.setState({showSearch:false});" title="Left-click: change status | Right-click: find on map" style="cursor:pointer;padding:4px 2px;user-select:none;transition:transform .15s;" onmouseover="this.style.transform='scale(1.12)'" onmouseout="this.style.transform='scale(1)'"><div id="${cid}" style="width:46px;height:46px;border-radius:50%;background:${col};box-shadow:0 4px 12px ${col}99;${flash}display:flex;align-items:center;justify-content:center;"><span style="color:#000;font-size:11px;font-weight:900;font-family:'Arial Black',Impact,sans-serif;text-align:center;line-height:1.1;padding:2px;overflow:hidden;word-break:break-all;">${rec.label}</span></div></div>`);
-    });
-    return '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">'+cells.join('')+'</div>';
+  const statusColor={blue:'#00aaff',red:'#ff1111',green:'#00aa55',white:'#94a3b8',black:'#555',yellow:'#f59e0b',flashred:'#ff4400',flashgreen:'#00aa55',purple:'#9b30d1'};
+  const statusLabel={green:'Rented/Normal',red:'Late/Locked',flashred:'LOCK NOW',flashgreen:'REMOVE',blue:'Reserved',yellow:'Pending',black:'Inactive',purple:'Ready to Rent',white:'Available'};
+  const buildingOf=label=>(String(label||'').match(/^[A-Za-z]+/)?.[0]||'Other').toUpperCase();
+  const lockRows=()=>Object.keys(app?._locks||{}).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(k=>{
+    const rec=app._locks[k],status=app._statusOf?app._statusOf(rec.label):'green';
+    return {key:k,label:rec.label,size:app._sizeOf?app._sizeOf(rec.label):'',status,building:buildingOf(rec.label)};
+  });
+  const buttonFor=(row,target,copy)=>`<button class="sw-lock-action" data-lock-unit="${row.label}" data-lock-status="${target}" style="border:none;cursor:pointer;border-radius:9px;padding:8px 11px;background:${target==='red'?'#cc2b2b':'#1f9d4d'};color:#fff;font:800 12px Segoe UI;">${copy}</button>`;
+  function groupedLocks(rows,empty){
+    if(!rows.length)return `<div style="color:#4a6380;font-size:13px;padding:20px;text-align:center;">${empty}</div>`;
+    const groups={};rows.forEach(r=>{(groups[r.building]||(groups[r.building]=[])).push(r);});
+    return Object.keys(groups).sort().map(building=>`<section style="margin-bottom:14px;"><h3 style="font-size:11px;color:#4a6380;text-transform:uppercase;letter-spacing:.8px;margin:0 0 8px;">Building ${building}</h3>${groups[building].map(r=>`
+      <div class="sw-row-item" data-lock-row="${r.label}" style="align-items:center;gap:10px;">
+        <div style="width:12px;height:38px;border-radius:12px;background:${statusColor[r.status]||'#94a3b8'};${r.status==='flashred'?'animation:sw-flash-red .5s infinite;':r.status==='flashgreen'?'animation:sw-flash-green .5s infinite;':''}"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><strong style="color:#1f2a37;font-size:14px;">${r.label}</strong><span class="sw-badge" style="background:${statusColor[r.status]||'#94a3b8'}22;color:${statusColor[r.status]||'#475569'};">${statusLabel[r.status]||r.status}</span></div>
+          <div style="color:#6b7a8d;font-size:11px;margin-top:2px;">${r.size||'Size on file'}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">${buttonFor(r,'red','Lock')}${buttonFor(r,'green','Open')}</div>
+      </div>`).join('')}</section>`).join('');
+  }
+  function buildActionRows(){return groupedLocks(lockRows().filter(r=>r.status==='flashred'||r.status==='flashgreen'),'No locks need action right now.');}
+  function buildAllRows(query=''){
+    const q=String(query||'').trim().replace(/[-\s]/g,'').toUpperCase();
+    return groupedLocks(lockRows().filter(r=>!q||String(r.label).replace(/[-\s]/g,'').toUpperCase().includes(q)),'No locks match this search.');
   }
 
   function buildLogRows(entries){
@@ -304,33 +317,37 @@ window.__swOperationsOpen=async function(initialTab='overview'){
     </div>
 
     <div class="sw-operations-tabs" style="display:flex;background:#f8f9fa;border-bottom:2px solid #eee;">
-      <button class="sw-tab-btn active" data-tab="overview" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">📊 Stats</button>
-      <button class="sw-tab-btn" data-tab="inventory" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">🔒 Units</button>
-      <button class="sw-tab-btn" data-tab="log" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">📋 Log</button>
-      <button class="sw-tab-btn" data-tab="contacts" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">👥 Team</button>
+      <button class="sw-tab-btn active" data-tab="action" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">⚠ Action</button>
+      <button class="sw-tab-btn" data-tab="all" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">🔒 All Locks</button>
+      <button class="sw-tab-btn" data-tab="activity" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">📋 Activity</button>
+      <button class="sw-tab-btn" data-tab="control" style="flex:1;padding:9px 4px;font-size:10px;color:#666;border:none;background:transparent;cursor:pointer;font-weight:700;">⚙ Control</button>
     </div>
 
     <div id="sw-panel-body" style="flex:1;overflow-y:auto;padding:12px;background:#fff;">
 
-      <div id="sw-tab-overview">
+      <div id="sw-tab-action">
         ${buildStats()}
-        <div style="color:#4a6380;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin:14px 0 8px;">Recent Activity</div>
-        <div id="sw-ov-log">${'<div style="color:#4a6380;font-size:12px;text-align:center;padding:8px;">Loading...</div>'}</div>
-      </div>
-
-      <div id="sw-tab-inventory" style="display:none;">
-        <input id="sw-inv-search" type="text" placeholder="🔍 Search unit..." style="width:100%;box-sizing:border-box;background:#f4f7fb;border:1.5px solid #dbe4ef;border-radius:10px;padding:10px 12px;font-size:13px;color:#1f2a37;outline:none;margin-bottom:10px;"/>
-        <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
-          ${[{f:'all',col:'#667eea',lbl:'All'},{f:'green',col:'#1f9d4d',lbl:'Rented'},{f:'red',col:'#cc2b2b',lbl:'Late'},{f:'flashred',col:'#ff4400',lbl:'Lock It'},{f:'flashgreen',col:'#00cc44',lbl:'Remove'},{f:'blue',col:'#2a6fdb',lbl:'Resv'},{f:'yellow',col:'#22c55e',lbl:'No Lock'},{f:'purple',col:'#9b30d1',lbl:'Ready'},{f:'black',col:'#555',lbl:'N/A'}].map(({f,col,lbl})=>`<button class="sw-inv-filter" data-filter="${f}" style="border:2px solid ${f==='all'?col+'88':'#eee'};cursor:pointer;background:${f==='all'?col+'22':'#f8f9fa'};color:#333;font:700 9px Segoe UI;padding:3px 7px;border-radius:12px;display:flex;align-items:center;gap:4px;"><div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;"></div>${lbl}</button>`).join('')}
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:14px 0 8px;">
+          <div style="color:#4a6380;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;">Action Required</div>
+          <button class="sw-btn-ghost" data-refresh-locks>Refresh</button>
         </div>
-        <div id="sw-inv-list">${buildInvRows()}</div>
+        <div id="sw-action-list">${buildActionRows()}</div>
       </div>
 
-      <div id="sw-tab-log" style="display:none;">
+      <div id="sw-tab-all" style="display:none;">
+        <input id="sw-lock-search" type="text" placeholder="🔍 Search lock..." style="width:100%;box-sizing:border-box;background:#f4f7fb;border:1.5px solid #dbe4ef;border-radius:10px;padding:10px 12px;font-size:13px;color:#1f2a37;outline:none;margin-bottom:10px;"/>
+        <div id="sw-all-list">${buildAllRows()}</div>
+      </div>
+
+      <div id="sw-tab-activity" style="display:none;">
+        <div style="color:#4a6380;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Recent Activity</div>
         <div id="sw-log-list"><div style="color:#4a6380;font-size:12px;text-align:center;padding:8px;">Loading...</div></div>
       </div>
 
-      <div id="sw-tab-contacts" style="display:none;">
+      <div id="sw-tab-control" style="display:none;">
+        <div style="background:#eef7ff;border:1.5px solid #cfe7ff;border-radius:12px;padding:12px;color:#245c78;font-size:13px;line-height:1.45;margin-bottom:12px;">
+          Settings controls are staged here for the next pass. Team delivery settings stay below so the existing staff tools remain available.
+        </div>
         <div style="display:flex;flex-direction:column;gap:10px;" id="sw-contact-cards">
           ${contacts.map(c=>`<div style="background:#fff;border:1.5px solid #e3eaf3;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(20,40,80,.06);">
             <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;">
@@ -396,63 +413,41 @@ window.__swOperationsOpen=async function(initialTab='overview'){
       panel.querySelectorAll('.sw-tab-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       const tab=btn.dataset.tab;
-      ['overview','inventory','log','contacts'].forEach(t=>{
+      ['action','all','activity','control'].forEach(t=>{
         document.getElementById('sw-tab-'+t).style.display=t===tab?'block':'none';
       });
-      if(tab==='log') loadFirebaseLog();
+      if(tab==='activity') loadFirebaseLog();
     });
   });
 
   // ── Close ──
   document.getElementById('sw-panel-close').onclick=()=>panel.remove();
-  // Inventory search
-  const invSearch=document.getElementById('sw-inv-search');
-  if(invSearch){
-    invSearch.addEventListener('input',()=>{
-      const q=invSearch.value.trim().toLowerCase();
-      const list=document.getElementById('sw-inv-list');
-      if(!app||!app._locks||!list) return;
-      const stColors={blue:'#00b4ff',red:'#ff4444',green:'#00d68f',white:'#94a3b8',black:'#475569',yellow:'#f59e0b',flashred:'#ff6666',flashgreen:'#66ff99',purple:'#a855f7'};
-      const stLabels={blue:'Reserved',red:'Locked Out',green:'Rented',white:'Available',black:'Out of Service',yellow:'Rented · No Lock',flashred:'Need to Lock',flashgreen:'Lock Off',purple:'Ready to Rent'};
-      const rows=[];
-      Object.keys(app._locks).sort().forEach(k=>{
-        const rec=app._locks[k];
-        if(q&&!rec.label.toLowerCase().includes(q)) return;
-        const st=app._statusOf?app._statusOf(rec.label):'green';
-        const col=stColors[st]||'#00d68f';
-        const lbl=stLabels[st]||'Rented';
-        const cid2='swc-'+rec.label.replace(/[^a-z0-9]/gi,'');
-        const flash2=st==='flashred'?'animation:sw-flash-red .5s infinite;':st==='flashgreen'?'animation:sw-flash-green .5s infinite;':'';
-        rows.push(`<div onclick="window.__swCycleNext('${rec.label}')" oncontextmenu="event.preventDefault();window.__swApp&&window.__swApp.locate&&window.__swApp.locate('${rec.label}'.replace(/[-\\s]/g,'').toUpperCase());window.__swApp&&window.__swApp.setState&&window.__swApp.setState({showSearch:false});" title="Left-click: change status | Right-click: find on map" style="cursor:pointer;padding:4px 2px;user-select:none;transition:transform .15s;" onmouseover="this.style.transform='scale(1.12)'" onmouseout="this.style.transform='scale(1)'"><div id="${cid2}" style="width:46px;height:46px;border-radius:50%;background:${col};box-shadow:0 4px 12px ${col}99;${flash2}display:flex;align-items:center;justify-content:center;"><span style="color:#000;font-size:11px;font-weight:900;font-family:'Arial Black',Impact,sans-serif;text-align:center;line-height:1.1;padding:2px;overflow:hidden;word-break:break-all;">${rec.label}</span></div></div>`);
-      });
-      list.innerHTML=rows.join('')||'<div style="color:#4a6380;font-size:13px;padding:20px;text-align:center;">No units found</div>';
-    });
-  }
-
-  // ── Inventory filter ──
-  const sc2={blue:'#00aaff',red:'#ff1111',green:'#00ff44',white:'#ffffff',black:'#aaaaaa',yellow:'#ffee00',flashred:'#ff0000',flashgreen:'#00ff44',purple:'#9b30d1'};
-  function buildFilteredCircles(f){
-    if(!app||!app._locks) return '';
-    const cells=[];
-    Object.keys(app._locks).sort().forEach(k=>{
-      const rec=app._locks[k];
-      const st=app._statusOf?app._statusOf(rec.label):'green';
-      if(f!=='all'&&st!==f) return;
-      const col=sc2[st]||'#00ff44';
-      const flash=st==='flashred'?'animation:sw-flash-red .5s infinite;':st==='flashgreen'?'animation:sw-flash-green .5s infinite;':'';
-      const cid='swc-'+rec.label.replace(/[^a-z0-9]/gi,'');
-      cells.push(`<div onclick="window.__swCycleNext('${rec.label}')" oncontextmenu="event.preventDefault();window.__swApp&&window.__swApp.locate&&window.__swApp.locate('${rec.label}'.replace(/[-\s]/g,'').toUpperCase());" style="cursor:pointer;padding:4px 2px;user-select:none;" onmouseover="this.style.transform='scale(1.12)'" onmouseout="this.style.transform='scale(1)'"><div id="${cid}" style="width:46px;height:46px;border-radius:50%;background:${col};box-shadow:0 4px 12px ${col}99;${flash}display:flex;align-items:center;justify-content:center;"><span style="color:#000;font-size:11px;font-weight:900;font-family:'Arial Black',Impact,sans-serif;text-align:center;line-height:1.1;padding:2px;overflow:hidden;word-break:break-all;">${rec.label}</span></div></div>`);
-    });
-    return cells.length?'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">'+cells.join('')+'</div>':'<div style="color:#4a6380;font-size:13px;padding:20px;text-align:center;">No units with this status</div>';
-  }
-  panel.querySelectorAll('.sw-inv-filter').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      panel.querySelectorAll('.sw-inv-filter').forEach(b=>{ b.style.borderColor=''; b.style.color=''; });
-      btn.style.borderColor='#00b4ff44'; btn.style.color='#00b4ff';
-      const f=btn.dataset.filter;
-      const list=document.getElementById('sw-inv-list');
-      if(list) list.innerHTML=buildFilteredCircles(f);
-    });
+  const redrawLocks=()=>{
+    const actionList=document.getElementById('sw-action-list');
+    const allList=document.getElementById('sw-all-list');
+    if(actionList)actionList.innerHTML=buildActionRows();
+    if(allList)allList.innerHTML=buildAllRows(document.getElementById('sw-lock-search')?.value||'');
+  };
+  document.getElementById('sw-lock-search')?.addEventListener('input',e=>{document.getElementById('sw-all-list').innerHTML=buildAllRows(e.target.value);});
+  panel.querySelector('[data-refresh-locks]')?.addEventListener('click',redrawLocks);
+  panel.addEventListener('click',async e=>{
+    const button=e.target.closest('[data-lock-unit][data-lock-status]');
+    if(!button||button.disabled)return;
+    const label=button.dataset.lockUnit,status=button.dataset.lockStatus;
+    const oldText=button.textContent;
+    button.disabled=true;button.textContent='Saving...';
+    try{
+      const ok=await app.setStatus(label,status);
+      if(ok===false)throw new Error('Save rejected');
+      redrawLocks();
+      loadFirebaseLog();
+    }catch(error){
+      button.disabled=false;button.textContent=oldText;
+      const msg=document.createElement('div');
+      msg.style.cssText='position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:100000;background:#7f1d1d;color:#fff;border-radius:12px;padding:10px 14px;font:800 13px Segoe UI;box-shadow:0 8px 30px rgba(0,0,0,.35);';
+      msg.textContent='Lock update did not save. Please retry.';
+      document.body.appendChild(msg);setTimeout(()=>msg.remove(),3000);
+    }
   });
 
   // ── Send report ──
