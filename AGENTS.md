@@ -68,3 +68,13 @@ resize to fit the available screen. Keep two-finger pinch on both the lock board
 and property map; a pinch must never activate a lock. Preserve the current
 selection and zoom through rotation. The separate review has Phone and Rotate
 controls for checking the same loaded document without resetting its sample data.
+
+Kevin's September 25 consistency revision: reuse the circled round translucent
+lock artwork on every lock view, including route lists, the map and before →
+after history. Unit numbers belong inside the discs; omit repeated status
+labels beneath each lock. Keep one compact shared color key with all nine
+original meanings. Filters and status choices are inline round glass locks,
+never a white native status dropdown. Add bright orange corner/edge accents
+to the graphite gaming case while retaining the transparent display. Preserve
+operator, timestamps, original history IDs and all save behavior. This remains
+a review-branch visual change awaiting approval before production.

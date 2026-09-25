@@ -236,3 +236,111 @@
   #sw-tablet .lock-status-choices button {min-height:44px;padding:7px 9px;font-size:16px!important}
   .lock-status-menu>header strong {font-size:20px}.lock-status-menu>header strong span {font-size:16px}
 }
+
+/* Orange impact bumpers on the graphite case, with the glass left continuous. */
+.tablet-case-corner {border-color:#ff7b1b;box-shadow:inset 0 1px 1px #ffdb946b,0 1px 2px #02090f,0 0 0 1px #512b17}
+.tablet-case-grip:after {border-top-color:#ffac55;box-shadow:0 -2px 5px #ff861a55}
+.tablet-case-grip:before {content:'';position:absolute;bottom:20px;left:38%;right:38%;height:24px;border-radius:3px;background:linear-gradient(#ffc36a,#ef6d10);box-shadow:0 0 0 1px #19100c}
+.tablet-case-mark {color:#ffb877}
+.tablet-case-key:last-child:before {border-top:2px solid #ffa544}
+
+/* One round lock language for the board, route, choices, map and history. */
+.lock-disc {color:var(--status)}
+.lock-disc[data-lock-status=black] .disc-body,.lock-map-disc[data-lock-status=black] .disc-body {stroke-dasharray:5 3}
+.lock-disc[data-lock-status=flashred]>svg,.lock-disc[data-lock-status=flashgreen]>svg,
+.lock-map-disc[data-lock-status=flashred] .map-lock-art,.lock-map-disc[data-lock-status=flashgreen] .map-lock-art {animation:sw-status-flash 1s steps(2,end) infinite}
+#sw-tablet .lock-tile {padding-bottom:0}
+#sw-tablet .route-step>.lock-disc {flex:none}
+#sw-tablet .route-step.current .lock-disc {outline:1px solid #ddfaff;outline-offset:4px}
+#sw-tablet .route-step .lock-tile-stop {margin:0;color:#d0f1ff;font-size:11px}
+#sw-tablet .unit-card {padding:12px 0}
+.unit-card>.lock-disc {width:82px;max-width:82px;flex:none}
+.unit-card .lock-disc>strong {font-size:25px}
+.unit-card .unit-copy>span {font-size:16px;font-weight:500}
+#sw-tablet .route-current-lock {padding:0;border:0;border-radius:50%;background:none;box-shadow:none;flex:none;width:112px}
+#sw-tablet .route-current-lock .lock-disc {width:100%;max-width:none}
+.current-stop {align-items:center}
+.current-stop>div:not(:last-child) {flex:1}
+
+/* The only repeated status descriptions live in this small shared key. */
+.lock-color-key {flex:none;display:flex;justify-content:center;flex-wrap:wrap;gap:4px 17px;padding:7px 20px;border-top:1px solid #79cce945;color:#cdeaf3;background:#04263824;text-shadow:0 1px 3px #00121f}
+.lock-color-key>span {display:flex;align-items:center;gap:5px;white-space:nowrap;font:500 12px/1.15 'StoreWell Display',sans-serif}
+.lock-color-key .lock-disc {width:25px;max-width:25px;flex:none}
+.lock-color-key .lock-disc>strong {display:none}
+
+/* Filters and status choices open inline, on the same glass. */
+#sw-tablet [data-status-filter] {display:flex;align-items:center;justify-content:space-between;gap:7px;min-height:44px;width:100%;padding:5px 6px;border:0;border-bottom:1px solid #83d5ecb3;border-radius:0;background:none;box-shadow:none;color:#e9faff;font:500 16px 'StoreWell Display',sans-serif!important;text-align:left}
+[data-status-filter]>.lock-disc {width:26px;flex:none}
+[data-status-filter]>span:last-child {margin-left:auto}
+.lock-filter-menu {grid-column:1/-1;clear:both;width:100%;border:0;border-top:1px solid #87d6ed70;border-bottom:1px solid #87d6ed70;padding:7px 0 10px;margin-bottom:8px;background:none}
+.lock-filter-menu>header {display:flex;align-items:center;justify-content:space-between;gap:12px;color:#edfaff;font-size:19px}
+#sw-tablet [data-filter-close] {background:none;border:0;box-shadow:none;color:#d9f6ff;min-height:40px;min-width:40px;padding:0;font-size:28px!important}
+.filter-modes {display:flex;gap:18px;margin-bottom:9px}
+#sw-tablet .filter-modes button,.history-order button {min-height:44px;padding:7px 0;border:0;border-bottom:1px solid transparent;border-radius:0;background:none;box-shadow:none;color:#b6d9e7;font:500 16px 'StoreWell Display',sans-serif!important}
+#sw-tablet .filter-modes button[aria-pressed=true],.history-order button[aria-pressed=true] {border-bottom-color:#a2e9fa;color:#eeffff}
+#sw-tablet .lock-status-choices {display:grid;grid-template-columns:repeat(auto-fit,minmax(75px,1fr));gap:9px;max-width:960px;justify-items:center}
+#sw-tablet .lock-status-choices button {position:relative;display:block;width:100%;max-width:106px;min-height:0;padding:0;border:0;border-radius:50%;background:none;box-shadow:none;text-align:center;color:var(--status)}
+#sw-tablet .lock-status-choices .lock-disc {width:100%;max-width:none}
+#sw-tablet .lock-status-choices .lock-disc>strong {top:34%;padding:0 15%;font:600 clamp(12px,1.4vw,16px)/1.13 'StoreWell Display',sans-serif;letter-spacing:0}
+#sw-tablet .lock-status-choices button:hover,#sw-tablet .lock-status-choices button:focus-visible {background:none;filter:drop-shadow(0 0 6px var(--status))}
+#sw-tablet .lock-status-choices button[aria-pressed=true] {background:none;border:0}
+#sw-tablet .lock-status-choices button[aria-pressed=true] .lock-disc {outline:1px solid var(--status);outline-offset:2px}
+#sw-tablet .lock-status-choices .choice-check {position:absolute;right:1px;bottom:3px;font:600 16px 'StoreWell Display',sans-serif;color:var(--status);text-shadow:0 1px 3px #00121f}
+
+/* History keeps original records and staff/date metadata; color shows the change. */
+.history-tools {align-items:flex-end;flex-wrap:wrap}
+.history-order {display:flex;align-items:center;gap:17px;flex-wrap:wrap}
+.history-lock-row {display:flex;justify-content:space-between;gap:16px;padding:12px 0}
+.lock-transition {display:flex;align-items:center;gap:16px;flex:none}
+.lock-transition .lock-disc {width:82px;max-width:82px;flex:none}
+.lock-transition .lock-disc>strong {font:600 25px/1 'StoreWell Display',sans-serif}
+.lock-transition-arrow {font:300 27px 'StoreWell Display',sans-serif;color:#c2f1ff}
+.history-lock-row>small {text-align:right;font-size:14px;line-height:1.5;max-width:55%}
+.unrecorded-lock {font-size:13px;max-width:85px;color:#c1d9e3;text-align:center}
+
+/* Same shared SVG artwork, fitted to each real door's available spacing. */
+.lock-map-disc {stroke:var(--status);fill:none}
+.lock-map-disc .map-lock-hit {fill:#052b3d55;stroke:none}
+#sw-tablet .lock-map-disc .map-lock-label {fill:#f1fdff;stroke:none;font-family:'StoreWell Display',sans-serif;font-weight:600}
+.lock-map-disc use {pointer-events:none}
+.lock-map-disc .map-lock-label {pointer-events:none}
+.preview-map .map-muted {opacity:.2}
+@media(max-width:700px) {
+ .lock-color-key {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px 6px;padding:5px 9px}
+ .lock-color-key>span {font-size:10.5px;white-space:normal;gap:3px}
+ .lock-color-key .lock-disc {width:23px;max-width:23px}
+ #sw-tablet [data-status-filter] {font-size:14px!important;gap:4px}
+ [data-status-filter]>.lock-disc {width:21px}
+ #sw-tablet .lock-status-choices {grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+ #sw-tablet .lock-status-choices .lock-disc>strong {font-size:14px}
+ .history-lock-row {flex-wrap:wrap;gap:3px;padding:9px 0}
+ .history-lock-row>small {text-align:left;max-width:100%;width:100%;font-size:12px}
+ .lock-transition {gap:18px}.lock-transition .lock-disc {width:69px;max-width:69px}
+ .lock-transition .lock-disc>strong {font-size:22px}
+ .unit-card>.lock-disc {width:72px;max-width:72px}
+ .unit-card .unit-copy>span {font-size:15px}
+ #sw-tablet .current-stop {display:flex;flex-wrap:wrap;gap:12px;padding:12px 0}
+ #sw-tablet .route-current-lock {width:88px}
+ .current-stop h2 {font-size:23px;letter-spacing:0}
+ .current-stop>div:last-child {width:100%;margin-top:0}
+ .history-tools {gap:8px 18px}.history-order {gap:18px}
+ .history-order button {font-size:14px!important}
+}
+@media(orientation:landscape) and (max-height:600px) {
+ .lock-color-key {display:flex;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;gap:12px;padding:3px 14px;min-height:29px}
+ .lock-color-key>span {font-size:11px;white-space:nowrap;flex:none}
+ .lock-color-key .lock-disc {width:22px;max-width:22px}
+ #sw-tablet .lock-status-choices {grid-template-columns:repeat(9,minmax(0,1fr));gap:6px}
+ #sw-tablet .lock-status-choices .lock-disc>strong {font-size:12px}
+ #sw-tablet [data-status-filter] {font-size:13px!important;gap:4px}
+ .tablet-page[data-screen=locks]>.lock-filter-menu {margin-top:7px}
+}
+@media(prefers-reduced-motion:reduce) {
+ .lock-disc>svg,.lock-map-disc .map-lock-art {animation:none!important}
+}
+/* Retained overview and rounds tools use these same locks when on the tablet. */
+#sw-tablet .metric-lock,#sw-tablet .metric-lock:last-child {display:grid;place-items:center;min-height:0;padding:14px 0}
+#sw-tablet .metric-lock>.lock-disc {width:96px;max-width:96px;font-size:inherit}
+#sw-tablet .sw-rounds-units {background:none!important;border:0!important;border-radius:0!important;gap:16px!important;padding:12px 0!important}
+#sw-tablet .round-lock {display:block;width:80px;min-height:44px;padding:0;border:0;border-radius:50%;background:none;box-shadow:none;cursor:pointer}
+#sw-tablet .round-lock .lock-disc>strong {font-size:24px}

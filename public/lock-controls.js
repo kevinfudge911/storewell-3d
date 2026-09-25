@@ -7,10 +7,44 @@
   defs.setAttribute('width','0');defs.setAttribute('height','0');defs.setAttribute('aria-hidden','true');defs.style.position='absolute';
   defs.innerHTML=`<defs><g id="sw-round-disc"><circle class="disc-halo" cx="60" cy="60" r="56"/><circle class="disc-body" cx="60" cy="60" r="49"/><path class="disc-highlight" d="M18 49A44 44 0 0 1 97 34"/><path class="disc-key" d="M60 86v7m-2-8a2 2 0 1 1 4 0 2 2 0 0 1-4 0Z"/><path class="disc-ticks" d="M60 1v4m0 110v4M1 60h4m110 0h4"/></g><path id="sw-disc-open" class="disc-shackle" d="M44 34v-7c0-19 32-19 32-4"/><path id="sw-disc-closed" class="disc-shackle" d="M44 35v-8c0-19 32-19 32 0v8"/></defs>`;
   document.body.append(defs);
+  const color=state=>statuses[state]?.[1]||'#a8b7c6';
+  const stateName=state=>statuses[state]?.[0]||state||'Not recorded';
+  const shackle=state=>['flashgreen','yellow','white'].includes(state)?'open':'closed';
   function disc(label,state){
     if(!document.getElementById('sw-round-disc'))document.body.append(defs);
-    const open=['flashgreen','yellow','white'].includes(state);
-    return `<span class="lock-disc"><svg viewBox="0 0 120 120" aria-hidden="true"><use href="#sw-round-disc"/><use href="#sw-disc-${open?'open':'closed'}"/></svg><strong>${escape(label)}</strong></span>`;
+    return `<span class="lock-disc" data-lock-status="${escape(state)}" style="--status:${color(state)}" aria-hidden="true"><svg viewBox="0 0 120 120"><use href="#sw-round-disc"/><use href="#sw-disc-${shackle(state)}"/></svg><strong>${escape(label)}</strong></span>`;
+  }
+  const mapGlyph=(label,state)=>`<circle class="map-lock-hit" cx="60" cy="60" r="60"/><g class="map-lock-art"><use href="#sw-round-disc"/><use href="#sw-disc-${shackle(state)}"/></g><text class="map-lock-label" x="60" y="69" text-anchor="middle" style="font-size:${Math.min(33,92/(String(label).length*.6))}px">${escape(label)}</text>`;
+  function mapDisc(label,state,{x,y,diameter}){
+    return `<g class="lock-map-disc" data-lock-status="${escape(state)}" style="--status:${color(state)}" transform="translate(${x-diameter/2} ${y-diameter/2}) scale(${diameter/120})">${mapGlyph(label,state)}</g>`;
+  }
+  function paintMapPin(pin,label,state){
+    pin.dataset.lockStatus=state;pin.style.setProperty('--status',color(state));
+    pin.setAttribute('aria-label',`Unit ${label} · ${stateName(state)}`);
+    const glyph=pin.querySelector('.lock-map-disc');if(!glyph)return;
+    glyph.dataset.lockStatus=state;glyph.style.setProperty('--status',color(state));glyph.innerHTML=mapGlyph(label,state);
+  }
+  const legend=()=>`<div class="lock-color-key" role="group" aria-label="Lock color key">${Object.entries(statuses).map(([key,[label]])=>`<span>${disc('',key)}<span>${escape(label)}</span></span>`).join('')}</div>`;
+  const statusButtons=(selected,attr='data-status')=>Object.entries(statuses).map(([key,[label]])=>`<button type="button" ${attr}="${key}" aria-label="${escape(label)}" aria-pressed="${key===selected}" style="--status:${color(key)}">${disc(label,key)}<b class="choice-check" aria-hidden="true">${key===selected?'✓':''}</b></button>`).join('');
+  const filterLabel=state=>statuses[state]?`${disc('',state)}<span>${escape(stateName(state))}</span>`:`<span>${state==='action'?'Action required':'All statuses'}</span>`;
+  const statusFilter=(state,id)=>`<div class="filter-field"><button type="button" id="${escape(id)}" data-status-filter aria-label="Filter locks by status" aria-expanded="false">${filterLabel(state)}<span aria-hidden="true">⌄</span></button></div>`;
+  function bindStatusFilter(root,{id,get,set}){
+    const trigger=root.querySelector('#'+id);let menu;
+    function close(focus=false){menu?.remove();menu=null;trigger.setAttribute('aria-expanded','false');trigger.removeAttribute('aria-controls');if(focus)trigger.focus({preventScroll:true});}
+    trigger.addEventListener('click',e=>{
+      e.stopPropagation();if(menu){close(true);return;}
+      menu=document.createElement('section');menu.className='lock-filter-menu';menu.id=id+'-choices';menu.setAttribute('role','group');menu.setAttribute('aria-label','Filter locks');
+      menu.innerHTML=`<header><strong>Filter locks</strong><button type="button" data-filter-close aria-label="Close status filter">×</button></header><div class="filter-modes">${[['all','All statuses'],['action','Action required']].map(([key,label])=>`<button type="button" data-filter-status="${key}" aria-pressed="${get()===key}">${label}</button>`).join('')}</div><div class="lock-status-choices">${statusButtons(get(),'data-filter-status')}</div>`;
+      trigger.closest('.lock-toolbar').after(menu);trigger.setAttribute('aria-expanded','true');trigger.setAttribute('aria-controls',menu.id);
+      menu.querySelector('[aria-pressed=true]')?.focus({preventScroll:true});
+      menu.addEventListener('click',event=>{event.stopPropagation();const b=event.target.closest('button');if(!b)return;if(b.hasAttribute('data-filter-close')){close(true);return;}if(b.dataset.filterStatus){const value=b.dataset.filterStatus;close(true);trigger.innerHTML=filterLabel(value)+'<span aria-hidden="true">⌄</span>';set(value);}});
+      menu.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close(true);}});
+    });
+  }
+  function transition(label,from,to){
+    const before=statuses[from]?disc(label,from):`<span class="unrecorded-lock">${escape(stateName(from))}</span>`;
+    const after=statuses[to]?disc(label,to):`<span class="unrecorded-lock">${escape(stateName(to))}</span>`;
+    return `<div class="lock-transition" role="img" aria-label="Unit ${escape(label)}: ${escape(stateName(from))} to ${escape(stateName(to))}">${before}<span class="lock-transition-arrow" aria-hidden="true">→</span>${after}</div>`;
   }
   function choices(root){
     let active=null;
@@ -26,7 +60,7 @@
         last.after(menu);focused?.focus({preventScroll:true});
       }
     }
-    window.addEventListener('resize',()=>requestAnimationFrame(reflow));
+    window.addEventListener('resize',()=>requestAnimationFrame(()=>{reflow();active?.menu.scrollIntoView?.({block:'nearest'});}));
     function close(restoreFocus=true){
       if(!active)return;
       const {menu,anchor}=active;active=null;menu.remove();
@@ -39,7 +73,7 @@
       close(false);
       const menu=document.createElement('section');menu.className='lock-status-menu';menu.id='sw-lock-status-choices';
       menu.setAttribute('role','group');menu.setAttribute('aria-label',`Unit ${unit.label} status choices`);
-      menu.innerHTML=`<header><strong tabindex="-1">${escape(unit.label)} <span>· Change status</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header><div class="lock-status-choices">${Object.entries(statuses).map(([key,[label,color]])=>`<button type="button" data-status="${key}" aria-pressed="${key===unit.status}" style="--status:${color}"><i aria-hidden="true"></i><span class="status-choice-label">${escape(label)}</span><b aria-hidden="true">${key===unit.status?'✓':''}</b></button>`).join('')}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
+      menu.innerHTML=`<header><strong tabindex="-1">${escape(unit.label)} <span>· Change status</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header><div class="lock-status-choices">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
       const grid=anchor?.closest('.lock-tile-grid'),card=anchor?.closest('.unit-card');
       const map=anchor?.closest('.property-map-scroll,.preview-map');
       const route=anchor?.closest('.current-stop,.preview-route-header');
@@ -129,5 +163,5 @@
     });
     return Object.freeze({refresh,get active(){return gesture.active;}});
   }
-  window.StoreWellLockUI=Object.freeze({statuses,disc,choices,pinchZoom,zoomButtons,zoomBoard});
+  window.StoreWellLockUI=Object.freeze({statuses,disc,mapDisc,paintMapPin,legend,statusFilter,bindStatusFilter,transition,choices,pinchZoom,zoomButtons,zoomBoard});
 })();
