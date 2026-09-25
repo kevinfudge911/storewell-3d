@@ -6,6 +6,7 @@ window._swGetChar=function(){
 };
 window._swSaveChar=function(c){
   try{localStorage.setItem('sw_char',JSON.stringify(c));}catch(e){return false;}
+  window.dispatchEvent(new CustomEvent('sw-character-changed'));
   // Push updated char to Firebase player record
   if(window.__swApp&&window.__swApp._net){
     const n=window.__swApp._net;

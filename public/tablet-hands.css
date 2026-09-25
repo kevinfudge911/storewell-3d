@@ -1,0 +1,13 @@
+/* Hand artwork sits above the glass and can never receive a tap or keyboard focus. */
+.tablet-hands,.tablet-hands *{pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important}
+.tablet-hands{position:absolute;inset:0;z-index:60;overflow:hidden;contain:layout paint}
+.tablet-hands[hidden]{display:none!important}
+.tablet-hands .tablet-hand-defs{position:absolute!important;width:0!important;height:0!important;overflow:hidden}
+.tablet-hand-grip,.tablet-hand-tap{position:absolute;aspect-ratio:1;line-height:0;transform-origin:15.5% 10.4%;filter:drop-shadow(0 8px 9px #00101c6b)}
+.tablet-hand-grip{transform-origin:83.5% 18%}
+.tablet-hand-tap{opacity:0;will-change:transform,opacity}
+.tablet-hand-grip img,.tablet-hand-tap img{display:block;width:100%;height:auto;filter:var(--hand-colour);-webkit-user-drag:none}
+.tablet-touch-ring{position:absolute;display:block;width:30px;height:30px;border:1px solid #dcfbff;border-radius:50%;background:#62ddff21;box-shadow:0 0 0 5px #68dfff16,0 0 15px #61dfff82;opacity:0;transform:translate(-50%,-50%)}
+@media(max-width:700px){#sw-tablet.tablet-hands-on{padding-left:12px;padding-right:12px}.tablet-touch-ring{width:25px;height:25px}}
+@media(prefers-reduced-motion:reduce){.tablet-hand-tap{display:none}.tablet-touch-ring{box-shadow:none;background:transparent}}
+@media print{.tablet-hands{display:none!important}}

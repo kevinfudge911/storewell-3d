@@ -24,6 +24,7 @@
     chat: '<path d="M3 3h18v14H9l-6 4V3Zm4 5h10M7 12h7"/>',
     sound: '<path d="m3 9 4 0 5-5v16l-5-5H3V9Zm13-2a7 7 0 0 1 0 10m3-13a11 11 0 0 1 0 16"/>',
     download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
+    hand: '<path d="M8 13V5a2 2 0 0 1 4 0v7-4a2 2 0 0 1 4 0v4-2a2 2 0 0 1 4 0v6c0 4-3 6-7 6h-1c-2 0-3-1-4-3l-4-5a2 2 0 0 1 3-3l1 2Z"/>',
     back: '<path d="m10 5-7 7 7 7M3 12h18"/>'
   };
   const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.units}</svg>`;
@@ -38,6 +39,7 @@
     <footer class="tablet-bottom"><span>${icon('lock')}<b>STOREWELL</b> FIELD CONTROL</span><div><button data-action="reports">${icon('save')}Save & reports</button><button data-action="history">${icon('clock')}Full history</button></div></footer>
     <div class="tablet-toast" role="status" hidden></div></div><div class="tablet-home-bar" aria-hidden="true"></div></div>`;
   document.body.append(tablet);
+  const hands=window.StoreWellTabletHands?.mount(tablet);
   const page=tablet.querySelector('main');
   let parkedTool=null,toolObserver;
   let app,screen='home',live=false,appLoginStarted=false,propertyPlan,selectedPropertyUnit,toastTimer;
@@ -67,10 +69,10 @@
     app.setState({showSearch:false,showInv:false,pickUnit:null,chatOpen:false,helpClosed:true});
     document.getElementById('sw-dashboard')?.remove();document.getElementById('sw-drop-menu')?.remove();
     for(const id of ['sw-sens-panel','sw-sens-ctrl']){const el=document.getElementById(id);if(el)el.style.display='none';}
-    navigate(typeof next==='string'?next:'locks');watchHistory();refresh();return true;
+    navigate(typeof next==='string'?next:'locks');hands?.open();watchHistory();refresh();return true;
   }
   function closeTablet(unit){
-    parkTool();tablet.hidden=true;window.__swDeckVisible=false;document.body.classList.remove('storewell-deck-open');releaseDownloads();
+    parkTool();hands?.close();tablet.hidden=true;window.__swDeckVisible=false;document.body.classList.remove('storewell-deck-open');releaseDownloads();
     if(propertyPlan){propertyPlan.inert=false;propertyPlan.removeAttribute('aria-hidden');}
     const outsideRoot=document.getElementById('dc-root');if(outsideRoot)outsideRoot.inert=false;
     unsubscribe?.();unsubscribe=null;
@@ -200,7 +202,7 @@
     load();refreshScreen=()=>{if(!sending&&Date.now()-readAt>10000)load();};
   }
   function more(){
-    show('more',title('YOUR COMMAND KIT','Everything within reach.')+`<div class="more-grid">${[['reports','save','Save & reports','Inventory exports and staff reporting'],['alerts','bell','Push notifications','This device and alert preferences'],['team','team','Team & email','Kevin, Mike and Brad'],['rounds','check','Rounds checklist','Your retained property checklist'],['character','team','My character','Saved models and uniforms'],['controls','center','Player controls','Walking, look and turn sensitivity'],['chat','chat','Staff chat','Open the original staff conversation'],['sounds','sound','Status sounds',window._swSoundOn===false?'Currently muted':'Currently on'],['install','phone','Install StoreWell','Keep it on your home screen'],['help','route','How to use','Tablet and outside controls'],['fullscreen','desk','Full screen','Use the whole display'],['logout','exit','Switch staff member','Sign out of this session']].map(([a,s,h,p])=>`<button class="more-card" data-action="${a}"><span>${icon(s)}</span><div><strong>${h}</strong><small>${p}</small></div>${icon('back')}</button>`).join('')}</div><figure class="crew-photo"><img src="/img/limo.jpg" alt="The original Iggy’s crew limousine photograph"><figcaption>IGGY’S — THE CREW <span>The original StoreWell command-center photograph</span></figcaption></figure>`);
+    show('more',title('YOUR COMMAND KIT','Everything within reach.')+`<div class="more-grid">${[['reports','save','Save & reports','Inventory exports and staff reporting'],['alerts','bell','Push notifications','This device and alert preferences'],['team','team','Team & email','Kevin, Mike and Brad'],['rounds','check','Rounds checklist','Your retained property checklist'],['character','team','My character','Saved models and uniforms'],['controls','center','Player controls','Walking, look and turn sensitivity'],['hands','hand','Tablet hands',hands?.enabled?'On · Follows your character':'Off · Tap to show hands'],['chat','chat','Staff chat','Open the original staff conversation'],['sounds','sound','Status sounds',window._swSoundOn===false?'Currently muted':'Currently on'],['install','phone','Install StoreWell','Keep it on your home screen'],['help','route','How to use','Tablet and outside controls'],['fullscreen','desk','Full screen','Use the whole display'],['logout','exit','Switch staff member','Sign out of this session']].map(([a,s,h,p])=>`<button class="more-card" data-action="${a}"><span>${icon(s)}</span><div><strong>${h}</strong><small>${p}</small></div>${icon('back')}</button>`).join('')}</div><figure class="crew-photo"><img src="/img/limo.jpg" alt="The original Iggy’s crew limousine photograph"><figcaption>IGGY’S — THE CREW <span>The original StoreWell command-center photograph</span></figcaption></figure>`);
   }
   async function action(a){
     if(['home','locks','route','history','team','more','reports'].includes(a)){if(a==='locks'||a==='route'){query='';filter='all';routeCursor=0;}return navigate(a);}
@@ -217,6 +219,7 @@
     if(a==='controls')return openTool('Player controls',()=>window.__swGear?.(),'#sw-sens-panel');
     if(a==='chat')return showChat();
     if(a==='sounds'){window.__swSoundToggle?.();more();return;}
+    if(a==='hands'){hands?.toggle();more();return;}
     if(a==='logout')return window.__swLogout?.();
     if(a==='fullscreen'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Full screen is not available in this browser.');}return;}
     if(a==='install'){if(installPrompt){await installPrompt.prompt();installPrompt=null;return;}show('more',title('TAKE IT WITH YOU','Install StoreWell.')+'<div class="help-cards"><article><h2>Android / Chrome</h2><p>Open the browser menu and choose Install app or Add to Home screen.</p></article><article><h2>iPhone / iPad</h2><p>Choose Share, then Add to Home Screen.</p></article></div>');return;}

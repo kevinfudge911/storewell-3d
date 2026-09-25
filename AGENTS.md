@@ -6,6 +6,8 @@ Kevin's September 25 approved direction supersedes both the earlier command-room
 
 The lock map uses actual door coordinates and building footprints. The walking route begins at C2 (the first storage door on the front building’s right/east side, just inside the open main gate at x=15,z=13), then C3, and follows walkable property lanes. Never replace this with an alphabetical list or route from the former command office. Preserve all 166 modeled doors.
 
+The tablet hands match the retained Soldier character: black tactical gloves, worn tan armor and restrained red trim. `tablet-hands.js` observes actual controls in capture phase without replaying, delaying or intercepting their actions. The holding thumb stays on the bezel; the tapping fingertip follows the actual tap or the center of a keyboard-activated button. Character palettes follow saved choices; gloves remain covered. Preserve the Control > Tablet hands toggle, reduced-motion support and scroll/pinch suppression. `/previews/tablet-hands.html` is a public, sample-only artwork preview with no staff code, live records or network writes; its interactions are not proof of authenticated production behavior.
+
 Lock history reads the complete saved lockLog with the staff session. Preserve every existing record and ID. Never replace history with current status snapshots, cap the complete history at the latest 500 entries, or add a clear-log action. The wall can preview recent changes, but its full history menu must reach the oldest saved change and offer the complete activity backup, including email and sign-in records.
 
 ## Deployment continuity

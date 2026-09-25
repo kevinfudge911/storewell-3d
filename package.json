@@ -4,8 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build-space.mjs && node scripts/bundle-staff.mjs && node scripts/check.mjs && node scripts/check-alerts.mjs && node scripts/check-session.mjs && node scripts/check-staff-access.mjs",
-    "check": "node scripts/check.mjs && node scripts/check-alerts.mjs && node scripts/check-session.mjs && node scripts/check-staff-access.mjs"
+    "build": "node scripts/build-space.mjs && node scripts/bundle-staff.mjs && node scripts/check.mjs && node scripts/check-tablet-hands.mjs && node scripts/check-alerts.mjs && node scripts/check-session.mjs && node scripts/check-staff-access.mjs",
+    "check": "node scripts/check.mjs && node scripts/check-tablet-hands.mjs && node scripts/check-alerts.mjs && node scripts/check-session.mjs && node scripts/check-staff-access.mjs"
   },
   "devDependencies": {
     "firebase": "^12.15.0",

@@ -17,8 +17,8 @@ for(const script of sourceDom.window.document.querySelectorAll('script')){
   if(script.type==='module')await transform(script.textContent,{loader:'js'});
   else new vm.Script(script.textContent);
 }
-for(const f of ['property-route.js','command-tablet.js','notifications.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
-for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-tablet.css','command-hologram.css','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
+for(const f of ['property-route.js','tablet-hands.js','command-tablet.js','notifications.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
+for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-tablet.css','command-hologram.css','tablet-hands.css','img/hands/soldier-grip.webp','img/hands/soldier-tap.webp','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
 assert(html.includes('this.buildScene()')&&html.includes('buildZone9()'),'Complete property model is restored');
 async function verifyContext(noGpu){
 const logs=[], requests=[];
@@ -70,7 +70,7 @@ assert.equal(w._swGetChar().shirt,'#123456','Saved character preferences remain 
 assert(app._computePath({x:0,z:10},{x:0,z:-100}).length>=2,'Recovered navigation can route around the buildings');
 assert(app._locks.G2.doorMat&&app._locks.G2.frame,'Unit G2 retains the newer alert material and no-lock frame');
 console.log('Doors without door-frame metadata:',Object.values(app._locks).filter(rec=>!rec.doorMat||!rec.frame).map(rec=>rec.label).join(', '));
-w.eval(read('property-route.js'));w.eval(read('command-tablet.js'));
+w.eval(read('property-route.js'));w.eval(read('tablet-hands.js'));w.eval(read('command-tablet.js'));
 const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));};
 let signed=false;w.__swCheckLogin=()=>signed?'Offline test':null;w.__swLoginGate=async()=>null;
 const enter=()=>w.__swCommandCenter();
