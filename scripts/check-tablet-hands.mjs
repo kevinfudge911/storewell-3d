@@ -27,6 +27,8 @@ const click=(target=button,detail=1)=>target.dispatchEvent(new w.MouseEvent('cli
 click();assert.equal(saves,1,'A decorated tap activates the original action exactly once, even when it stops propagation');
 assert.equal(layer.getAttribute('aria-hidden'),'true');assert(layer.inert,'Hands cannot enter the focus order');
 assert.equal(ring.style.left,'80px');assert.equal(ring.style.top,'330px','Fingertip follows the selected control');
+const width=parseFloat(tap.style.width),sleeveLength=parseFloat(tap.style.getPropertyValue('--arm-length'));
+assert(80+width*(.78-.155)+sleeveLength*Math.SQRT1_2>390||330+width*(.78-.104)+sleeveLength*Math.SQRT1_2>760,'Sleeve continues beyond the viewport instead of ending in midair');
 const prior=animations.slice();click();assert.equal(saves,2);assert(prior.every(a=>a.cancelled),'Rapid taps retire the previous animation');
 click(button,0);assert.equal(ring.style.left,'107.5px');assert.equal(ring.style.top,'345px','Keyboard activation uses the button center');
 click(w.document.querySelector('#tab'));assert.equal(tabChanges,1,'Navigation remains immediate');

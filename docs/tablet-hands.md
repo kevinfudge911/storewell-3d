@@ -6,9 +6,10 @@ The animated artwork follows the retained Soldier character's worn tan armor, bl
 
 - `public/img/hands/soldier-grip.webp`
 - `public/img/hands/soldier-tap.webp`
+- `public/img/hands/character-sleeve.webp`
 - `public/tablet-hands.js` and `public/tablet-hands.css`
 
-Created with the built-in image-generation tool. The originals have genuine alpha; WebP compression retains transparency. Both final assets are 1254 × 1254; their combined transfer size is approximately 491 KiB.
+Created with the built-in image-generation tool. The originals have genuine alpha; WebP compression retains transparency. The hand sprites are 1254 × 1254 and the sleeve is 1024 × 1536. Combined transfer size is approximately 827 KiB. The sleeve extends to the viewport edge so the wrist never appears detached inside the screen.
 
 ## Original generation prompts
 
@@ -34,7 +35,18 @@ Constraints: one left hand and short forearm only. Genuine transparent backgroun
 
 ## Behavior and verification scope
 
+### Forearm sleeve prompt
+
+Use case: stylized-concept.
+Asset type: transparent 3D game sprite, an extensible forearm sleeve that will join under the wrist of the supplied glove.
+Input image: the exact StoreWell character glove. Use only its muted olive/black woven sleeve fabric, fine realistic stitching and worn tactical materials as a style and lighting reference.
+Primary request: ONLY a straight, long forearm sleeve viewed from above in first person, oriented vertically from TOP (wrist) to BOTTOM (toward elbow). No hand, no fingers, no palm. A fitted black/very dark olive tactical fabric sleeve with subtle black side seams and realistic fine woven texture. The sleeve continues out of BOTH the top and bottom canvas edges: no closed end, no cap, no exposed arm or wrist. The top is slightly narrower than the bottom, gently rounded cylindrical lighting from left to right. Keep the midsection flexible fabric, no metal armor plates, no bands or badges, no repeated pattern blocks.
+Composition: portrait canvas, sleeve occupies approximately 80% of canvas width, centered, transparent margins on the left and right only. Continuous fabric all the way through top and bottom edges. Straight smooth silhouette to make stretching the middle clean.
+Lighting: same soft neutral daylight and restrained cyan reflected edge lighting as the reference. Detailed realistic game render, subtle self-shading.
+Constraints: genuinely transparent outside the sleeve, no hand or body, no background or cast shadow, no words or logos, no additional objects.
+
+### Interaction behavior
+
 Hand motion observes real button clicks. It never invokes the business action, delays a save or requests staff credentials. The holding hand stays on the left bezel. Tap motion lasts 540 ms, cancels on rapid input, scroll and pinch, and becomes a short contact ring with reduced motion. Control > Tablet hands stores the on/off choice locally. Saved character changes update the palette.
 
 The public sample-only preview permits direct mouse and keyboard checks without live unit changes or sign-in. It contains no staff code and no production data requests. Its preview preference is separate from the real app. The existing isolated build checks still exercise all 166 unit buttons, status choices and full history without production writes. Authenticated production testing must be reported separately and never inferred from these checks.
-

@@ -11,7 +11,7 @@
     if(!device)return null;
     const colourId='sw-hand-colour-'+(++instance),layer=document.createElement('div');
     layer.className='tablet-hands';layer.hidden=true;layer.inert=true;layer.setAttribute('aria-hidden','true');
-    layer.innerHTML=`<svg class="tablet-hand-defs" width="0" height="0" aria-hidden="true"><defs><filter id="${colourId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter></defs></svg><div class="tablet-hand-grip"><img src="/img/hands/soldier-grip.webp" alt="" draggable="false" decoding="async" width="1254" height="1254"></div><div class="tablet-hand-tap"><img src="/img/hands/soldier-tap.webp" alt="" draggable="false" decoding="async" width="1254" height="1254"></div><i class="tablet-touch-ring"></i>`;
+    layer.innerHTML=`<svg class="tablet-hand-defs" width="0" height="0" aria-hidden="true"><defs><filter id="${colourId}" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 1 0"/></filter></defs></svg><div class="tablet-hand-grip"><img src="/img/hands/soldier-grip.webp" alt="" draggable="false" decoding="async" width="1254" height="1254"></div><div class="tablet-hand-tap"><img class="tablet-hand-sleeve" src="/img/hands/character-sleeve.webp" alt="" draggable="false" decoding="async" width="1024" height="1536"><img class="tablet-hand-art" src="/img/hands/soldier-tap.webp" alt="" draggable="false" decoding="async" width="1254" height="1254"></div><i class="tablet-touch-ring"></i>`;
     root.append(layer);
     const grip=layer.querySelector('.tablet-hand-grip'),tap=layer.querySelector('.tablet-hand-tap'),ring=layer.querySelector('.tablet-touch-ring'),matrix=layer.querySelector('feColorMatrix');
     layer.style.setProperty('--hand-colour',`url(#${colourId})`);
@@ -54,6 +54,9 @@
       const width=parseFloat(tap.style.width)||180;
       // Contact point measured on the supplied sprite, independent of button dimensions.
       tap.style.left=(p.x-width*.155)+'px';tap.style.top=(p.y-width*.104)+'px';
+      const bounds=root.getBoundingClientRect(),wrist={x:p.x+width*(.78-.155),y:p.y+width*(.78-.104)};
+      const toEdge=Math.min((bounds.width-wrist.x)/Math.SQRT1_2,(bounds.height-wrist.y)/Math.SQRT1_2);
+      tap.style.setProperty('--arm-length',Math.max(220,toEdge+280)+'px');
       ring.style.left=p.x+'px';ring.style.top=p.y+'px';
     }
     function animate(el,frames,options){

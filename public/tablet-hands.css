@@ -7,6 +7,8 @@
 .tablet-hand-grip{transform-origin:83.5% 18%}
 .tablet-hand-tap{opacity:0;will-change:transform,opacity}
 .tablet-hand-grip img,.tablet-hand-tap img{display:block;width:100%;height:auto;filter:var(--hand-colour);-webkit-user-drag:none}
+.tablet-hand-tap>.tablet-hand-art{position:relative;z-index:1}
+.tablet-hand-tap>.tablet-hand-sleeve{position:absolute;z-index:0;left:38%;top:78%;width:80%;height:var(--arm-length,600px);object-fit:fill;transform-origin:50% 0;transform:rotate(-45deg)}
 .tablet-touch-ring{position:absolute;display:block;width:30px;height:30px;border:1px solid #dcfbff;border-radius:50%;background:#62ddff21;box-shadow:0 0 0 5px #68dfff16,0 0 15px #61dfff82;opacity:0;transform:translate(-50%,-50%)}
 @media(max-width:700px){#sw-tablet.tablet-hands-on{padding-left:12px;padding-right:12px}.tablet-touch-ring{width:25px;height:25px}}
 @media(prefers-reduced-motion:reduce){.tablet-hand-tap{display:none}.tablet-touch-ring{box-shadow:none;background:transparent}}

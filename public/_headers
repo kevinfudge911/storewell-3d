@@ -26,3 +26,22 @@
   Cache-Control: no-cache
 /status-sounds.js
   Cache-Control: no-cache
+/tablet-hands.js
+  Cache-Control: no-cache
+/tablet-hands.css
+  Cache-Control: no-cache
+/previews/tablet-hands
+  Cache-Control: no-cache
+/previews/tablet-hands.html
+  Cache-Control: no-cache
+
+/command-tablet.js
+  Cache-Control: no-cache
+/command-tablet.css
+  Cache-Control: no-cache
+/command-hologram.css
+  Cache-Control: no-cache
+/lock-controls.js
+  Cache-Control: no-cache
+/previews/*
+  Cache-Control: no-cache

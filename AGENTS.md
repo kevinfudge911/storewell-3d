@@ -31,3 +31,16 @@ acknowledgements are written only after the service worker displays the alert.
 Use Node 24. Run `npm ci` and `npm run build` before deployment. The regression checks intercept network requests and must never write to production data. Preserve the original unit status meanings and property locations.
 
 After deployment, verify the actual production URL, including the outside starting view, opening the tablet, its staff tools, property-map zoom, route, phone layout, search, and returning to the property. Report a deployment as complete only after Cloudflare confirms success and the live page is checked.
+
+## September 25 revision awaiting visual review
+
+Kevin clarified that the permanent rules saved during the Ohana build apply: no
+oversized panels, boxes inside boxes or nested borders; preserve a cohesive,
+dimensional design with compact readable controls. A different gradient on the
+old stacked panels is not sufficient. The lock controls must be ROUND,
+translucent disc locks, in all nine original status colors. Give the tablet a
+slim, polished physical rim, beveled corners and a restrained cyan edge light.
+The screen remains glass, with the outside visible through it. Match the
+character hands to this device. Show the revised working design to Kevin before
+publishing another production visual change. The `round-glass-review` preview
+is sample-only and must not connect to staff services or live inventory writes.

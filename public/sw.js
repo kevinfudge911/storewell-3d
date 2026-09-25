@@ -1,6 +1,6 @@
 // StoreWell service worker v2 (safe) - GET-only caching + push notifications.
 // Never touches POST/PUT requests, so it can never break lock saves or reports.
-const CACHE = 'storewell-character-hands-v35';
+const CACHE = 'storewell-round-glass-review-v37';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
     e.waitUntil(caches.keys()

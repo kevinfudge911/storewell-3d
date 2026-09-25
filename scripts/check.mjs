@@ -17,8 +17,8 @@ for(const script of sourceDom.window.document.querySelectorAll('script')){
   if(script.type==='module')await transform(script.textContent,{loader:'js'});
   else new vm.Script(script.textContent);
 }
-for(const f of ['property-route.js','tablet-hands.js','command-tablet.js','notifications.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
-for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-tablet.css','command-hologram.css','tablet-hands.css','img/hands/soldier-grip.webp','img/hands/soldier-tap.webp','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
+for(const f of ['property-route.js','lock-controls.js','tablet-hands.js','command-tablet.js','notifications.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
+for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-tablet.css','command-hologram.css','tablet-hands.css','img/hands/soldier-grip.webp','img/hands/soldier-tap.webp','img/hands/character-sleeve.webp','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
 assert(html.includes('this.buildScene()')&&html.includes('buildZone9()'),'Complete property model is restored');
 async function verifyContext(noGpu){
 const logs=[], requests=[];
@@ -70,7 +70,7 @@ assert.equal(w._swGetChar().shirt,'#123456','Saved character preferences remain 
 assert(app._computePath({x:0,z:10},{x:0,z:-100}).length>=2,'Recovered navigation can route around the buildings');
 assert(app._locks.G2.doorMat&&app._locks.G2.frame,'Unit G2 retains the newer alert material and no-lock frame');
 console.log('Doors without door-frame metadata:',Object.values(app._locks).filter(rec=>!rec.doorMat||!rec.frame).map(rec=>rec.label).join(', '));
-w.eval(read('property-route.js'));w.eval(read('tablet-hands.js'));w.eval(read('command-tablet.js'));
+w.eval(read('property-route.js'));w.eval(read('lock-controls.js'));w.eval(read('tablet-hands.js'));w.eval(read('command-tablet.js'));
 const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));};
 let signed=false;w.__swCheckLogin=()=>signed?'Offline test':null;w.__swLoginGate=async()=>null;
 const enter=()=>w.__swCommandCenter();
@@ -91,7 +91,7 @@ assert.equal(w.document.querySelector('[data-nav="history"]').textContent,'Lock 
 assert.deepEqual([...w.document.querySelectorAll('.lock-tile')].map(el=>el.dataset.unit),[...order],'Lock tiles follow the physical route and include every door');
 assert.equal(w.document.querySelector('.lock-bank h2').textContent,'Front building · C');
 assert(w.document.querySelector('.lock-tile').getAttribute('aria-label').includes('Right side · East'));
-for(const id of order){click(`[data-unit="${id}"]`);assert(w.document.querySelector('h1').textContent.includes(app._locks[id].label));for(const el of w.document.querySelectorAll('[data-status]'))assert.equal(el.querySelector('span').textContent,app._statusLabel(el.dataset.status),'Original status meanings retained');click('[data-unit-back]');}
+for(const id of order){click(`[data-unit="${id}"]`);assert(w.document.querySelector('h1').textContent.includes(app._locks[id].label));for(const el of w.document.querySelectorAll('[data-status]'))assert.equal(el.querySelector('.status-choice-label').textContent,app._statusLabel(el.dataset.status),'Original status meanings retained');click('[data-unit-back]');}
 click('[data-nav="action"]');assert.equal(w.document.querySelectorAll('.lock-tile').length,Object.values(app._locks).filter(r=>['flashred','flashgreen'].includes(app._statusOf(r.label))).length);assert.equal(w.document.querySelector('[data-nav="action"]').getAttribute('aria-pressed'),'true');
 click('[data-nav="locks"]');click('[data-layout="map"]');assert.equal(w.document.querySelectorAll('[data-map-unit]').length,Object.keys(app._locks).length,'Map includes all modeled doors');
 for(const id of order){click(`[data-map-unit="${id}"]`);assert(w.document.querySelector('h1').textContent.includes(app._locks[id].label));assert.equal(w.document.querySelectorAll('[data-status]').length,9);click('[data-unit-back]');}
