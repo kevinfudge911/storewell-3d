@@ -108,6 +108,17 @@ click('[data-nav="more"]');assert(w.document.querySelector('img[src="/img/limo.j
 const savedStatusFn=app.setStatus;let attempts=0;
 app.setStatus=async()=>{attempts++;return false;};await w.__swOpenUnitMenu('G2');await new Promise(r=>setTimeout(r,0));click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert.equal(attempts,1);assert(!w.document.querySelector('[data-status="black"]').disabled);assert(w.document.querySelector('.save-result').textContent.includes('did not save'));
 app.setStatus=async(label,st)=>{app._overrides.G2=st;return true;};click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.save-result').textContent.includes('Saved to shared inventory'));delete app._overrides.G2;app.setStatus=savedStatusFn;
+// The retained team, report, character and movement tools must mount inside the tablet.
+const staff=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
+w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mike:{email:'mike@example.test',pref:'text'},Brad:{email:'brad@example.test',pref:'both'},_delivery:{}});
+w.eval(staff.slice(staff.indexOf('window.__swOperationsOpen='),staff.indexOf('window.__swAdminOpen=')));
+w.eval(staff.slice(staff.indexOf('window.__swSaveReport='),staff.indexOf('// Joystick repositioning')));
+click('[data-nav="team"]');await new Promise(r=>setTimeout(r,30));
+assert(w.document.querySelector('.tablet-tool-host #sw-cmd-panel'),'Team opens within the tablet');assert.equal(w.document.querySelectorAll('#sw-contact-cards [data-field="email"]').length,3);
+assert.equal(w.document.querySelector('#sw-tab-control').style.display,'block');click('#sw-send-report');await new Promise(r=>setTimeout(r,30));assert(w.document.querySelector('.tablet-tool-host #sw-save-report-modal'),'Report is embedded, not layered over Team');click('#sw-sr-close');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('[data-action="controls"]'),'Closing a retained tool returns to the menu');
+click('[data-action="controls"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.tablet-tool-host #sw-sens-panel'));click('[data-nav="home"]');assert(w.document.querySelector('body > #sw-sens-panel'),'Movement controls return to the property rather than being deleted');click('[data-nav="more"]');click('[data-action="controls"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.tablet-tool-host #sw-sens-panel'),'Movement controls can be reopened');
+click('[data-nav="more"]');click('[data-action="character"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.tablet-tool-host #sw-wardrobe'),'Character remains available inside the tablet');
+click('[data-nav="home"]');
 // The shared persistence boundary must reject failures and retain atomic history.
 const original=app._statusOf('G2');w.fetch=async()=>({ok:false});assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original);
 let writes=0,alerts=0;w.__swCommitLockChange=async(key,state,entry)=>{assert.equal(key,'G2');assert.equal(state,'black');assert.equal(entry.type,'lock');writes++;};w.__swNotifyStatus=async()=>alerts++;
