@@ -12,6 +12,26 @@ window.addEventListener('online',()=>_session.ensureAuth().catch(()=>{}));
 window._swDB=_db; window._swAuth=_auth;
 // Expose Firebase DB fns so code in the (non-module) React/babel scripts can use realtime sync too.
 window._swRef=ref; window._swOnValue=onValue; window._swUpdate=update; window._swSet=set; window._swPush=push; window._swRemove=remove; window._swGet=get; window._swOnDisconnect=onDisconnect;
+let _verifiedStaff='',_staffSessionRequest=null;
+async function _checkStaffSession(){
+  if(_verifiedStaff)return _verifiedStaff;
+  if(!_staffSessionRequest)_staffSessionRequest=(async()=>{
+    const response=await fetch('/staff-session',{cache:'no-store',signal:AbortSignal.timeout(12000)});
+    if(!response.ok)throw new Error('Staff sign-in could not connect. Please retry.');
+    const data=await response.json();_verifiedStaff=data.signedIn?data.name:'';
+    return _verifiedStaff;
+  })().finally(()=>_staffSessionRequest=null);
+  return _staffSessionRequest;
+}
+window.__swRequireStaff=async()=>{await window.__swLoginGate(window.__swApp);if(!_verifiedStaff)throw new Error('Staff sign in is required.');return _verifiedStaff;};
+async function _loadStaffConfig(){
+  await window.__swRequireStaff();
+  const response=await fetch('/staff-contacts',{cache:'no-store',signal:AbortSignal.timeout(12000)});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||'Team contacts could not load.');
+  return {...data.contacts,_delivery:data.delivery||{}};
+}
+
 window.__swMobileLook=(function(){
   // Always init slider values from localStorage so they work regardless of device detection
   try{ const sv=localStorage.getItem('sw_look_sens'); if(sv!=null) window._swLookSens=parseFloat(sv);
@@ -63,21 +83,7 @@ window.__swMobileLook=(function(){
 const SC={Kevin:'#2a6fdb',Mike:'#1f9d4d',Brad:'#9b3fcf'};
 function _uidColor(u){let h=0;for(let c of u)h=c.charCodeAt(0)+((h<<5)-h);return((Math.abs(h)>>16&0xff)|0x44)<<16|((Math.abs(h)>>8&0xff)|0x44)<<8|(Math.abs(h)&0xff)|0x44;}
 function _myName(){try{return localStorage.getItem('sw_staff_name')||'';}catch(e){return '';}}
-async function _sendSMS(phone,msg,tbKey){
-  try{
-    if(!tbKey){
-      const r=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig/_tbKey.json');
-      tbKey=await r.json();
-    }
-    if(!tbKey){console.warn('No tbKey for SMS');return;}
-    const _body=JSON.stringify({phone:String(phone).replace(/\D/g,''),message:String(msg).slice(0,160),key:tbKey});
-    const _post=async()=>{ const _r=await fetch('/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:_body}); return await _r.json().catch(()=>({})); };
-    let _d=await _post();
-    if(!_d||!_d.success){ await new Promise(r=>setTimeout(r,2500)); _d=await _post(); }
-    if(!_d||!_d.success){console.warn('SMS not sent after retry',_d);} else {console.log('SMS sent, quota',_d.quotaRemaining);}
-    return _d;
-  }catch(e){console.error('SMS',e);}
-}
+async function _sendSMS(){throw new Error('SMS is retired. Choose push notifications or email in Team.');}
 try{ window.__swSMS=_sendSMS; }catch(e){}
 async function _sendEmail(to,toName,from,msg,key){
   if(!to)throw new Error('Email recipient is missing');
@@ -103,7 +109,7 @@ onValue(ref(_db,'staffReports'),snap=>{
   _lastT=Math.max(mx,...Object.values(r).map(x=>x.ts||0));
 });
 window.__swAdminLoad=async function(){
-  const _sr1=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');const cfg=await _sr1.json()||{};const app=window.__swApp;if(!app)return;
+  const cfg=await _loadStaffConfig();const app=window.__swApp;if(!app)return;
   const contacts=['Kevin','Mike','Brad'].map(n=>({name:n,color:SC[n],initial:n[0],email:'',phone:'',carrier:'',pref:'email',...(cfg[n]||{})}));
   app.setState({adminContacts:contacts,ejsKey:cfg._ejsKey||''});
   // Also directly set input values since template engine may not update existing inputs
@@ -172,9 +178,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
   // Fetch contacts from Firebase
   let cfg={},contactsLoaded=false;
   try{
-    const _sr5r=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');
-    if(!_sr5r.ok)throw new Error('Team contacts could not load');
-    cfg=(await _sr5r.json())||{};contactsLoaded=true;
+    cfg=await _loadStaffConfig();contactsLoaded=true;
   }catch(e){}
 
   // Inject styles once
@@ -355,6 +359,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
               <div style="color:#1f2a37;font-weight:800;font-size:14px;">${c.name}</div>
             </div>
             <div style="display:grid;gap:7px;">
+              <p data-delivery-name="${c.name}" style="grid-column:1/-1;margin:0 0 8px;color:#355d76;font-size:13px;line-height:1.4;">${cfg._delivery?.[c.name]?.devices ? 'Push: '+cfg._delivery[c.name].devices+' registered device(s) · '+cfg._delivery[c.name].reportDevices+' with Reports enabled.' : 'Push is not set up on a device. Sign in on your phone and open Alerts to enable it.'}</p>
               <div><div style="color:#7a8aa0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Email</div><input class="sw-input" data-name="${c.name}" data-field="email" value="${c.email}" placeholder="email@example.com"/></div>
               <div><div style="color:#7a8aa0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Phone</div><input class="sw-input" data-name="${c.name}" data-field="phone" value="${c.phone}" placeholder="10-digit"/></div>
               <div><div style="color:#7a8aa0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Notify Via</div><select class="sw-select" data-name="${c.name}" data-field="pref">${prefOpts(c.pref)}</select></div>
@@ -507,7 +512,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
 };
 
 window.__swAdminOpen=async function(){
-  const _sr3=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');const cfg=await _sr3.json()||{};
+  const cfg=await _loadStaffConfig();
   const contacts=['Kevin','Mike','Brad'].map(n=>({name:n,color:SC[n],email:'',phone:'',carrier:'',pref:'email',...(cfg[n]||{})}));
   const modal=document.getElementById('sw-admin-modal');
   if(!modal)return;
@@ -820,7 +825,7 @@ window.__swSaveReport=function(){
   const finish=()=>{app.setState({sessionLog:(app.state.sessionLog||[]).filter(r=>!log.includes(r))});};
   overlay.querySelector('#sw-sr-close').onclick=()=>overlay.remove();overlay.querySelector('#sw-sr-save').onclick=()=>{finish();overlay.remove();};
   let staff=[];
-  fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json',{signal:AbortSignal.timeout(12000)}).then(r=>{if(!r.ok)throw new Error('Team contacts could not load');return r.json();}).then(cfg=>{
+  _loadStaffConfig().then(cfg=>{
     staff=['Kevin','Mike','Brad'].map(name=>({name,...(cfg?.[name]||{}),pref:cfg?.[name]?.pref||'email'}));
     overlay.querySelector('#sw-sr-loading').textContent='Choose recipients. Phone alerts use push notifications.';
     const target=overlay.querySelector('#sw-sr-contacts');
@@ -1114,34 +1119,25 @@ window.__swCycleNext=function(label,srcEvent){
 }
 
 window.__swCheckLogin=function(){
-  return localStorage.getItem('sw_user')||null;
+  return _verifiedStaff||null;
 };
-window.__swLogout=function(){
-  localStorage.removeItem('sw_user');localStorage.removeItem('sw_staff_name');
+window.__swLogout=async function(){
+  try{await fetch('/staff-session',{method:'DELETE'});}catch{}
+  _verifiedStaff='';localStorage.removeItem('sw_user');localStorage.removeItem('sw_staff_name');
   location.reload();
 };
 window.__swLoginGate=async function(sc){
   // If already logged in, just activate edit mode directly
-  const existing=window.__swCheckLogin();
+  const existing=await _checkStaffSession();
   if(existing){
     if(sc&&sc.setState){
-      try{localStorage.setItem('sw_staff_name',existing);}catch(er){}
+      try{localStorage.setItem('sw_staff_name',existing);localStorage.setItem('sw_user',existing);}catch(er){}
       sc.setState({editMode:true,staffName:existing,showLogin:false});
       if(window.__swStaffOnline) window.__swStaffOnline(existing);
+      window.dispatchEvent(new CustomEvent('sw-staff-signed-in'));
     }
     return;
   }
-  // Fetch staff from Firebase
-  let staffMap={};
-  try{
-    const _sr5r=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');
-    const cfg=(_sr5r.ok?(await _sr5r.json()):{})||{};
-    ['Kevin','Mike','Brad'].forEach(n=>{
-      if(cfg[n]&&cfg[n].email&&cfg[n].phone)
-        staffMap[cfg[n].email.toLowerCase()]={name:n,pin:cfg[n].phone.slice(-4)};
-    });
-  }catch(e){}
-
   return new Promise(resolve=>{
     // Inject shake style
     if(!document.getElementById('sw-login-style')){
@@ -1179,21 +1175,20 @@ window.__swLoginGate=async function(sc){
       box.style.animation='sw-lshake .4s ease';
       setTimeout(()=>{ box.style.animation=''; },400);
     }
-    function tryLogin(){
-      const email=overlay.querySelector('#sw-login-email').value.trim().toLowerCase();
-      const pw=overlay.querySelector('#sw-login-pw').value.trim();
-      const staff=staffMap[email];
-      if(!staff){ overlay.querySelector('#sw-login-err').textContent='Email not recognized.'; shake(); return; }
-      if(staff.pin!==pw){ overlay.querySelector('#sw-login-err').textContent='Incorrect password.'; shake(); overlay.querySelector('#sw-login-pw').value=''; return; }
-      localStorage.setItem('sw_user',staff.name);
-      overlay.remove();
-      resolve(staff.name);
-      // Activate edit mode on the state component
-      if(sc && sc.setState){
-        try{ localStorage.setItem('sw_staff_name',staff.name); }catch(er){}
-        sc.setState({editMode:true,staffName:staff.name,showLogin:false});
-        if(window.__swStaffOnline) window.__swStaffOnline(staff.name);
-      }
+    async function tryLogin(){
+      const button=overlay.querySelector('button[type="submit"]');button.disabled=true;
+      overlay.querySelector('#sw-login-err').textContent='Signing in…';
+      try{
+        const response=await fetch('/staff-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:overlay.querySelector('#sw-login-email').value.trim(),password:overlay.querySelector('#sw-login-pw').value.trim()}),signal:AbortSignal.timeout(20000)});
+        const result=await response.json();
+        if(!response.ok||!result.name)throw new Error(result.error||'Sign-in could not connect. Please retry.');
+        _verifiedStaff=result.name;localStorage.setItem('sw_user',result.name);localStorage.setItem('sw_staff_name',result.name);
+        overlay.remove();
+        if(sc&&sc.setState){sc.setState({editMode:true,staffName:result.name,showLogin:false});if(window.__swStaffOnline)window.__swStaffOnline(result.name);}
+        window.dispatchEvent(new CustomEvent('sw-staff-signed-in'));
+        resolve(result.name);
+      }catch(error){overlay.querySelector('#sw-login-err').textContent=error.message;shake();}
+      finally{button.disabled=false;}
     }
     overlay.querySelector('#sw-login-form').addEventListener('submit',function(e){
       e.preventDefault(); tryLogin();
@@ -1204,7 +1199,7 @@ window.__swLoginGate=async function(sc){
 
 
 window.__swAdminSave=async function(contacts,ejsKey){
-  if(!window.__swCheckLogin?.())throw new Error('Staff sign in is required.');
+  await window.__swRequireStaff();
   if(navigator.onLine===false)throw new Error('Reconnect before saving contacts.');
   const patch={};
   for(const c of contacts){
@@ -1216,16 +1211,17 @@ window.__swAdminSave=async function(contacts,ejsKey){
       patch[c.name+'/'+field]=value;
     }
   }
-  // Contact edits must not replace other staff fields or erase retained settings.
-  if(typeof ejsKey==='string'&&ejsKey.trim())patch._ejsKey=ejsKey.trim();
+  // Only staff contact fields go through the verified server session. Database
+  // credentials and retained provider settings never enter a browser write.
   if(!Object.keys(patch).length)return;
-  await window.__swEnsureFirebase();
-  await update(ref(_db,'staffConfig'),patch);
+  const changes={};for(const [path,value]of Object.entries(patch)){const [name,field]=path.split('/');(changes[name]||={name})[field]=value;}
+  const response=await fetch('/staff-contacts',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({contacts:Object.values(changes)}),signal:AbortSignal.timeout(20000)});
+  const result=await response.json();if(!response.ok||!result.success)throw new Error(result.error||'Contacts could not be saved.');
 };
 window.__swStaffReport=async function(fromName,changes){
   if(!fromName||!changes?.length)return;
   push(ref(_db,'staffReports'),{name:fromName,changes,ts:Date.now()}).catch(()=>console.warn('Staff report activity could not be recorded'));
-  const _sr7=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/staffConfig.json');const cfg=await _sr7.json()||{};const key=cfg._ejsKey||'';
+  const cfg=await _loadStaffConfig();const key=cfg._ejsKey||'';
   const msg=fromName+' updated StoreWell ('+new Date().toLocaleString()+'):\n'+changes.map(c=>'• Unit '+c.label+': '+c.from+' → '+c.to).join('\n');
   for(const name of['Kevin','Mike','Brad']){
     if(name===fromName)continue;

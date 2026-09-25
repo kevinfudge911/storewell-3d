@@ -14,7 +14,7 @@
 <script src="/vendor/CSS3DRenderer.js"></script>
 <script src="/vendor/dc-runtime.js"></script>
 <link rel="stylesheet" href="/exterior.css">
-<link rel="stylesheet" href="/command-deck.css">
+<link rel="stylesheet" href="/command-tablet.css">
 <link rel="stylesheet" href="/bridge-light.css">
 <style>
 @keyframes sw-flash-red{0%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}50%{background:#ff4444;box-shadow:0 0 0 2px #ff000022,0 0 12px #ff000066;}100%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}}
@@ -269,7 +269,7 @@ class Component extends DCLogic {
       try{ var le={type:'login',label:'Login',from:'Offline',to:'Online',who:n,t:Date.now()}; if(window._swPush&&window._swRef&&window._swDB){window._swPush(window._swRef(window._swDB,'lockLog'),le).catch(function(){});}else{fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockLog.json',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(le)}).catch(function(){});} }catch(ex){} },
     pinRef:this._pinRef, remRef:this._remRef,
     showLogin:this.state.showLogin, loginErr:false,
-    logout:()=>{ try{ localStorage.removeItem('sw_staff_name');localStorage.removeItem('sw_user'); }catch(e){} this.setState({editMode:false,staffName:'',pickUnit:null,showInv:false}); },
+    logout:()=>{ window.__swLogout?.(); },
     closePick:()=>this.setState({pickUnit:null}),
     setStatusBlue:()=>this._pick('blue'), setStatusRed:()=>this._pick('red'), setStatusWhite:()=>this._pick('white'),
     setStatusBlack:()=>this._pick('black'), setStatusGreen:()=>this._pick('green'), setStatusYellow:()=>this._pick('yellow'),
@@ -1243,7 +1243,7 @@ class Component extends DCLogic {
     const k=(label||'').replace(/[-\s]/g,'').toUpperCase();
     let frame=null;
     try{ if(dw && dh) frame=this._makeLockFrame(face,a,fixed,cy,dw,dh); }catch(e){}
-    if(k){ lock.userData.unit=k; lock.userData.label=label; this._lockMeshes.push(lock); this._locks[k]={mesh:lock,mat,label,doorMat:doorMat||null,frame:frame,pos:lock.position.clone()}; }
+    if(k){ lock.userData.unit=k; lock.userData.label=label; this._lockMeshes.push(lock); this._locks[k]={mesh:lock,mat,label,doorMat:doorMat||null,frame:frame,face,pos:lock.position.clone()}; }
     const st=this._statusOf(label);
     if(frame) frame.visible=(st==='yellow');
     if(st==='flashred'||st==='flashgreen'){mat.emissive.setHex(st==='flashred'?0xff0000:0x00ff44);mat.emissiveIntensity=1;this._flashers.push(mat);}
@@ -2213,8 +2213,8 @@ class Component extends DCLogic {
 <script src="/exterior-controls.js" defer></script>
 <script src="/notifications.js" defer></script>
 <script src="/status-sounds.js" defer></script>
-<script src="/bridge-room.js" defer></script>
+<script src="/property-route.js" defer></script>
 <script src="/character-menu.js" defer></script>
-<script src="/command-deck.js" defer></script>
+<script src="/command-tablet.js" defer></script>
 </body>
 </html>

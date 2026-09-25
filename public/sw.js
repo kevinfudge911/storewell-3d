@@ -1,6 +1,6 @@
 // StoreWell service worker v2 (safe) - GET-only caching + push notifications.
 // Never touches POST/PUT requests, so it can never break lock saves or reports.
-const CACHE = 'storewell-positive-paint-bounds-v31';
+const CACHE = 'storewell-pocket-tablet-v33';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
     e.waitUntil(caches.keys()
@@ -11,7 +11,7 @@ self.addEventListener('fetch', e => {
     const req = e.request;
     if (req.method !== 'GET') return;
     const url = new URL(req.url);
-    if (url.origin !== self.location.origin || ['/notify','/email','/sms'].includes(url.pathname)) return;
+    if (url.origin !== self.location.origin || ['/notify','/email','/sms','/staff-session','/staff-contacts','/push-subscription','/push-receipt'].includes(url.pathname)) return;
     e.respondWith(
           fetch(req).then(r => { if(r.ok){ const c = r.clone(); caches.open(CACHE).then(x => x.put(req, c)).catch(()=>{}); } return r; })
             .catch(async () => (await caches.match(req)) || new Response('StoreWell is offline. Reconnect and reload.', {status:503,headers:{'Content-Type':'text/plain'}}))
@@ -22,6 +22,7 @@ self.addEventListener('push', e => {
           let alert={title:'StoreWell update',body:'Open StoreWell to see the latest activity.'};
           try { if(e.data)alert={...alert,...e.data.json()}; } catch {}
           await self.registration.showNotification(alert.title,{body:alert.body,tag:alert.tag||'storewell-update',icon:'/icons/icon-192.png',badge:'/icons/icon-192.png',data:{url:'/'}});
+          if(alert.receipt)await fetch('/push-receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(alert.receipt)}).catch(()=>{});
     })());
 });
 self.addEventListener('notificationclick', e => {

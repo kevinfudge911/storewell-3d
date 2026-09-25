@@ -1,4 +1,5 @@
 import { buildPushPayload } from '@block65/webcrypto-web-push';
+import {makeReceipt} from './push-receipt.js';
 const FB='https://storewell-3d-default-rtdb.firebaseio.com';
 const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
 const TYPES=new Set(['flashred','flashgreen','red','green','blue','yellow','purple','white','black','report']);
@@ -26,17 +27,18 @@ export async function onRequestPost({request,env}){
   try{keys=vapid(env);const response=await fetch(db('pushSubs',env),{signal:AbortSignal.timeout(12000)});if(!response.ok)throw new Error();subs=await response.json()||{};}
   catch{return json({success:false,error:'Notification service is not ready',sent:0,failed:0},503);}
   const recipients=Array.isArray(d.recipients)?new Set(d.recipients.filter(x=>typeof x==='string').map(x=>x.toLowerCase())):null;
-  const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:crypto.randomUUID(),url:'/'};
+  const notificationId=crypto.randomUUID();
+  const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationId,url:'/'};
   let sent=0,failed=0,expired=0,skipped=0;
   const selected=Object.entries(subs).filter(([,sub])=>{const prefs=sub?.prefs||DEFAULT_PREFS;if(prefs[d.type]!==true||(recipients&&!recipients.has(String(sub.staff||'').toLowerCase()))){skipped++;return false;}return true;});
   // Every encrypted message carries its own contents, avoiding shared-lastAlert races.
   for(let start=0;start<selected.length;start+=8){
     await Promise.all(selected.slice(start,start+8).map(async([id,sub])=>{
       if(!endpointAllowed(sub?.endpoint)||!sub.keys?.p256dh||!sub.keys?.auth){failed++;return;}
-      try{const payload=await buildPushPayload({data:JSON.stringify(message),options:{ttl:3600}},sub,keys);const response=await fetch(sub.endpoint,{...payload,redirect:'error',signal:AbortSignal.timeout(12000)});
+      try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:{ttl:3600}},sub,keys);const response=await fetch(sub.endpoint,{...payload,redirect:'error',signal:AbortSignal.timeout(12000)});
         if(response.ok)sent++;else{failed++;if(response.status===404||response.status===410){expired++;await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}}
       }catch{failed++;}
     }));
   }
-  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length},failed&&sent===0?502:200);
+  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId},failed&&sent===0?502:200);
 }

@@ -1,10 +1,9 @@
 /* StoreWell alerts: successful saves trigger notifications directly, including SDK saves. */
 (() => {
   'use strict';
-  const FB='https://storewell-3d-default-rtdb.firebaseio.com';
   const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
   const LABELS={flashred:'Lock It',flashgreen:'Lock Off',red:'Locked out',green:'Rented',blue:'Reserved',yellow:'Rented · No Lock',purple:'Ready to Rent',white:'Empty',black:'Out of Service',report:'Reports'};
-  const staffName=()=>window.__swApp?.state?.staffName||'';
+  const staffName=()=>window.__swCheckLogin?.()||'';
   const supported=()=>('serviceWorker' in navigator)&&('PushManager' in window)&&('Notification' in window);
   const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const bytes=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
@@ -14,24 +13,22 @@
   async function post(url,data){return api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),keepalive:true,signal:AbortSignal.timeout(45000)});}
   function setBell(on){window._swBellOn=!!on;for(const id of ['sw-bell','sw-cc-bell']){const el=document.getElementById(id);if(!el)continue;el.title=on?'Choose alerts for this device':'Enable push notifications';const spans=el.querySelectorAll('span');if(spans[0])spans[0].textContent=on?'🔔':'🔕';if(spans[1])spans[1].textContent=on?'ALERTS ON':'ALERTS';}}
   async function subId(endpoint){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');}
-  async function saveNode(id,node){const r=await fetch(FB+'/pushSubs/'+id+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(node),signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error('Could not save this device’s alert settings');}
+  async function saveNode(id,node,previousSubscription){return post('/push-subscription',{subscription:{endpoint:node.endpoint,keys:node.keys,expirationTime:node.expirationTime},...(node.prefs?{prefs:node.prefs}:{}),...(previousSubscription?{previousSubscription}:{})});}
   async function syncSubscription(){
     if(syncing)return syncing;
     syncing=(async()=>{
       if(!supported())throw new Error('Push notifications are not supported in this browser');
+      if(!staffName())throw new Error('Staff sign in is needed to enable alerts');
       const config=await api('/notify',{cache:'no-store',signal:AbortSignal.timeout(12000)});
       if(!config.configured||!config.publicKey)throw new Error('The push service is not ready');
       const reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
-      let sub=await reg.pushManager.getSubscription(),oldId,existing={};
-      if(sub){oldId=await subId(sub.endpoint);existing=await api(FB+'/pushSubs/'+oldId+'.json',{signal:AbortSignal.timeout(12000)})||{};}
-      const prefs=existing.prefs||DEFAULT_PREFS;
+      let sub=await reg.pushManager.getSubscription(),previousSubscription;
       // Reuse every valid subscription; migrate a mismatched old key while preserving preferences.
-      if(sub&&sub.options?.applicationServerKey&&b64(sub.options.applicationServerKey)!==config.publicKey){await sub.unsubscribe();sub=null;}
+      if(sub&&sub.options?.applicationServerKey&&b64(sub.options.applicationServerKey)!==config.publicKey){previousSubscription=sub.toJSON();await sub.unsubscribe();sub=null;}
       if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(config.publicKey)});
-      const id=await subId(sub.endpoint),node={...sub.toJSON(),prefs,staff:staffName()||existing.staff||'',updatedAt:Date.now()};
-      await saveNode(id,node);
-      if(oldId&&id!==oldId)await fetch(FB+'/pushSubs/'+oldId+'.json',{method:'DELETE'}).catch(()=>{});
-      setBell(true);return {id,node};
+      const saved=await saveNode(null,sub.toJSON(),previousSubscription);
+      const node={...sub.toJSON(),prefs:saved.prefs,staff:saved.staff};
+      setBell(true);return {id:saved.id,node};
     })().catch(e=>{setBell(false);throw e;}).finally(()=>syncing=null);
     return syncing;
   }
@@ -61,9 +58,18 @@
       const d=await post('/notify',{type:'report',title:'StoreWell test notification',body:'Test alert for '+who+'.',recipients:[who]});
       if(!d.sent)return notice('No device for '+who+' has Reports alerts enabled. Open Alerts on your phone to enable them.');
       notice('Push service accepted '+d.sent+' test notification(s) for '+who+'. Check that it appears on your device.');
+      if(d.notificationId){
+        for(let attempt=0;attempt<8;attempt++){
+          await new Promise(resolve=>setTimeout(resolve,1500));
+          let receipt;try{receipt=await api('/push-receipt?id='+encodeURIComponent(d.notificationId),{cache:'no-store',signal:AbortSignal.timeout(8000)});}catch{break;}
+          if(receipt.received)return notice('Confirmed: '+receipt.received+' device(s) displayed your StoreWell test notification.');
+        }
+        notice('The push service accepted your test, but no device confirmation has arrived yet. Open StoreWell on your phone, then test again.');
+      }
     }catch(e){notice(e.message);}
   };
-  function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));}
+  function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));}
   if(document.readyState==='complete')start();else window.addEventListener('load',start);
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));});
+  window.addEventListener('sw-staff-signed-in',()=>window.__swBellRefresh());
+  document.addEventListener('visibilitychange',()=>{if(staffName()&&document.visibilityState==='visible'&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));});
 })();

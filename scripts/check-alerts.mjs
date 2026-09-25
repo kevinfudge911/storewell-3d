@@ -28,7 +28,8 @@ globalThis.fetch=async(url,init)=>{payload=JSON.parse(init.body);return Response
 r=await email.onRequestPost({env,request:request({to:'staff@example.test',body:'<script>unsafe</script>'})});assert.equal((await r.json()).messageId,'offline-message-id');assert(!payload.htmlContent.includes('<script>'),'Plain text HTML fallback is escaped');
 // Exercise the real report modal: partial failures retain data and retry only pending recipients.
 const dom=new JSDOM('<body></body>',{url:'https://storewell.test',runScripts:'outside-only'}),w=dom.window;
-w.__swCheckLogin=()=>true;w.AbortSignal.timeout=()=>undefined;
+w.__swCheckLogin=()=>'Offline test';w.AbortSignal.timeout=()=>undefined;
+w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mike:{email:'mike@example.test',pref:'email'},Brad:{pref:'none'}});
 const initial={label:'G2',from:'Rented',to:'Locked out',t:100};const newer={label:'G3',from:'Empty',to:'Rented',t:200};
 w.__swApp={state:{sessionLog:[initial],staffName:'Offline test'},setState(v){Object.assign(this.state,v);}};
 let emails=[],attempt=0;
@@ -51,15 +52,15 @@ assert(w.document.querySelector('#sw-alert-notice').textContent.startsWith('No d
 w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.length,1,'An unsigned visitor cannot send a staff test');
 // Editing one contact field cannot replace the team configuration or erase keys.
 let contactPatch,contactSaves=0;
-w.__swCheckLogin=()=>true;w.__swEnsureFirebase=async()=>{};w._db={};w.ref=(_,path)=>path;
-w.update=async(path,patch)=>{assert.equal(path,'staffConfig');contactPatch=patch;contactSaves++;};
+w.__swCheckLogin=()=>'Offline test';w.__swRequireStaff=async()=>{};
+w.fetch=async(url,init)=>{assert.equal(url,'/staff-contacts');assert.equal(init.method,'PATCH');const c=JSON.parse(init.body).contacts[0];contactPatch=Object.fromEntries(Object.entries(c).filter(([key])=>key!=='name').map(([key,value])=>[c.name+'/'+key,value]));contactSaves++;return {ok:true,json:async()=>({success:true})};};
 w.eval(staff.slice(staff.indexOf('window.__swAdminSave=async function('),staff.indexOf('window.__swStaffReport=async function(')));
 await w.__swAdminSave([{name:'Kevin',email:'owner@example.test'}],'');
 assert.deepEqual(Object.keys(contactPatch),['Kevin/email'],'The patch contains only the edited field, preserving all other staff and settings');
 assert.equal(contactPatch['Kevin/email'],'owner@example.test');
 await assert.rejects(w.__swAdminSave([{name:'Brad',email:'invalid'}]),/valid email/);
 assert.equal(contactSaves,1,'Invalid addresses never reach the database');
-w.update=async()=>{throw new Error('Connection interrupted');};
+w.fetch=async()=>{throw new Error('Connection interrupted');};
 await assert.rejects(w.__swAdminSave([{name:'Kevin',phone:'5550100'}]),/Connection interrupted/,'A rejected save is not reported as successful');
 dom.window.close();
 // The service worker displays the actual event payload rather than a shared database record.
