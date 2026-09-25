@@ -26,3 +26,18 @@ Built-in image generation prompt:
 > Use case: precise-object-edit. Remove the entire tablet, all interface, lines, letters and graphics from the approved holographic reference. Reconstruct only the outdoor self-storage lane scenery: pale metal storage buildings, roll-up doors, slim warm lamps, reflective pavement, distant trees, blue twilight. Eye-level center-lane perspective, soft depth of field, premium materials. No tablet, hands, people, text, logos or hologram. Generic illustrated review background only; real interactive HTML overlays it.
 
 Display font: locally hosted Rajdhani, SIL Open Font License in public/fonts/LICENSE.txt.
+
+## Verification
+
+`npm run build` passed with default Node 24 memory after sharing the lock SVG
+symbols. Checks cover 166 modeled doors, original route, filters, complete
+history, save success/failure, staff services and decorative hand behavior.
+
+Browser review at tablet width and a 390px phone frame: each of the nine sample
+status choices clicked and its result read; nine sample changes appeared in
+Lock History in newest and oldest order. Route advanced C2 to C3. Search C2
+returned one door; Reserved returned 18 fictional examples. Character hands
+were toggled and all six sample uniform palettes selected. Team sample toggle,
+reports menu and both sample download controls were clicked. These are isolated
+preview interactions, not a live authenticated app audit. No live messages or
+inventory writes were made. Production remains at the prior release.
