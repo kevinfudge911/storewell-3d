@@ -1,6 +1,9 @@
 /* Gaming tablet case: one physical shell around the continuous glass display. */
 #sw-tablet,#sw-tablet.tablet-hands-on {
   padding:38px 58px 54px;
+  background:linear-gradient(#0826380a,#031d3810),
+    url('/img/command-storage-lane.webp') center/cover no-repeat;
+  background-color:#082738;
 }
 #sw-tablet .tablet-device {
   --case-side:46px;

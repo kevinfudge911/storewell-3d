@@ -89,3 +89,9 @@ Save & reports, in portrait and landscape. It opens the existing device push
 subscription and alert preferences inside the tablet. Preserve saved device
 preferences, report permission failures clearly, and distinguish the sample
 preview subscription from an actual live-device subscription.
+
+Kevin's post-release correction: the storage-building backdrop shown behind
+the approved tablet must also appear behind the live tablet. Keep this image
+in the shared tablet case styling, with a production asset path, so the review
+and live command screen cannot diverge. It appears only while the tablet is
+open; putting the tablet away reveals the same outdoor location and controls.
