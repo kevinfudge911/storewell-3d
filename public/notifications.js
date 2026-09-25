@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
-  const LABELS={flashred:'Lock It',flashgreen:'Lock Off',red:'Locked out',green:'Rented',blue:'Reserved',yellow:'Rented · No Lock',purple:'Ready to Rent',white:'Empty',black:'Out of Service',report:'Reports'};
+  const LABELS={flashred:'Lock It',flashgreen:'Lock Off',red:'Late',green:'Rented',blue:'Reserved',yellow:'Rented · No Lock',purple:'Ready to Rent',white:'Empty',black:'Not rentable',report:'Reports'};
   const staffName=()=>window.__swCheckLogin?.()||'';
   const supported=()=>('serviceWorker' in navigator)&&('PushManager' in window)&&('Notification' in window);
   const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -11,7 +11,7 @@
   function notice(message){window.dispatchEvent(new CustomEvent('sw-notification-notice',{detail:message}));const old=document.getElementById('sw-alert-notice');old?.remove();const el=document.createElement('div');el.id='sw-alert-notice';el.setAttribute('role','status');el.style.cssText='position:fixed;bottom:145px;left:50%;transform:translateX(-50%);z-index:100001;padding:14px 18px;border:1px solid #b9a057;border-radius:9px;background:#122b3c;color:#edf6ff;font:14px Arial;width:max-content;max-width:90vw;';el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),8500);}
   async function api(url,init){const r=await fetch(url,init);const d=await r.json().catch(()=>({}));if(!r.ok||d.success===false)throw new Error(d.error||'The request could not be completed');return d;}
   async function post(url,data){return api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),keepalive:true,signal:AbortSignal.timeout(45000)});}
-  function setBell(on){window._swBellOn=!!on;for(const id of ['sw-bell','sw-cc-bell']){const el=document.getElementById(id);if(!el)continue;el.title=on?'Choose alerts for this device':'Enable push notifications';const spans=el.querySelectorAll('span');if(spans[0])spans[0].textContent=on?'🔔':'🔕';if(spans[1])spans[1].textContent=on?'ALERTS ON':'ALERTS';}}
+  function setBell(on){window._swBellOn=!!on;for(const id of ['sw-bell','sw-cc-bell','sw-tablet-notifications']){const el=document.getElementById(id);if(!el)continue;el.dataset.subscribed=String(on);el.title=on?'Choose alerts for this device':'Enable push notifications';const spans=el.querySelectorAll('span');if(spans[0])spans[0].textContent=on?'🔔':'🔕';if(spans[1])spans[1].textContent=on?'ALERTS ON':'ALERTS';}}
   async function subId(endpoint){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');}
   async function saveNode(id,node,previousSubscription){return post('/push-subscription',{subscription:{endpoint:node.endpoint,keys:node.keys,expirationTime:node.expirationTime},...(node.prefs?{prefs:node.prefs}:{}),...(previousSubscription?{previousSubscription}:{})});}
   async function syncSubscription(){
@@ -39,10 +39,13 @@
     for(const [type,label]of Object.entries(LABELS)){const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid #31546a;';const cb=document.createElement('input');cb.type='checkbox';cb.checked=node.prefs[type]===true;cb.style.cssText='width:21px;height:21px;accent-color:#21a8e0';cb.onchange=async()=>{const previous=!cb.checked;node.prefs[type]=cb.checked;cb.disabled=true;try{await saveNode(id,node);}catch(e){node.prefs[type]=previous;cb.checked=previous;notice(e.message);}finally{cb.disabled=false;}};row.append(cb,document.createTextNode(label));panel.append(row);}
     const done=document.createElement('button');done.textContent='Done';done.style.cssText='margin-top:14px;width:100%;padding:12px;background:#155b80;border:1px solid #5fadc6;color:white;border-radius:7px;font:700 14px Arial';done.onclick=()=>panel.remove();panel.append(done);document.body.append(panel);
   }
-  window.__swBellTap=async()=>{
-    if(!staffName()||!window.__swCheckLogin?.())return notice('Staff sign in is needed to enable alerts');
-    if(!supported())return notice('This browser cannot receive push alerts. On iPhone, install StoreWell on the Home Screen first.');
-    try{const permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('Allow StoreWell notifications in your browser settings to receive alerts');const {id,node}=await syncSubscription();openPanel(id,node);}catch(e){notice(e.message);}
+  window.__swBellTap=async({embedded=false}={})=>{
+    try{
+      if(!staffName())throw new Error('Staff sign in is needed to enable alerts');
+      if(!supported())throw new Error('This browser cannot receive push alerts. On iPhone, install StoreWell on the Home Screen first.');
+      const permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('Allow StoreWell notifications in your browser settings to receive alerts');
+      const {id,node}=await syncSubscription();openPanel(id,node);
+    }catch(e){if(!supported()||Notification.permission!=='granted')setBell(false);if(embedded)throw e;notice(e.message);}
   };
   window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else setBell(false);};
   window.__swNotifyStatus=async(type,unit,who)=>{

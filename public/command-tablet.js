@@ -36,7 +36,7 @@
     <div class="tablet-strip"><span class="tablet-connection" role="status">Connecting…</span><span>PROPERTY OPERATIONS</span></div>
     <nav class="tablet-nav" aria-label="Command tablet screens">${[['action','bell','Action required'],['locks','lock','All locks'],['route','route','Route'],['history','clock','Lock History'],['team','team','Team'],['more','gear','Control']].map(([key,sym,label])=>`<button data-nav="${key}" aria-controls="tablet-page" aria-pressed="false">${icon(sym)}<span>${label}</span>${key==='action'?'<b data-action-count aria-label="Locks requiring action">0</b>':''}</button>`).join('')}</nav>
     <main class="tablet-page" id="tablet-page"></main>${window.StoreWellLockUI.legend()}
-    <footer class="tablet-bottom"><span>${icon('lock')}<b>STOREWELL</b> FIELD CONTROL</span><div><button data-action="reports">${icon('save')}Save & reports</button><button data-action="history">${icon('clock')}Full history</button></div></footer>
+    <footer class="tablet-bottom"><span>${icon('lock')}<b>STOREWELL</b> FIELD CONTROL</span><div><button id="sw-tablet-notifications" data-action="alerts" title="Subscribe to push notifications or choose alerts for this device">${icon('bell')}Notifications</button><button data-action="reports">${icon('save')}Save & reports</button><button data-action="history">${icon('clock')}Full history</button></div></footer>
     <div class="tablet-toast" role="status" hidden></div></div><div class="tablet-home-bar" aria-hidden="true"></div></div>`;
   document.body.append(tablet);
   const hands=window.StoreWellTabletHands?.mount(tablet);
@@ -212,7 +212,7 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
     if(a==='unit-history')return showHistory(selectedUnit);
     if(a==='refresh-history')return watchHistory(true);
     if(a==='staff-report')return openTool('Staff report',()=>window.__swSaveReport?.(),'#sw-save-report-modal');
-    if(a==='alerts'){if(!('Notification'in window)){toast('This browser does not support push notifications. Email preferences are in Team.');return;}return openTool('Push notifications',()=>window.__swBellTap?.(),'#sw-pref-panel');}
+    if(a==='alerts')return openTool('Push notifications',()=>{if(!window.__swBellTap)throw new Error('Push controls are still loading. Please try Notifications again.');return window.__swBellTap({embedded:true});},'#sw-pref-panel');
     if(a==='rounds')return openTool('Rounds checklist',()=>window.__swRounds?.(),'#sw-rounds-modal');
     if(a==='character')return openTool('My character',()=>window._swShowWardrobe?.(),'#sw-wardrobe');
     if(a==='controls')return openTool('Player controls',()=>window.__swGear?.(),'#sw-sens-panel');

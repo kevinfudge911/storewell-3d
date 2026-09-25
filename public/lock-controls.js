@@ -60,7 +60,13 @@
         last.after(menu);focused?.focus({preventScroll:true});
       }
     }
-    window.addEventListener('resize',()=>requestAnimationFrame(()=>{reflow();active?.menu.scrollIntoView?.({block:'nearest'});}));
+    function reveal(){
+      const menu=active?.menu;if(!menu)return;
+      // In a short landscape viewport, bring the actual status buttons above the footer.
+      const target=root.clientHeight&&menu.offsetHeight>root.clientHeight?menu.querySelector('.lock-status-choices'):menu;
+      target?.scrollIntoView?.({block:'nearest'});
+    }
+    window.addEventListener('resize',()=>requestAnimationFrame(()=>{reflow();reveal();}));
     function close(restoreFocus=true){
       if(!active)return;
       const {menu,anchor}=active;active=null;menu.remove();
@@ -91,7 +97,7 @@
       const state={menu,anchor,unit,busy:false};active=state;
       anchor?.setAttribute('aria-expanded','true');anchor?.setAttribute('aria-controls',menu.id);
       menu.querySelector('header strong').focus({preventScroll:true});
-      menu.scrollIntoView?.({block:'nearest'});
+      reveal();
       menu.addEventListener('click',async e=>{
         e.stopPropagation();const b=e.target.closest('button');if(!b||b.disabled||state.busy)return;
         if(b.hasAttribute('data-choice-close')){close();return;}

@@ -78,3 +78,9 @@ never a white native status dropdown. Add bright orange corner/edge accents
 to the graphite gaming case while retaining the transparent display. Preserve
 operator, timestamps, original history IDs and all save behavior. This remains
 a review-branch visual change awaiting approval before production.
+
+Keep a visible Notifications button in the bottom bar immediately beside
+Save & reports, in portrait and landscape. It opens the existing device push
+subscription and alert preferences inside the tablet. Preserve saved device
+preferences, report permission failures clearly, and distinguish the sample
+preview subscription from an actual live-device subscription.
