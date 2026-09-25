@@ -18,7 +18,7 @@ for(const script of sourceDom.window.document.querySelectorAll('script')){
   else new vm.Script(script.textContent);
 }
 for(const f of ['property-route.js','command-tablet.js','notifications.js','sw.js','staff.bundle.js',...fs.readdirSync(path.join(root,'public/vendor')).filter(f=>f.endsWith('.js')).map(f=>'vendor/'+f)]) new vm.Script(read(f));
-for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-tablet.css','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
+for(const f of ['storewell-command-deck.webp','storewell-bridge-panorama.webp','command-tablet.css','command-hologram.css','manifest.json'])assert(fs.statSync(path.join(root,'public',f)).size>0,f);
 assert(html.includes('this.buildScene()')&&html.includes('buildZone9()'),'Complete property model is restored');
 async function verifyContext(noGpu){
 const logs=[], requests=[];
@@ -86,7 +86,14 @@ const order=w.__swPropertyRoute.ordered(app);assert.equal(order[0],'C2');assert.
 assert.equal(app._locks.C2.face,'E','First door is on the right/east side of the front building');
 console.log('Property walking route starts:',order.slice(0,14).join(' → '));
 const initialLocation=app.walker.g.position.clone();click('[data-action="exit"]');assert(!w.__swDeckVisible);assert(app.walker.g.position.equals(initialLocation));
-await enter();click('[data-nav="locks"]');assert.equal(w.document.querySelectorAll('[data-map-unit]').length,Object.keys(app._locks).length,'Map includes all modeled doors');
+await enter();click('[data-nav="locks"]');
+assert.equal(w.document.querySelector('[data-nav="history"]').textContent,'Lock History','History has its own clearly named tab');
+assert.deepEqual([...w.document.querySelectorAll('.lock-tile')].map(el=>el.dataset.unit),[...order],'Lock tiles follow the physical route and include every door');
+assert.equal(w.document.querySelector('.lock-bank h2').textContent,'Front building · C');
+assert(w.document.querySelector('.lock-tile').getAttribute('aria-label').includes('Right side · East'));
+for(const id of order){click(`[data-unit="${id}"]`);assert(w.document.querySelector('h1').textContent.includes(app._locks[id].label));for(const el of w.document.querySelectorAll('[data-status]'))assert.equal(el.querySelector('span').textContent,app._statusLabel(el.dataset.status),'Original status meanings retained');click('[data-unit-back]');}
+click('[data-nav="action"]');assert.equal(w.document.querySelectorAll('.lock-tile').length,Object.values(app._locks).filter(r=>['flashred','flashgreen'].includes(app._statusOf(r.label))).length);assert.equal(w.document.querySelector('[data-nav="action"]').getAttribute('aria-pressed'),'true');
+click('[data-nav="locks"]');click('[data-layout="map"]');assert.equal(w.document.querySelectorAll('[data-map-unit]').length,Object.keys(app._locks).length,'Map includes all modeled doors');
 for(const id of order){click(`[data-map-unit="${id}"]`);assert(w.document.querySelector('h1').textContent.includes(app._locks[id].label));assert.equal(w.document.querySelectorAll('[data-status]').length,9);click('[data-unit-back]');}
 click('[data-layout="list"]');
 for(const st of ['all','action','green','red','black','purple','blue','yellow','white','flashred','flashgreen']){
@@ -118,6 +125,14 @@ assert(w.document.querySelector('.tablet-tool-host #sw-cmd-panel'),'Team opens w
 assert.equal(w.document.querySelector('#sw-tab-control').style.display,'block');click('#sw-send-report');await new Promise(r=>setTimeout(r,30));assert(w.document.querySelector('.tablet-tool-host #sw-save-report-modal'),'Report is embedded, not layered over Team');click('#sw-sr-close');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('[data-action="controls"]'),'Closing a retained tool returns to the menu');
 click('[data-action="controls"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.tablet-tool-host #sw-sens-panel'));click('[data-nav="home"]');assert(w.document.querySelector('body > #sw-sens-panel'),'Movement controls return to the property rather than being deleted');click('[data-nav="more"]');click('[data-action="controls"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.tablet-tool-host #sw-sens-panel'),'Movement controls can be reopened');
 click('[data-nav="more"]');click('[data-action="character"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.tablet-tool-host #sw-wardrobe'),'Character remains available inside the tablet');
+w.eval(staff.slice(staff.indexOf('window.__swRounds=function'),staff.indexOf('window.__swDashboard=function')));
+const beforeRoundsFetch=w.fetch;
+w.fetch=async(url,opts)=>String(url).includes('lockOverrides.json')?{ok:true,json:async()=>({C19:'flashred',C18:'flashred',C3:'flashred',C2:'flashred',G2:'flashred'})}:beforeRoundsFetch(url,opts);
+click('[data-nav="more"]');click('[data-action="rounds"]');await until(()=>w.document.querySelector('.tablet-tool-host [data-round-unit]'));
+const roundIds=[...w.document.querySelector('.sw-rounds-units').querySelectorAll('[data-round-unit]')].map(el=>el.dataset.roundUnit);
+assert.deepEqual(roundIds,['C2','C3','C18','C19','G2'],'Rounds follow the property route instead of alphabetical sorting');
+assert(w.document.querySelector('#sw-rounds-ts').textContent.endsWith(' CT'),'Rounds use Central time');
+click('[data-round-unit="C3"]');await new Promise(r=>setTimeout(r,0));assert.equal(w.document.querySelector('.page-heading h1').textContent,'Unit C3','A round stop opens its unit controls');w.fetch=beforeRoundsFetch;
 click('[data-nav="home"]');
 // The shared persistence boundary must reject failures and retain atomic history.
 const original=app._statusOf('G2');w.fetch=async()=>({ok:false});assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original);

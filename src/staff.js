@@ -607,14 +607,16 @@ window.__swRounds=function(){
         else if(st==='blue') blue.push(label);
         else if(st==='purple') purple.push(label);
       });
-      [lockIt,lockOff,late,blue,purple].forEach(function(rows){rows.sort(function(a,b){return a.localeCompare(b,undefined,{numeric:true});});});
+      var route=window.__swPropertyRoute?.ordered(property)||Object.keys(knownLocks),rank=new Map(route.map(function(id,i){return [id,i];}));
+      var normalized=function(label){return String(label).replace(/[-\s]/g,'').toUpperCase();};
+      [lockIt,lockOff,late,blue,purple].forEach(function(rows){rows.sort(function(a,b){return (rank.get(normalized(a))??Infinity)-(rank.get(normalized(b))??Infinity);});});
       var now=new Date();
-      var ts=now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-      ov.querySelector('#sw-rounds-ts').textContent='Updated · '+ts;
+      var ts=now.toLocaleString('en-US',{timeZone:'America/Chicago',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      ov.querySelector('#sw-rounds-ts').textContent='Property route · C2 first · '+ts+' CT';
       function chips(arr,bg,clr,brd){
         if(!arr.length) return '<span style="color:#aaa;font-size:13px;font-style:italic;">None</span>';
         return arr.map(function(k){
-          return '<span style="font-family:monospace;font-size:15px;font-weight:600;padding:6px 10px;border-radius:3px;background:'+bg+';color:'+clr+';border:1.5px solid '+brd+';letter-spacing:.02em;display:inline-block;">'+k+'</span>';
+          return '<button type="button" data-round-unit="'+normalized(k)+'" style="font-family:monospace;font-size:15px;font-weight:600;padding:9px 12px;min-height:44px;border-radius:6px;background:'+bg+';color:'+clr+';border:1.5px solid '+brd+';letter-spacing:.02em;cursor:pointer;">'+k+'</button>';
         }).join('');
       }
       function section(colorBar,label,desc,count,chipsHtml,note){
@@ -646,6 +648,7 @@ window.__swRounds=function(){
           +'</div></div>';
       }
       ov.querySelector('#sw-rounds-body').innerHTML=html;
+      ov.querySelectorAll('[data-round-unit]').forEach(function(button){button.onclick=function(){if(window.__swOpenUnitMenu?.(button.dataset.roundUnit))ov.remove();};});
     })
     .catch(function(){ if(ov.isConnected)ov.querySelector('#sw-rounds-body').innerHTML='<p style="color:#ffaaa1;">Could not load lock data. Check your connection.</p>'; });
 };

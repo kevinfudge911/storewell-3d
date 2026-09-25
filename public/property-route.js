@@ -33,5 +33,16 @@
     }
     cachedApp=app;cachedOrder=order;return order.slice();
   }
-  window.__swPropertyRoute={ordered,gate:{x:15,z:13},first:'C2'};
+  // These names follow buildColliders() and the original outdoor buildings.
+  const buildingNames=['Front building · C','Front wing · G','Building D','Building J','Building E','Building H','West row · 1–24','Back row · 36–50','Office','West row · 12 annex','Building F','Building B','East row · 25–36','East row · 36 annex','Building C · rear row','Building C · rear shed'];
+  const sideNames={E:'Right side · East',W:'Left side · West',S:'Front side · South',N:'Back side · North'};
+  function sectionFor(app,unit){
+    let index=-1,distance=Infinity;
+    (app.solids||[]).forEach((s,i)=>{
+      const dx=Math.max(s.x0-unit.pos.x,0,unit.pos.x-s.x1),dz=Math.max(s.z0-unit.pos.z,0,unit.pos.z-s.z1),d=dx*dx+dz*dz;
+      if(d<distance){distance=d;index=i;}
+    });
+    return {id:String(index),name:buildingNames[index]||'Property doors',side:sideNames[unit.face]||'Property lane'};
+  }
+  window.__swPropertyRoute={ordered,sectionFor,gate:{x:15,z:13},first:'C2'};
 })();
