@@ -32,7 +32,12 @@ Use Node 24. Run `npm ci` and `npm run build` before deployment. The regression 
 
 After deployment, verify the actual production URL, including the outside starting view, opening the tablet, its staff tools, property-map zoom, route, phone layout, search, and returning to the property. Report a deployment as complete only after Cloudflare confirms success and the live page is checked.
 
-## September 25 revision awaiting visual review
+## September 25 approved tablet revision
+
+At 2:28 PM Central on September 25, Kevin approved the reviewed orange-case
+round-lock tablet, including the bottom Notifications shortcut: "Ok make this
+go live." This authorizes publishing this reviewed revision to the existing
+StoreWell production site; the earlier visual-review hold is satisfied.
 
 Kevin clarified that the permanent rules saved during the Ohana build apply: no
 oversized panels, boxes inside boxes or nested borders; preserve a cohesive,
@@ -76,8 +81,8 @@ labels beneath each lock. Keep one compact shared color key with all nine
 original meanings. Filters and status choices are inline round glass locks,
 never a white native status dropdown. Add bright orange corner/edge accents
 to the graphite gaming case while retaining the transparent display. Preserve
-operator, timestamps, original history IDs and all save behavior. This remains
-a review-branch visual change awaiting approval before production.
+operator, timestamps, original history IDs and all save behavior. This revision
+is included in Kevin's September 25 production approval above.
 
 Keep a visible Notifications button in the bottom bar immediately beside
 Save & reports, in portrait and landscape. It opens the existing device push
