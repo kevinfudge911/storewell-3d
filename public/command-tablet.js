@@ -41,10 +41,11 @@
   document.body.append(tablet);
   const hands=window.StoreWellTabletHands?.mount(tablet);
   const page=tablet.querySelector('main');
+  const lockChoices=window.StoreWellLockUI.choices(page);
   let parkedTool=null,toolObserver;
   let app,screen='home',live=false,appLoginStarted=false,propertyPlan,selectedPropertyUnit,toastTimer;
   let filter='all',query='',lockView='board',selectedUnit=null,routeCursor=0,historyRecords={},historyState='Connecting to saved history…',unsubscribe,historyDownloadUrl,inventoryDownloadUrl,installPrompt,refreshScreen,priorFocus;
-  let lastLockSnapshot='',unitSource='locks';
+  let lastLockSnapshot='';
   window.__swDeckVisible=false;
   const norm=s=>String(s??'').replace(/[-\s]/g,'').toUpperCase();
   const units=()=>Object.entries(app?._locks||{}).map(([id,r])=>({id,label:r.label,size:app._sizeOf(r.label),status:app._statusOf(r.label),pos:r.pos,face:r.face}));
@@ -58,7 +59,7 @@
   function title(eyebrow,heading,subtitle=''){return `<header class="page-heading"><div><p>${eyebrow}</p><h1 tabindex="-1">${heading}</h1>${subtitle?`<span>${subtitle}</span>`:''}</div></header>`;}
   function nav(key){tablet.querySelectorAll('[data-nav]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.nav===key));b.classList.toggle('active',b.dataset.nav===key);});}
   function parkTool(){toolObserver?.disconnect();toolObserver=null;if(parkedTool){document.body.append(parkedTool);parkedTool.style.display='none';parkedTool=null;}}
-  function show(key,html){parkTool();releaseDownloads();refreshScreen=null;if(key==='unit'&&screen!=='unit')unitSource=screen;screen=key;page.dataset.screen=key;nav(key==='unit'?(unitSource==='route'?'route':filter==='action'?'action':'locks'):key==='reports'?'more':key);page.innerHTML=html;page.scrollTop=0;page.querySelector('h1')?.focus({preventScroll:true});}
+  function show(key,html){lockChoices.close(false);parkTool();releaseDownloads();refreshScreen=null;screen=key;page.dataset.screen=key;nav(key==='reports'?'more':key);page.innerHTML=html;page.scrollTop=0;page.querySelector('h1')?.focus({preventScroll:true});}
   async function login(){if(window.__swCheckLogin?.()&&app?.state.editMode)return true;if(!app||!window.__swLoginGate)return false;try{await window.__swLoginGate(app);return !!window.__swCheckLogin?.();}catch(e){toast(e.message||'Staff sign-in could not connect.');return false;}}
   async function openTablet(next='locks'){
     if(!await login())return false;
@@ -72,6 +73,7 @@
     navigate(typeof next==='string'?next:'locks');hands?.open();watchHistory();refresh();return true;
   }
   function closeTablet(unit){
+    lockChoices.close(false);
     parkTool();hands?.close();tablet.hidden=true;window.__swDeckVisible=false;document.body.classList.remove('storewell-deck-open');releaseDownloads();
     if(propertyPlan){propertyPlan.inert=false;propertyPlan.removeAttribute('aria-hidden');}
     const outsideRoot=document.getElementById('dc-root');if(outsideRoot)outsideRoot.inert=false;
@@ -113,6 +115,7 @@
   }
   const lockSnapshot=()=>JSON.stringify([filter,query,lockView,units().map(u=>[u.id,u.status])]);
   function drawLocks(){
+    lockChoices.close(false);
     const slot=page.querySelector('#tablet-locks'),rows=ordered().filter(match);if(!slot)return;
     lastLockSnapshot=lockSnapshot();
     nav(filter==='action'?'action':'locks');
@@ -143,34 +146,31 @@
   }
   function showRoute(){
     show('route',title('WALK THE PROPERTY','Your lock route.','Start at C2, just inside the open front gate on the right side of the front building.')+lockToolbar()+`<div class="route-summary"><span>${icon('route')} Ordered along the property’s walking lanes</span><button data-action="property-map">View property map</button></div><div id="route-stop"></div><div class="route-steps"></div>`);
-    const draw=()=>{const rows=ordered().filter(match);routeCursor=Math.max(0,Math.min(routeCursor,rows.length-1));const u=rows[routeCursor];page.querySelector('#route-stop').innerHTML=u?`<div class="current-stop"><div><p>STOP ${routeCursor+1} OF ${rows.length}</p><h2>Unit ${escape(u.label)}</h2>${pill(u)}<span>${escape(u.size)}</span></div><div>${button('Open lock controls','route-unit','lock')}${button('Find outside','route-outside','route','teal')}</div></div><div class="route-step-controls"><button data-route-step="-1" ${routeCursor===0?'disabled':''}>${icon('back')}Previous</button><span>${routeCursor+1} / ${rows.length}</span><button data-route-step="1" ${routeCursor===rows.length-1?'disabled':''}>Next lock ${icon('back')}</button></div>`:'<p class="empty-state">No locks match this route.</p>';
+    const draw=()=>{lockChoices.close(false);const rows=ordered().filter(match);routeCursor=Math.max(0,Math.min(routeCursor,rows.length-1));const u=rows[routeCursor];page.querySelector('#route-stop').innerHTML=u?`<div class="current-stop"><div><p>STOP ${routeCursor+1} OF ${rows.length}</p><h2>Unit ${escape(u.label)}</h2>${pill(u)}<span>${escape(u.size)}</span></div><div>${button('Open lock controls','route-unit','lock')}${button('Find outside','route-outside','route','teal')}</div></div><div class="route-step-controls"><button data-route-step="-1" ${routeCursor===0?'disabled':''}>${icon('back')}Previous</button><span>${routeCursor+1} / ${rows.length}</span><button data-route-step="1" ${routeCursor===rows.length-1?'disabled':''}>Next lock ${icon('back')}</button></div>`:'<p class="empty-state">No locks match this route.</p>';
       page.querySelector('.route-steps').innerHTML=rows.map((r,i)=>`<button class="route-step ${i===routeCursor?'current':''}" data-route-index="${i}"><b>${i+1}</b><span>Unit ${escape(r.label)}<small>${escape(status(r.status))}</small></span><i style="background:${STATUS[r.status]?.[1]}"></i></button>`).join('');
       page.querySelectorAll('[data-route-step]').forEach(b=>b.onclick=()=>{routeCursor+=Number(b.dataset.routeStep);draw();});page.querySelectorAll('[data-route-index]').forEach(b=>b.onclick=()=>{routeCursor=Number(b.dataset.routeIndex);draw();page.querySelector('#route-stop').scrollIntoView?.({block:'nearest'});});
-      if(u){page.querySelector('[data-action="route-unit"]').onclick=e=>{e.stopPropagation();showUnit(u,showRoute);};page.querySelector('[data-action="route-outside"]').onclick=e=>{e.stopPropagation();closeTablet(u);};}
+      if(u){page.querySelector('[data-action="route-unit"]').onclick=e=>{e.stopPropagation();showUnit(u,e.currentTarget);};page.querySelector('[data-action="route-outside"]').onclick=e=>{e.stopPropagation();closeTablet(u);};}
     };bindFilters(()=>{routeCursor=0;draw();});draw();refreshScreen=draw;
   }
-  function showUnit(unit,back=showLocks){
+  function showUnit(unit,anchor){
     selectedUnit=unit.id;const current=units().find(u=>u.id===unit.id)||unit;
-    show('unit',`<button class="text-back" data-unit-back>${icon('back')}Back to locks</button>`+title('UNIT CONTROL',`Unit ${escape(current.label)}`,escape(current.size||'Size on file'))+`<div class="unit-detail"><div class="unit-current"><span>CURRENT STATUS</span>${pill(current)}${button('Find this door outside','locate','route','teal')}</div><div><h2>Set this unit’s status</h2><p class="muted">Choose a button. Every saved change is added to the original lock history.</p><div class="status-options">${Object.entries(STATUS).map(([key,[label,color]])=>`<button data-status="${key}" aria-pressed="${current.status===key}" style="--status:${color}">${window.StoreWellLockUI.disc(current.label,key)}<span class="status-choice-label">${escape(label)}</span>${current.status===key?'<small>Current</small>':''}</button>`).join('')}</div><p class="save-result" role="status"></p></div></div><div class="unit-history"><h2>Recent changes for this door</h2><div data-unit-history></div><button class="text-link" data-action="unit-history">Open complete history ${icon('back')}</button></div>`);
-    page.querySelector('[data-unit-back]').onclick=back;page.querySelector('[data-action="locate"]').onclick=e=>{e.stopPropagation();closeTablet(current);};
-    page.querySelectorAll('[data-status]').forEach(b=>b.onclick=async()=>{
-      if(b.disabled||b.dataset.status===app._statusOf(current.label))return;
-      if(!await login())return;
-      const group=[...page.querySelectorAll('[data-status]')],feedback=page.querySelector('.save-result');group.forEach(b=>b.disabled=true);feedback.textContent='Saving the lock change…';
-      try{const ok=await app.setStatus(current.label,b.dataset.status);if(ok===false)throw new Error('The change did not save. The previous status is still in place.');showUnit({...current,status:b.dataset.status},back);page.querySelector('.save-result').textContent='Saved to shared inventory and lock history.';}catch(e){feedback.textContent=e.message||'The change could not save. Please retry.';group.forEach(b=>b.disabled=false);}
-    });drawUnitHistory();
+    anchor=anchor||page.querySelector(`[data-unit="${current.id}"],[data-map-unit="${current.id}"],[data-round-unit="${current.id}"]`);
+    lockChoices.open({unit:current,anchor,
+      onChange:async next=>{if(!await login())throw new Error('Sign in to save this change.');return app.setStatus(current.label,next);},
+      onSaved:next=>{if(anchor?.hasAttribute('data-round-unit'))action('rounds').catch(error=>toast(error.message));else refreshScreen?.();page.querySelector(`[data-unit="${current.id}"],[data-map-unit="${current.id}"],[data-round-unit="${current.id}"]`)?.focus({preventScroll:true});toast(`${current.label} · ${status(next)} — saved to inventory and lock history.`);},
+      actions:[{id:'unit-history',label:'Lock history',run:()=>showHistory(current.label)},{id:'locate',label:'Find outside',run:()=>closeTablet(current)}]
+    });
   }
   function sortedHistory(){return Object.entries(historyRecords).filter(([,r])=>r&&typeof r==='object').map(([id,r])=>({id,...r}));}
   const dateText=r=>Number(r.t)>=86400000?new Date(Number(r.t)).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'Unverified date · original timestamp '+String(r.t??'not recorded');
   function historyRows(rows){return rows.map(r=>`<article class="history-row"><span class="history-icon">${icon(r.type==='email'?'chat':r.type==='login'?'team':'lock')}</span><div><strong>${['email','login'].includes(r.type)?escape(r.label||r.type):'Unit '+escape(r.label||r.unit||'—')}</strong><p>${escape(status(r.from))} ${icon('back')} <b>${escape(status(r.to||r.status))}</b></p><small>${escape(r.who||r.staff||'Staff')} · ${escape(dateText(r))} CT</small></div></article>`).join('')||'<p class="empty-state">No saved changes match.</p>';}
-  function drawUnitHistory(){const el=page.querySelector('[data-unit-history]');if(el)el.innerHTML=historyRows(sortedHistory().filter(r=>norm(r.label||r.unit)===selectedUnit).sort((a,b)=>(+b.t||0)-(+a.t||0)).slice(0,5));}
   function showHistory(unitQuery=''){
     show('history',title('THE COMPLETE RECORD','Lock history.','Every saved change, from the beginning. Dates shown in Central time.')+`<div class="history-tools"><label><span>Unit or staff</span><input data-history-search type="search" placeholder="Search saved history…" value="${escape(unitQuery)}"></label><label><span>Order</span><select data-history-order><option value="newest">Newest first</option><option value="oldest">Oldest first — from day one</option></select></label><label><span>Activity</span><select data-history-type><option value="locks">Lock changes</option><option value="all">All saved activity</option></select></label></div><div class="history-summary"><span data-history-state role="status"></span><button data-action="refresh-history">${icon('center')}Refresh</button><a data-history-backup>${icon('download')}Full backup</a></div><p data-history-count class="muted"></p><div data-history-list></div>`);
     for(const el of page.querySelectorAll('[data-history-search],[data-history-order],[data-history-type]'))el.addEventListener(el.tagName==='INPUT'?'input':'change',drawHistory);
     drawHistory();watchHistory();
   }
   function drawHistory(){
-    const target=page.querySelector('[data-history-list]');if(!target){drawUnitHistory();return;}
+    const target=page.querySelector('[data-history-list]');if(!target)return;
     const q=norm(page.querySelector('[data-history-search]').value),all=page.querySelector('[data-history-type]').value==='all',oldest=page.querySelector('[data-history-order]').value==='oldest';
     const records=sortedHistory(),rows=records.filter(r=>(all||!['email','login'].includes(r.type)&&(r.label||r.unit))&&norm((r.label||r.unit||'')+' '+(r.who||r.staff||'')).includes(q));
     rows.sort((a,b)=>{const da=+a.t>=86400000,db=+b.t>=86400000;return da!==db?da?-1:1:oldest?(+a.t||0)-(+b.t||0):(+b.t||0)-(+a.t||0);});
@@ -225,8 +225,8 @@
     if(a==='install'){if(installPrompt){await installPrompt.prompt();installPrompt=null;return;}show('more',title('TAKE IT WITH YOU','Install StoreWell.')+'<div class="help-cards"><article><h2>Android / Chrome</h2><p>Open the browser menu and choose Install app or Add to Home screen.</p></article><article><h2>iPhone / iPad</h2><p>Choose Share, then Add to Home Screen.</p></article></div>');return;}
     if(a==='help')show('more',title('QUICK GUIDE','A tablet for the whole property.')+'<div class="help-cards"><article><h2>Outside stays outside</h2><p>Use the same walking, vehicle and door controls. Command Center pulls up this tablet. Outside puts it away at the same place.</p></article><article><h2>Locks follow the property</h2><p>Start at C2 beside the open front gate. The map uses the actual door positions. Drag to move, pinch or use + and − to zoom.</p></article><article><h2>One door at a time</h2><p>Tap a lock to choose its status. Saved changes use the same shared inventory and are recorded in history. Find outside marks the actual door.</p></article><article><h2>History stays complete</h2><p>Select Oldest first to read from the beginning. Full backup includes every saved activity record, including emails and sign-ins.</p></article></div>');
   }
-  tablet.addEventListener('click',e=>{const navButton=e.target.closest('[data-nav]');if(navButton){if(['route','locks'].includes(navButton.dataset.nav)){filter='all';query='';routeCursor=0;}navigate(navButton.dataset.nav);return;}const f=e.target.closest('[data-filter-open]');if(f){filter=f.dataset.filterOpen;query='';lockView='board';showLocks();return;}const u=e.target.closest('[data-unit],[data-map-unit]');if(u){const unit=units().find(x=>x.id===(u.dataset.unit||u.dataset.mapUnit));if(unit)showUnit(unit);return;}const a=e.target.closest('[data-action]')?.dataset.action;if(a)action(a).catch(error=>toast(error.message||'That action could not connect.'));});
-  tablet.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(screen==='home')closeTablet();else home();}if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-map-unit]')){e.preventDefault();e.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
+  tablet.addEventListener('click',e=>{const navButton=e.target.closest('[data-nav]');if(navButton){if(['route','locks'].includes(navButton.dataset.nav)){filter='all';query='';routeCursor=0;}navigate(navButton.dataset.nav);return;}const f=e.target.closest('[data-filter-open]');if(f){filter=f.dataset.filterOpen;query='';lockView='board';showLocks();return;}const u=e.target.closest('[data-unit],[data-map-unit]');if(u){const unit=units().find(x=>x.id===(u.dataset.unit||u.dataset.mapUnit));if(unit)showUnit(unit,u);return;}const a=e.target.closest('[data-action]')?.dataset.action;if(a)action(a).catch(error=>toast(error.message||'That action could not connect.'));});
+  tablet.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();if(lockChoices.isOpen)lockChoices.close();else if(screen==='home')closeTablet();else home();}if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-map-unit]')){e.preventDefault();e.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
   window.__swOpenUnitMenu=label=>{const u=units().find(u=>u.id===norm(label));if(!u)return false;(async()=>{if(!window.__swDeckVisible&&!await openTablet('locks'))return;showUnit(u);})();return true;};
   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;});
   window.addEventListener('appinstalled',()=>{installPrompt=null;toast('StoreWell is installed.');});
@@ -277,7 +277,7 @@
     tablet.querySelector('[data-clock]').textContent=new Date().toLocaleString('en-US',{timeZone:'America/Chicago',weekday:'short',hour:'numeric',minute:'2-digit'})+' CT';
     tablet.querySelector('[data-action-count]').textContent=units().filter(u=>['flashred','flashgreen'].includes(u.status)).length;
     const c=tablet.querySelector('.tablet-connection');c.textContent=live?'Shared inventory connected':'Saved inventory · reconnecting';c.classList.toggle('connected',live);
-    refreshScreen?.();watchHistory();
+    if(!lockChoices.isOpen)refreshScreen?.();watchHistory();
   }
   async function syncHealth(){
     try{const response=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides.json',{signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error();const data=await response.json();if(app){const merged={...(data||{})};for(const [k,v]of Object.entries(app._pendingWrites||{}))if(Date.now()-v.t<10000)merged[k]=v.st;app._overrides=merged;app._repaintFromOverrides?.();}live=true;}catch{live=false;}refresh();

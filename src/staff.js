@@ -648,7 +648,7 @@ window.__swRounds=function(){
           +'</div></div>';
       }
       ov.querySelector('#sw-rounds-body').innerHTML=html;
-      ov.querySelectorAll('[data-round-unit]').forEach(function(button){button.onclick=function(){if(window.__swOpenUnitMenu?.(button.dataset.roundUnit))ov.remove();};});
+      ov.querySelectorAll('[data-round-unit]').forEach(function(button){button.onclick=function(){var embedded=!!ov.closest('#sw-tablet');if(window.__swOpenUnitMenu?.(button.dataset.roundUnit)&&!embedded)ov.remove();};});
     })
     .catch(function(){ if(ov.isConnected)ov.querySelector('#sw-rounds-body').innerHTML='<p style="color:#ffaaa1;">Could not load lock data. Check your connection.</p>'; });
 };

@@ -9,6 +9,27 @@ import { checkRoomProjection } from './check-room-projection.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const read=f=>fs.readFileSync(path.join(root,'public',f),'utf8');
 const html=read('index.html');
+// Real browser testing found malformed base64 in two retained recordings.
+// Require strict browser decoding without replacing the original MP3 bytes.
+const soundDom=new JSDOM('<body></body>',{url:'https://storewell.test/',runScripts:'outside-only'}),soundWindow=soundDom.window,playedSounds=[];
+soundWindow.HTMLMediaElement.prototype.pause=function(){};
+soundWindow.HTMLMediaElement.prototype.play=function(){
+  if(this.src.startsWith('data:')){
+    const encoded=this.src.split(',')[1],decoded=atob(encoded);
+    assert.deepEqual(Buffer.from(decoded,'binary'),Buffer.from(soundWindow._swSND.SND[this.dataset.status],'base64'),'Playback preserves the saved recording');
+  }else{
+    const recovered=fs.readFileSync(path.join(root,'public',new URL(this.src).pathname));
+    assert.equal(recovered.toString('ascii',0,4),'RIFF','Recovered playback file exists');assert.equal(recovered.toString('ascii',8,12),'WAVE');assert(recovered.length>1000);
+  }
+  playedSounds.push(this.dataset.status);return Promise.resolve();
+};
+soundWindow.eval(read('status-sounds.js'));
+const savedSoundKeys=['green','red','flashgreen','flashred','blue','black','purple','yellow'];
+for(const key of savedSoundKeys)soundWindow._swPlaySound(key);
+assert.deepEqual(playedSounds,savedSoundKeys,'Every saved recording decodes through the browser base64 rules');
+soundWindow._swPlaySound('white');assert.equal(playedSounds.length,8,'Empty retains its original silence');
+soundWindow.__swSoundToggle();soundWindow._swPlaySound('green');assert.equal(playedSounds.length,8,'Muted changes stay silent');assert.equal(soundWindow.localStorage.getItem('sw_sound'),'off');
+soundWindow.__swSoundToggle();assert.equal(playedSounds.at(-1),'blue','Sound-on feedback uses the original Reserved recording');soundDom.window.close();
 const until=async(check,timeout=5000)=>{const end=Date.now()+timeout;while(!check()){assert(Date.now()<end,'Timed out waiting for the observed app state');await new Promise(resolve=>setTimeout(resolve,20));}};
 assert(!/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(html),'No corrupted control characters');
 const sourceDom=new JSDOM(html);
@@ -91,10 +112,10 @@ assert.equal(w.document.querySelector('[data-nav="history"]').textContent,'Lock 
 assert.deepEqual([...w.document.querySelectorAll('.lock-tile')].map(el=>el.dataset.unit),[...order],'Lock tiles follow the physical route and include every door');
 assert.equal(w.document.querySelector('.lock-bank h2').textContent,'Front building · C');
 assert(w.document.querySelector('.lock-tile').getAttribute('aria-label').includes('Right side · East'));
-for(const id of order){click(`[data-unit="${id}"]`);assert(w.document.querySelector('h1').textContent.includes(app._locks[id].label));for(const el of w.document.querySelectorAll('[data-status]'))assert.equal(el.querySelector('.status-choice-label').textContent,app._statusLabel(el.dataset.status),'Original status meanings retained');click('[data-unit-back]');}
+for(const id of order){click(`[data-unit="${id}"]`);assert.equal(w.document.querySelector('main').dataset.screen,'locks');assert(w.document.querySelector('.lock-status-menu').getAttribute('aria-label').includes(app._locks[id].label));for(const el of w.document.querySelectorAll('[data-status]'))assert.equal(el.querySelector('.status-choice-label').textContent,app._statusLabel(el.dataset.status),'Original status meanings retained');click('[data-choice-close]');}
 click('[data-nav="action"]');assert.equal(w.document.querySelectorAll('.lock-tile').length,Object.values(app._locks).filter(r=>['flashred','flashgreen'].includes(app._statusOf(r.label))).length);assert.equal(w.document.querySelector('[data-nav="action"]').getAttribute('aria-pressed'),'true');
 click('[data-nav="locks"]');click('[data-layout="map"]');assert.equal(w.document.querySelectorAll('[data-map-unit]').length,Object.keys(app._locks).length,'Map includes all modeled doors');
-for(const id of order){click(`[data-map-unit="${id}"]`);assert(w.document.querySelector('h1').textContent.includes(app._locks[id].label));assert.equal(w.document.querySelectorAll('[data-status]').length,9);click('[data-unit-back]');}
+for(const id of order){click(`[data-map-unit="${id}"]`);assert.equal(w.document.querySelector('main').dataset.screen,'locks');assert(w.document.querySelector('.lock-status-menu').getAttribute('aria-label').includes(app._locks[id].label));assert.equal(w.document.querySelectorAll('[data-status]').length,9);click('[data-choice-close]');}
 click('[data-layout="list"]');
 for(const st of ['all','action','green','red','black','purple','blue','yellow','white','flashred','flashgreen']){
  const el=w.document.querySelector('#tablet-filter');el.value=st;el.dispatchEvent(new w.Event('change'));
@@ -103,18 +124,18 @@ for(const st of ['all','action','green','red','black','purple','blue','yellow','
 }
 click('[data-nav="locks"]');const select=w.document.querySelector('#tablet-filter');select.value='all';select.dispatchEvent(new w.Event('change'));
 const search=w.document.querySelector('#tablet-search');search.value='c11-2';search.dispatchEvent(new w.Event('input'));assert.equal(w.document.querySelectorAll('[data-unit]').length,1);click('[data-unit="C112"]');
-assert.equal(w.document.activeElement.tagName,'H1','Opening unit controls never summons the keyboard');
+assert.equal(w.document.activeElement,w.document.querySelector('.lock-status-menu header strong'),'Opening choices keeps focus away from text inputs');
 click('[data-action="locate"]');assert(!w.__swDeckVisible);if(noGpu)assert.equal(w.document.querySelector('.plan-unit.selected').dataset.planUnit,'C112');else assert(app._marker.visible);
 await enter();click('[data-nav="route"]');const routeSearch=w.document.querySelector('#tablet-search');routeSearch.value='';routeSearch.dispatchEvent(new w.Event('input'));
-assert(w.document.querySelector('#route-stop').textContent.includes('C2'));click('[data-route-step="1"]');assert(w.document.querySelector('#route-stop').textContent.includes('C3'));click('[data-route-step="-1"]');assert(w.document.querySelector('#route-stop').textContent.includes('C2'));
+assert(w.document.querySelector('#route-stop').textContent.includes('C2'));click('[data-route-step="1"]');assert(w.document.querySelector('#route-stop').textContent.includes('C3'));click('[data-route-step="-1"]');assert(w.document.querySelector('#route-stop').textContent.includes('C2'));click('[data-action="route-unit"]');await new Promise(r=>setTimeout(r,2100));assert(w.document.querySelector('.lock-status-menu'),'Live refresh leaves the open choices in place');w.document.querySelector('.lock-status-menu header strong').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert(!w.document.querySelector('.lock-status-menu'));assert.equal(w.document.querySelector('main').dataset.screen,'route','Escape returns to the same route');
 click('[data-nav="history"]');assert.equal(w.document.querySelectorAll('.history-row').length,611,'Full history exceeds 500 records');
 const histOrder=w.document.querySelector('[data-history-order]');histOrder.value='oldest';histOrder.dispatchEvent(new w.Event('change'));assert(w.document.querySelector('.history-row').textContent.includes('C2'),'Oldest saved change is reachable');
 const histType=w.document.querySelector('[data-history-type]');histType.value='all';histType.dispatchEvent(new w.Event('change'));assert.equal(w.document.querySelectorAll('.history-row').length,612,'Email records also remain in the full archive');assert(w.document.querySelector('[data-history-backup]').download.startsWith('storewell-complete-history-'));
 click('[data-nav="home"]');click('[data-action="reports"]');assert(w.document.querySelector('[data-inventory-download]').download.startsWith('storewell-inventory-'));
 click('[data-nav="more"]');assert(w.document.querySelector('img[src="/img/limo.jpg"]'),'Original crew photograph retained');click('[data-action="help"]');assert(w.document.querySelector('.help-cards').textContent.includes('C2'));
 const savedStatusFn=app.setStatus;let attempts=0;
-app.setStatus=async()=>{attempts++;return false;};await w.__swOpenUnitMenu('G2');await new Promise(r=>setTimeout(r,0));click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert.equal(attempts,1);assert(!w.document.querySelector('[data-status="black"]').disabled);assert(w.document.querySelector('.save-result').textContent.includes('did not save'));
-app.setStatus=async(label,st)=>{app._overrides.G2=st;return true;};click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert(w.document.querySelector('.save-result').textContent.includes('Saved to shared inventory'));delete app._overrides.G2;app.setStatus=savedStatusFn;
+app.setStatus=async()=>{attempts++;return false;};await w.__swOpenUnitMenu('G2');await new Promise(r=>setTimeout(r,0));click('[data-status="black"]');click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert.equal(attempts,1,'A repeated tap cannot submit twice');assert(!w.document.querySelector('[data-status="black"]').disabled);assert(w.document.querySelector('.save-result').textContent.includes('did not save'));
+app.setStatus=async(label,st)=>{app._overrides.G2=st;return true;};click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert(!w.document.querySelector('.lock-status-menu'),'Successful save closes the choices');assert(w.document.querySelector('.tablet-toast').textContent.includes('saved to inventory and lock history'));assert.equal(app._statusOf('G2'),'black');delete app._overrides.G2;app.setStatus=savedStatusFn;
 // The retained team, report, character and movement tools must mount inside the tablet.
 const staff=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
 w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mike:{email:'mike@example.test',pref:'text'},Brad:{email:'brad@example.test',pref:'both'},_delivery:{}});
@@ -132,12 +153,12 @@ click('[data-nav="more"]');click('[data-action="rounds"]');await until(()=>w.doc
 const roundIds=[...w.document.querySelector('.sw-rounds-units').querySelectorAll('[data-round-unit]')].map(el=>el.dataset.roundUnit);
 assert.deepEqual(roundIds,['C2','C3','C18','C19','G2'],'Rounds follow the property route instead of alphabetical sorting');
 assert(w.document.querySelector('#sw-rounds-ts').textContent.endsWith(' CT'),'Rounds use Central time');
-click('[data-round-unit="C3"]');await new Promise(r=>setTimeout(r,0));assert.equal(w.document.querySelector('.page-heading h1').textContent,'Unit C3','A round stop opens its unit controls');w.fetch=beforeRoundsFetch;
+click('[data-round-unit="C3"]');await new Promise(r=>setTimeout(r,0));assert.equal(w.document.querySelector('.lock-status-menu').getAttribute('aria-label'),'Unit C3 status choices','A round stop opens its status choices');assert(w.document.querySelector('.tablet-tool-host [data-round-unit="C3"]'),'The rounds checklist stays in place');w.fetch=beforeRoundsFetch;
 click('[data-nav="home"]');
 // The shared persistence boundary must reject failures and retain atomic history.
-const original=app._statusOf('G2');w.fetch=async()=>({ok:false});assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original);
+const played=[];w._swPlaySound=st=>played.push(st);const original=app._statusOf('G2');w.fetch=async()=>({ok:false});assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original);assert.equal(played.length,0,'Failed save stays silent');
 let writes=0,alerts=0;w.__swCommitLockChange=async(key,state,entry)=>{assert.equal(key,'G2');assert.equal(state,'black');assert.equal(entry.type,'lock');writes++;};w.__swNotifyStatus=async()=>alerts++;
-await app.setStatus('G2','black');assert.equal(writes,1);assert.equal(alerts,1);w.__swCommitLockChange=async()=>{throw new Error('offline failure');};await app.setStatus('G2','green');assert.equal(writes,1);assert.equal(alerts,1,'Failed saves never alert');
+await app.setStatus('G2','black');assert.equal(writes,1);assert.equal(alerts,1);assert.deepEqual(played,['black'],'A successful change uses its original sound key once');await app.setStatus('G2','black');assert.equal(writes,1,'Current status creates no duplicate history');assert.deepEqual(played,['black'],'Current status does not replay its sound');w.__swCommitLockChange=async()=>{throw new Error('offline failure');};await app.setStatus('G2','green');assert.equal(writes,1);assert.equal(alerts,1,'Failed saves never alert');assert.deepEqual(played,['black'],'Failed retries do not play a sound');
 assert(!logs.some(x=>/SyntaxError|ReferenceError|TypeError/.test(x)),logs.join('\n'));
 console.log(`PASS (${noGpu?'no GPU':'GPU renderer'}): ${order.length} modeled doors, every tablet launcher, property route, filters, complete history, exports and confirmed saves. No production writes.`);
 dom.window.close();

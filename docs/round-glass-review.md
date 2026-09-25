@@ -41,3 +41,48 @@ were toggled and all six sample uniform palettes selected. Team sample toggle,
 reports menu and both sample download controls were clicked. These are isolated
 preview interactions, not a live authenticated app audit. No live messages or
 inventory writes were made. Production remains at the prior release.
+
+## Simple choices and large tablet — September 25
+
+Kevin asked for a simple status choice at the tapped lock and then clarified
+that this is a large tablet. The shared chooser expands inline after its lock
+row. All nine statuses remain; no unit page or additional modal opens. Large
+layouts use 56px-high status buttons and a larger device footprint. Small-screen
+compatibility remains, but present the full tablet as the design review.
+
+The app still saves through `app.setStatus`, including its atomic shared-history
+write, outside indicators, notifications and original sound mapping. Choosing
+the current status is a no-op; repeated taps cannot submit twice. Failed saves
+leave the prior status and show a small retry message. Live refresh keeps an
+open chooser in place. Rounds keeps its checklist when the chooser opens and
+refreshes it after a successful save.
+
+The original eight embedded MP3 strings are unchanged and were compared with
+both production and the September 8 source deployment
+`https://37c8dac5.storewell-3d.pages.dev`. Empty was silent in that source.
+Actual browser playback exposed malformed base64 and damaged frames in
+Reserved and Rented · No Lock. Their playable WAV copies in `public/audio`
+recover the decodable portion of the saved effects (0.419s and 0.262s); the
+damaged portions could not be recovered. No replacement tones were generated,
+and the source recordings remain intact for future recovery. The other six
+effects use their original MP3 data with canonical base64 padding. A single
+media element avoids overlapping effects; the existing saved mute preference
+is retained. The sample review uses the same audio module and adds its mute
+control under Control.
+
+Final browser review: all nine C2 status choices were clicked on the large
+tablet. All eight corresponding audio elements reached their `ended` event;
+Empty remained silent. Nine changes appeared in sample Lock History, and
+oldest-first reached the first change. Choosing the current status kept the
+count at nine. A further muted status change updated its lock without starting
+audio. Muting persisted across a reload; switching sound back on played the
+retained Reserved effect. Board, route, list and map choices were opened; Escape
+kept the route, and map zoom reached 125%. Final preview deployment:
+`https://d6dee510.storewell-3d.pages.dev` (branch alias
+`https://round-glass-review.storewell-3d.pages.dev/previews/tablet-hands`).
+`npm run build` passed. This is review-only; production and live data were not
+changed. Audio playback events were verified in the browser; this is not a
+claim of listening on Kevin's own device.
+
+A direct coordinate click on the visible C2 lock rim also opened all nine
+choices. The final screenshot is the running large-tablet review, not a mockup.

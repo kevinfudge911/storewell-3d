@@ -44,3 +44,17 @@ The screen remains glass, with the outside visible through it. Match the
 character hands to this device. Show the revised working design to Kevin before
 publishing another production visual change. The `round-glass-review` preview
 is sample-only and must not connect to staff services or live inventory writes.
+
+The September 25 lock interaction is deliberately small: tap a round lock, then
+choose its status inline on the same screen. Do not restore the separate full
+unit page or add a modal. Keep all nine meanings and the visible red/green
+Lock It/Lock Off flashing. Use the original `app.setStatus` save boundary for
+shared inventory, history, exterior indicators, sounds and notifications. The
+eight saved MP3 recordings map to green, red, flashred, flashgreen, blue, yellow,
+purple and black; Empty has no recording in the original. Preserve the sound
+bytes and saved mute preference. The isolated preview uses the same choices
+and audio module, with sample-only state.
+
+Kevin clarified that this is a large tablet. Favor a generous full-size device
+and larger readable status buttons; show the large tablet review by default.
+Phone width remains a compatibility check, not the design presentation.
