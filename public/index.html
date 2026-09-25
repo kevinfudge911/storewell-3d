@@ -322,9 +322,9 @@ class Component extends DCLogic {
     this.setState({chatName:v});
     if(this._net&&this._net.join) this._net.join(v); else { this.setState({online:[{name:v,me:true}]}); }
   }
-  sendChat(){ const v=(this._msgRef&&this._msgRef.current&&this._msgRef.current.value||'').trim(); if(!v) return;
-    if(this._msgRef.current) this._msgRef.current.value='';
-    if(this._net&&this._net.send) this._net.send(v); else this._pushMsg(this.state.chatName||'me', v);
+  async sendChat(){ const v=(this._msgRef&&this._msgRef.current&&this._msgRef.current.value||'').trim(); if(!v) return;
+    if(!this._net?.send){this._pushMsg('System','Chat is still connecting. Your draft is kept.');return;}
+    if(await this._net.send(v)&&this._msgRef.current)this._msgRef.current.value='';
   }
   buildInv(){
     const filt=this.state.invFilter||'all'; const counts={}; const rows=[];

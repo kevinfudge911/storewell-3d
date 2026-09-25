@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as chat from '../functions/staff-chat.js';
 import * as login from '../functions/staff-session.js';
 import * as contacts from '../functions/staff-contacts.js';
 import * as subscriptions from '../functions/push-subscription.js';
@@ -46,6 +47,12 @@ assert.equal((await call(receipts.onRequestPost,req('/push-receipt','POST',{...r
 assert.equal((await call(receipts.onRequestPost,req('/push-receipt','POST',receipt))).status,200);
 assert.equal((await (await call(receipts.onRequestGet,req('/push-receipt?id='+receipt.id,'GET',null,cookie))).json()).received,1);
 const bradCookie=(await sessionCookie('Brad',db.staffConfig.Brad,env)).split(';')[0];assert.equal((await (await call(receipts.onRequestGet,req('/push-receipt?id='+receipt.id,'GET',null,bradCookie))).json()).received,0,'Staff can only inspect their own display confirmations');
+assert.equal((await call(chat.onRequestGet,req('/staff-chat'))).status,401);
+assert.equal((await call(chat.onRequestPost,req('/staff-chat','POST',{id:'offline-message-001',text:'Check'},cookie,'https://attacker.test'))).status,403);
+response=await call(chat.onRequestPost,req('/staff-chat','POST',{id:'offline-message-001',text:'Offline test only',name:'Brad',uid:'offline-device'},cookie));assert.equal(response.status,200);assert.equal((await response.json()).message.name,'Kevin','Verified staff owns message attribution');
+assert.equal((await call(chat.onRequestPost,req('/staff-chat','POST',{id:'offline-message-001',text:'Offline test only'},cookie))).status,200,'A retry returns the original saved message');
+assert.equal((await (await call(chat.onRequestGet,req('/staff-chat','GET',null,cookie))).json()).messages.length,1,'Retries never duplicate messages');
+assert.equal((await call(chat.onRequestPost,req('/staff-chat','POST',{id:'offline-message-001',text:'Different'},cookie))).status,409,'Retry cannot overwrite an existing message');
 db.staffConfig.Kevin.phone='5550100999';assert.equal((await call(contacts.onRequestGet,req('/staff-contacts','GET',null,cookie))).status,401,'Changing a credential invalidates its old session');
 for(let n=0;n<6;n++)await call(login.onRequestPost,req('/staff-session','POST',{email:'brad@example.test',password:'incorrect'}));assert.equal((await call(login.onRequestPost,req('/staff-session','POST',{email:'brad@example.test',password:'incorrect'}))).status,429);
 assert(writes.every(x=>!['lockLog','lockOverrides','/.settings/rules'].includes(x.path)),'Staff checks never touch inventory, history or rules');

@@ -11,7 +11,7 @@ self.addEventListener('fetch', e => {
     const req = e.request;
     if (req.method !== 'GET') return;
     const url = new URL(req.url);
-    if (url.origin !== self.location.origin || ['/notify','/email','/sms','/staff-session','/staff-contacts','/push-subscription','/push-receipt'].includes(url.pathname)) return;
+    if (url.origin !== self.location.origin || ['/notify','/email','/sms','/staff-session','/staff-contacts','/staff-chat','/push-subscription','/push-receipt'].includes(url.pathname)) return;
     e.respondWith(
           fetch(req).then(r => { if(r.ok){ const c = r.clone(); caches.open(CACHE).then(x => x.put(req, c)).catch(()=>{}); } return r; })
             .catch(async () => (await caches.match(req)) || new Response('StoreWell is offline. Reconnect and reload.', {status:503,headers:{'Content-Type':'text/plain'}}))

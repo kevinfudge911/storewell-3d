@@ -1230,6 +1230,12 @@ window.__swStaffReport=async function(fromName,changes){
     if(pref==='text'||pref==='push'||pref==='both')await window.__swNotifyReport?.(fromName+': '+msg,[name]);
   }
 };
+window.__swChatRead=async()=>{
+  const response=await fetch('/staff-chat',{cache:'no-store',signal:AbortSignal.timeout(12000)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Staff chat could not load.');return data.messages||[];
+};
+window.__swChatSend=async(text,id,uid='')=>{
+  const response=await fetch('/staff-chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,id,uid}),signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Message could not save.');return data.message;
+};
 window.__swStaffOnline=(n)=>{push(ref(_db,'staffActivity'),{name:n,action:'logged in',ts:Date.now()});};
 class SWNet{
   constructor(comp,uid){this.comp=comp;this.uid=uid;this.name='';this.avatars={};this._avatarHash={};this._lastMsgT=0;this._iv=null;this._seen={};this._pruneIv=null;}
@@ -1239,10 +1245,10 @@ class SWNet{
     const _char=window._swGetChar?window._swGetChar():{};
     set(pr,{name,x:0,y:0,z:0,h:0,t:Date.now(),char:_char}).catch(()=>{clearInterval(this._iv);clearInterval(this._pruneIv);});onDisconnect(pr).remove().catch(()=>{});
     onValue(ref(_db,'players'),snap=>{const pl=snap.val()||{};try{this.comp.setState({online:Object.entries(pl).map(([u,p])=>({name:p.name,me:u===this.uid}))});}catch(e){}this._sync(pl);});
-    onValue(ref(_db,'messages'),snap=>{const m=snap.val()||{};Object.values(m).filter(x=>x.t>this._lastMsgT&&x.uid!==this.uid).sort((a,b)=>a.t-b.t).forEach(x=>{this._lastMsgT=x.t;try{this.comp._pushMsg(x.name,x.text);}catch(e){}});});
+    clearInterval(this._chatTimer);this._seenMessages||=new Set();const poll=async()=>{if(!window.__swCheckLogin?.()||document.hidden)return;try{const list=await window.__swChatRead();for(const x of list){if(this._seenMessages.has(x.id))continue;this._seenMessages.add(x.id);if(x.uid!==this.uid)this.comp._pushMsg(x.name,x.text);}}catch{}};poll();this._chatTimer=setInterval(poll,10000);
     this._iv=setInterval(()=>this._pos(),150);
     this._pruneIv=setInterval(()=>this._pruneStale(),4000);}
-  send(t){push(ref(_db,'messages'),{uid:this.uid,name:this.name,text:t,t:Date.now()});try{this.comp._pushMsg(this.name,t);}catch(e){}}
+  async send(t){try{if(this._chatDraft?.text!==t)this._chatDraft={text:t,id:crypto.randomUUID()};const message=await window.__swChatSend(t,this._chatDraft.id,this.uid);this._chatDraft=null;this._seenMessages?.add(message.id);this.comp._pushMsg(message.name,message.text);return true;}catch(e){this.comp._pushMsg('System',e.message);return false;}}
   notify(){}
   _pos(){if(window.__swDeckVisible||document.hidden)return;const w=this.comp.walker;if(!w||!w.g)return;const p=w.g.position;
     // Idle presence: if this session hasn't moved in a while, stop broadcasting and remove
@@ -1277,7 +1283,7 @@ class SWNet{
     for(const uid of Object.keys(pl)){ if(uid===this.uid) continue; const p=pl[uid]||{}; if(nowL-(p.t||0)>60000){ try{ remove(ref(_db,'players/'+uid)).catch(()=>{}); }catch(e){} } }
     const sc=this.comp&&this.comp.scene; if(!sc)return;
     for(const uid of Object.keys(this.avatars)){ const s=this._seen&&this._seen[uid]; if(!s||nowL-s.at>30000){ sc.remove(this.avatars[uid]); delete this.avatars[uid]; delete this._avatarHash[uid]; } } }
-  destroy(){clearInterval(this._iv);clearInterval(this._pruneIv);remove(ref(_db,'players/'+this.uid)).catch(()=>{});}
+  destroy(){clearInterval(this._iv);clearInterval(this._pruneIv);clearInterval(this._chatTimer);remove(ref(_db,'players/'+this.uid)).catch(()=>{});}
 }
 window.__swSetup=function(comp){
   // Skip Firebase anonymous auth — use stable local device ID
