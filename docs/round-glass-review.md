@@ -86,3 +86,54 @@ claim of listening on Kevin's own device.
 
 A direct coordinate click on the visible C2 lock rim also opened all nine
 choices. The final screenshot is the running large-tablet review, not a mockup.
+
+## Gaming case, rotation and pinch — September 25
+
+Primary design references reviewed:
+- Razer Kishi V3 Pro XL: larger ergonomic side handles for sustained tablet play.
+  https://www.razer.com/mobile-controllers/razer-kishi-v3-pro-xl
+- UAG Metropolis: tactile grip and a hand strap for holding a tablet securely.
+  https://www.urbanarmorgear.com/products/metropolis-with-hand-strap-ipad-10-9-11th-gen-2025-case/
+- OtterBox Defender Pro: raised edges, comfortable grip, and a layered case.
+  https://www.otterbox.com/products/ipad-10th-gen-defender-series-pro-case
+
+The shared tablet-case.css adds a sculpted graphite shell, protected rounded
+corners, textured side grips, a camera lens, speaker apertures and visible lower
+edge depth. The glass and original lock colors stay translucent. Case edge
+buttons use the existing sound toggle and put-away actions; decorative case
+parts are inert and cannot cover or intercept controls. The holding thumb now
+accounts for the actual bezel width.
+
+The lock grid fills the available width rather than choosing fixed column
+counts. At the tested 390×844 portrait frame it fitted three columns; the same
+document at 844×390 fitted seven. At 120% size, landscape fitted six columns.
+The case follows the viewport automatically, without an orientation lock.
+Large tablets retain the large presentation; short landscape screens keep the
+tabs visible and put the reports/history entry points under their existing tabs.
+
+Shared pinch handling resizes board locks from 65% to 200% and zooms the actual
+map separately. One-finger scrolling stays native. Two-finger gestures cancel
+emulated clicks so lifting fingers cannot open or change a door. The board's
+zoom persists through navigation and rotation. Open inline choices reflow with
+their selected lock. Map zoom remains centered, and both views expose usable
+plus/minus controls. The preview's Rotate control resizes its existing iframe;
+it never reloads the sample session.
+
+Verification on https://c5f24cfc.storewell-3d.pages.dev:
+- The deployed review rendered both working edge keys and all 166 lock controls.
+- Sound switched off/on; the edge stow button put the tablet away and the
+  command button reopened it.
+- C2 changed Rented → Reserved → Late, with two separate sample history records.
+- Portrait and landscape measurements were read from the rendered grid; the
+  selected lock and its nine-choice menu stayed present through rotation.
+- The lock size controls showed 120%, 100%, and reset; 120% survived rotation.
+- Map buttons reached 125% and returned to 100%.
+- Existing npm run build checks passed. The additional touch checks cover native
+  single-finger scrolling, pinch scale, bounds, ghost-click suppression, keyboard
+  access, reset, separate map zoom and trackpad events without production writes.
+
+The remote browser interface does not expose two-contact touch injection. Its
+Control-scroll attempt timed out and did not zoom; the attempted DevTools
+shortcut did not expose a touch emulator. Do not describe the scripted touch
+event checks as a physical touchscreen test. Portrait/landscape and button
+interactions were checked in the deployed browser. Production is unchanged.

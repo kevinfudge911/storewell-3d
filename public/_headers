@@ -45,3 +45,6 @@
   Cache-Control: no-cache
 /previews/*
   Cache-Control: no-cache
+
+/tablet-case.css
+  Cache-Control: no-cache

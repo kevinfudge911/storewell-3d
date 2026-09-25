@@ -58,3 +58,13 @@ and audio module, with sample-only state.
 Kevin clarified that this is a large tablet. Favor a generous full-size device
 and larger readable status buttons; show the large tablet review by default.
 Phone width remains a compatibility check, not the design presentation.
+
+Kevin's later September 25 correction: the outside must read as a handheld
+gaming tablet case, with a rounded dimensional shell, tactile side grips,
+protected corners and restrained hardware details. Keep the translucent glass.
+The tablet follows the device viewport in portrait and landscape; do not lock
+orientation or stretch a fixed screenshot. Lock discs, labels and grid density
+resize to fit the available screen. Keep two-finger pinch on both the lock board
+and property map; a pinch must never activate a lock. Preserve the current
+selection and zoom through rotation. The separate review has Phone and Rotate
+controls for checking the same loaded document without resetting its sample data.

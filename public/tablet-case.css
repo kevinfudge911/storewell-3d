@@ -1,0 +1,238 @@
+/* Gaming tablet case: one physical shell around the continuous glass display. */
+#sw-tablet,#sw-tablet.tablet-hands-on {
+  padding:38px 58px 54px;
+}
+#sw-tablet .tablet-device {
+  --case-side:46px;
+  --case-top:34px;
+  --case-bottom:36px;
+  width:min(1440px,100%);
+  height:min(1000px,100%);
+  padding:var(--case-top) var(--case-side) var(--case-bottom);
+  border:1px solid #899ba5;
+  border-radius:48px;
+  background:transparent;
+  box-shadow:0 2px 0 #d2e6eb88,0 13px 0 -2px #0a1119,
+    0 15px 0 -2px #788a91,0 18px 1px -2px #050c12,
+    0 32px 48px #000c1b9c,0 4px 7px #000a;
+  isolation:isolate;
+}
+#sw-tablet .tablet-device:after {
+  inset:0;
+  padding:var(--case-top) var(--case-side) var(--case-bottom);
+  border:0;
+  border-radius:47px;
+  background:linear-gradient(112deg,#8a9da8 0%,#283947 2%,#0b1621 7%,
+    #23333f 34%,#34444e 50%,#14232f 71%,#0b1722 94%,#607681 99%,#a0b8bf);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask-composite:exclude;
+  z-index:2;
+}
+#sw-tablet .tablet-device:before {
+  inset:8px;
+  height:auto;
+  border:1px solid #b5cbd348;
+  border-bottom-color:#d5e8ed70;
+  border-radius:40px;
+  background:none;
+  box-shadow:inset 0 1px 2px #e2f8ff30,0 1px 1px #02080caf;
+  z-index:3;
+}
+#sw-tablet .tablet-glass {
+  border:1px solid #9bdcf588;
+  border-radius:22px;
+  box-shadow:0 0 0 2px #020d18,0 0 0 3px #67808b,
+    0 0 10px #6be2ff30,inset 0 0 18px #64dfff0d;
+}
+.tablet-case-details,.tablet-case-details * {
+  pointer-events:none;
+  user-select:none;
+}
+.tablet-case-details {position:absolute;inset:0;z-index:4}
+.tablet-case-grip {
+  position:absolute;top:28%;bottom:20%;width:31px;
+  border:1px solid #4b5a65;border-radius:17px;
+  background:repeating-linear-gradient(32deg,#5b728011 0 1px,transparent 1px 5px),
+    repeating-linear-gradient(-32deg,#61758214 0 1px,transparent 1px 5px),
+    linear-gradient(90deg,#050b11,#253039 43%,#131e27 78%,#030911);
+  box-shadow:inset 1px 0 #7f939e6b,inset -3px 0 5px #0009,0 2px 4px #000b;
+}
+.tablet-case-grip.left {left:6px;border-radius:22px 12px 15px 26px;transform:rotate(-.4deg)}
+.tablet-case-grip.right {right:6px;border-radius:12px 22px 26px 15px;transform:rotate(.4deg)}
+.tablet-case-grip:after {
+  content:'';position:absolute;left:8px;right:8px;top:13px;height:34px;
+  border-top:2px solid #99f0ff;border-radius:50%;
+  box-shadow:0 -2px 5px #55d8ff55;
+}
+.tablet-case-corner {
+  position:absolute;width:87px;height:71px;border:8px solid #0a131c;
+  box-shadow:inset 0 1px 1px #aac1cc55,0 1px 2px #02090f;
+}
+.tablet-case-corner.tl {left:-2px;top:-2px;border-right:0;border-bottom:0;border-radius:49px 12px 0 12px}
+.tablet-case-corner.tr {right:-2px;top:-2px;border-left:0;border-bottom:0;border-radius:12px 49px 12px 0}
+.tablet-case-corner.bl {left:-2px;bottom:-2px;border-right:0;border-top:0;border-radius:12px 0 12px 49px}
+.tablet-case-corner.br {right:-2px;bottom:-2px;border-left:0;border-top:0;border-radius:0 12px 49px 12px}
+.tablet-case-speaker {
+  position:absolute;bottom:13px;height:7px;width:73px;border-radius:8px;
+  background:radial-gradient(ellipse at center,#010710 1.5px,transparent 2px) 0 0/6px 5px;
+  box-shadow:0 1px #77909c22;
+}
+.tablet-case-speaker.left {left:19%}.tablet-case-speaker.right {right:19%}
+.tablet-case-mark {position:absolute;left:75px;top:12px;color:#a1b5c0;font:600 10px 'StoreWell Display',sans-serif;letter-spacing:3px;text-shadow:0 1px #000}
+.tablet-case-port {position:absolute;bottom:-10px;left:calc(50% - 19px);width:38px;height:6px;border:1px solid #879aa380;background:#03070c;border-radius:5px;box-shadow:inset 0 1px 2px #000}
+#sw-tablet .tablet-hardware {top:11px;height:12px;min-height:12px;z-index:5;gap:8px}
+#sw-tablet .tablet-hardware i {
+  width:9px;height:9px;border:2px solid #122d3c;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#8db8e1,#174269 24%,#020711 66%);
+  box-shadow:0 0 0 1px #637d8c77,0 1px 1px #000;
+}
+#sw-tablet .tablet-hardware:after {content:'';width:4px;height:4px;border-radius:50%;background:#050d16;box-shadow:0 0 0 1px #a1b8c322}
+#sw-tablet .tablet-home-bar {height:0;min-height:0;position:static}
+#sw-tablet .tablet-home-bar:after {top:auto;bottom:14px;left:calc(50% - 30px);width:60px;height:3px;background:#a4c2cc;box-shadow:0 1px 2px #000,0 0 6px #79d2ec30;border-radius:8px;z-index:5}
+.tablet-case-keys {position:absolute;top:-24px;right:87px;height:50px;display:flex;gap:14px;z-index:6}
+#sw-tablet .tablet-case-key {
+  position:relative;display:flex;align-items:flex-start;justify-content:center;
+  width:60px;min-width:44px;height:48px;padding:5px 8px 0;
+  color:#e0edf3;border:0;background:none;border-radius:13px;
+  cursor:pointer;isolation:isolate;box-shadow:none;
+}
+.tablet-case-key:before {
+  content:'';position:absolute;inset:0 0 25px;border:1px solid #839ba9;
+  border-radius:7px 7px 4px 4px;background:linear-gradient(#697e8e,#273747 42%,#111e29);
+  box-shadow:inset 0 1px #d2e4ee8f,0 -1px 3px #01101a,0 2px 3px #0009;z-index:-1;
+}
+#sw-tablet .tablet-case-key svg {width:16px!important;height:16px!important;stroke-width:1.7!important;pointer-events:none}
+.tablet-case-key>span {position:absolute;top:33px;font:600 9px 'StoreWell Display',sans-serif;letter-spacing:1.7px;color:#b7ccd7;pointer-events:none}
+.tablet-case-key:hover:before {border-color:#c0f3ff;background:linear-gradient(#829cac,#34515c,#18303d)}
+.tablet-case-key:active:before {transform:translateY(2px)}
+.tablet-case-key[aria-pressed=false]>svg {opacity:.5}
+.tablet-case-key[aria-pressed=true]:after {content:'';position:absolute;width:3px;height:3px;right:9px;top:11px;border-radius:50%;background:#8cfad5;box-shadow:0 0 5px #6ff3cd}
+@media(min-width:1100px) {
+  .preview-screen #sw-tablet {padding:38px 58px 54px}
+}
+@media(min-width:701px) and (max-width:1100px) {
+  #sw-tablet,#sw-tablet.tablet-hands-on {padding:34px 28px 44px}
+  #sw-tablet .tablet-device {--case-side:36px;--case-top:30px;--case-bottom:30px;border-radius:40px}
+  #sw-tablet .tablet-device:after {border-radius:39px}
+  #sw-tablet .tablet-device:before {border-radius:33px}
+  .tablet-case-grip {width:24px}.tablet-case-grip.left {left:4px}.tablet-case-grip.right {right:4px}
+  .tablet-case-mark {left:63px;top:10px}.tablet-case-keys {right:68px}
+  #sw-tablet .tablet-hardware {top:9px}
+  .tablet-case-corner {width:72px;height:60px;border-width:7px}
+  .tablet-case-corner.tl {border-top-left-radius:41px}.tablet-case-corner.tr {border-top-right-radius:41px}
+  .tablet-case-corner.bl {border-bottom-left-radius:41px}.tablet-case-corner.br {border-bottom-right-radius:41px}
+  .tablet-case-speaker {bottom:10px}#sw-tablet .tablet-home-bar:after {bottom:11px}
+}
+@media(max-width:700px) {
+  #sw-tablet,#sw-tablet.tablet-hands-on {padding:27px 13px 31px}
+  #sw-tablet .tablet-device {--case-side:14px;--case-top:27px;--case-bottom:25px;width:100%;height:100%;border-radius:33px;
+    box-shadow:0 1px 0 #d2e6eb77,0 8px 0 -1px #0a1119,0 10px 0 -1px #637984,0 24px 35px #000b}
+  #sw-tablet .tablet-device:after {border-radius:32px}
+  #sw-tablet .tablet-device:before {inset:5px;border-radius:28px}
+  #sw-tablet .tablet-glass {border-radius:17px}
+  .tablet-case-grip {width:8px;top:30%;bottom:19%;border-color:#52647377}
+  .tablet-case-grip.left {left:2px}.tablet-case-grip.right {right:2px}
+  .tablet-case-grip:after {left:1px;right:1px;top:10px;height:24px;border-top-width:1px}
+  .tablet-case-corner {width:46px;height:44px;border-width:5px}
+  .tablet-case-corner.tl {border-top-left-radius:34px}.tablet-case-corner.tr {border-top-right-radius:34px}
+  .tablet-case-corner.bl {border-bottom-left-radius:34px}.tablet-case-corner.br {border-bottom-right-radius:34px}
+  #sw-tablet .tablet-hardware {top:8px;left:43%;height:10px;min-height:10px}
+  #sw-tablet .tablet-hardware i {height:7px;width:7px}
+  .tablet-case-mark {left:29px;top:9px;font-size:8px;letter-spacing:2px}
+  .tablet-case-keys {right:29px;top:-21px;gap:6px}
+  #sw-tablet .tablet-case-key {width:44px;padding:4px 8px 0;height:44px}
+  .tablet-case-key:before {inset:0 2px 23px}
+  #sw-tablet .tablet-case-key svg {width:14px!important;height:14px!important}
+  .tablet-case-key>span {top:29px;font-size:8px;letter-spacing:1px}
+  .tablet-case-key[aria-pressed=true]:after {top:9px;right:6px}
+  .tablet-case-speaker {bottom:9px;width:40px;height:5px;background-size:5px 5px}
+  #sw-tablet .tablet-home-bar:after {bottom:10px;width:40px;left:calc(50% - 20px);height:2px}
+  .tablet-case-port {bottom:-7px;width:25px;left:calc(50% - 12px);height:4px}
+}
+@media(max-height:600px) and (min-width:701px) {
+  #sw-tablet,#sw-tablet.tablet-hands-on {padding:26px 28px 27px}
+  #sw-tablet .tablet-device {--case-top:26px;--case-bottom:24px}
+}
+/* The glass reflows with the device. Pinching changes lock density, not the shell. */
+.tablet-page {--lock-zoom:1}
+.lock-board,.lock-board button {touch-action:pan-y!important}
+.property-map-scroll,.property-map-scroll [role=button],.preview-map,.preview-map [role=button] {touch-action:pan-x pan-y!important}
+.lock-tile-grid {
+  --lock-base:clamp(82px,10vw,132px);
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,calc(var(--lock-base) * var(--lock-zoom))),1fr));
+  gap:16px 14px;
+}
+#sw-tablet .lock-tile {max-width:calc(160px * var(--lock-zoom))}
+.lock-board .lock-disc {max-width:calc(140px * var(--lock-zoom))}
+.lock-board .lock-disc>strong {font-size:clamp(20px,calc(28px * var(--lock-zoom)),46px)}
+.lock-board .lock-tile-copy {font-size:clamp(12px,calc(17px * var(--lock-zoom)),25px)}
+.lock-zoom-controls {display:flex;align-items:center;justify-content:flex-end;gap:5px;color:#c6e9f7;margin:0;min-height:44px}
+.lock-zoom-controls>span {font-size:13px;margin-right:auto;letter-spacing:.3px}
+#sw-tablet .lock-zoom-controls button {min-width:44px;min-height:44px;border:0;background:none;box-shadow:none;border-radius:50%;color:#daf7ff;font:600 23px 'StoreWell Display',sans-serif}
+#sw-tablet .lock-zoom-controls [data-lock-zoom=reset] {min-width:58px;font-size:15px;border-radius:8px}
+#sw-tablet .lock-zoom-controls button:hover {background:#66dfff21}
+.tablet-page:not([data-lock-view=board]) .lock-zoom-controls {display:none}
+.tablet-page[data-screen=locks]>.lock-zoom-controls {margin-bottom:-7px}
+.tablet-page[data-screen=locks]>.lock-legend {margin-bottom:3px}
+@media(max-width:700px) {
+  .lock-tile-grid {gap:13px 9px}
+  .lock-board .lock-disc>strong {font-size:clamp(19px,calc(24px * var(--lock-zoom)),42px)}
+  .lock-board .lock-tile-copy {font-size:clamp(12px,calc(14px * var(--lock-zoom)),23px)}
+  .lock-bank>header>div {flex-wrap:wrap}
+}
+/* A sideways phone keeps its tabs and leaves the largest area for the locks. */
+@media(orientation:landscape) and (max-height:600px) {
+  #sw-tablet,#sw-tablet.tablet-hands-on,.preview-screen #sw-tablet {padding:23px 22px 25px}
+  #sw-tablet .tablet-device {--case-side:27px;--case-top:22px;--case-bottom:22px;height:100%;border-radius:32px}
+  #sw-tablet .tablet-device:after {border-radius:31px}
+  #sw-tablet .tablet-device:before {inset:5px;border-radius:27px}
+  #sw-tablet .tablet-glass {border-radius:16px}
+  .tablet-case-corner {width:51px;height:43px;border-width:5px}
+  .tablet-case-corner.tl {border-top-left-radius:33px}.tablet-case-corner.tr {border-top-right-radius:33px}
+  .tablet-case-corner.bl {border-bottom-left-radius:33px}.tablet-case-corner.br {border-bottom-right-radius:33px}
+  .tablet-case-grip {width:17px;top:25%;bottom:21%}
+  .tablet-case-grip.left {left:3px}.tablet-case-grip.right {right:3px}
+  .tablet-case-grip:after {left:4px;right:4px;top:8px;height:20px}
+  .tablet-case-keys {top:-21px;right:63px;gap:10px}
+  #sw-tablet .tablet-case-key {height:44px;padding-top:3px}
+  .tablet-case-key:before {bottom:24px}.tablet-case-key>span {top:26px;font-size:8px}
+  #sw-tablet .tablet-hardware {top:6px}
+  .tablet-case-mark {top:5px;left:55px;font-size:9px}
+  .tablet-case-speaker {bottom:7px;height:5px}#sw-tablet .tablet-home-bar:after {bottom:8px;height:2px}
+  #sw-tablet .tablet-header {padding:5px 15px;gap:10px;min-height:44px}
+  .tablet-brand strong {font-size:25px;letter-spacing:2px}
+  .tablet-brand small {display:none}
+  .tablet-session {font-size:11px}.tablet-session small {font-size:10px;max-width:none}
+  .put-away {min-height:40px;padding:6px 10px;font-size:12px!important;letter-spacing:.5px}
+  .tablet-strip {display:none}
+  .tablet-nav {grid-template-columns:1.15fr 1fr .8fr 1.1fr .75fr .85fr;padding:0 10px;gap:3px}
+  .tablet-nav button {min-height:40px;font-size:13px!important;padding:6px 4px;gap:4px}
+  .tablet-nav [data-action-count] {font-size:10px;min-width:18px;height:18px}
+  .tablet-page {padding:10px 14px 17px}
+  .tablet-page[data-screen=locks] {display:block}
+  .tablet-page[data-screen=locks]>.page-heading,.tablet-page[data-screen=locks]>.board-route-start {display:none}
+  .tablet-page[data-screen=locks]>.lock-toolbar {margin:0;gap:14px;float:left;width:48%}
+  .tablet-page[data-screen=locks]>.view-switch {margin:0;min-height:44px;justify-content:flex-end}
+  .search-field {min-width:0}.filter-field select {min-width:110px;font-size:13px!important;max-width:130px}
+  .search-field input {min-height:44px;font-size:14px!important;padding:7px 5px 7px 27px!important}
+  .search-field>svg {left:3px}
+  .view-switch>div {gap:3px}.view-switch button {padding:6px 7px;font-size:12px!important;min-height:40px}
+  .view-switch>span {display:none}
+  .tablet-page[data-screen=locks]>.lock-zoom-controls {clear:both;float:right;min-height:40px;margin:0}
+  .lock-zoom-controls>span {font-size:11px;margin-right:5px}
+  #sw-tablet .lock-zoom-controls button {min-height:40px;font-size:20px}
+  .tablet-page[data-screen=locks]>.lock-legend {min-height:40px;margin:0;padding-top:4px}
+  #tablet-locks {clear:both}
+  .lock-tile-grid {--lock-base:82px;gap:12px}
+  .lock-bank {margin-top:7px}.lock-bank h2 {font-size:14px}.lock-bank p,.lock-bank>header>span {font-size:11px}
+  .lock-bank>header {margin-bottom:6px}
+  .lock-board .lock-disc {max-width:calc(106px * var(--lock-zoom))}
+  .lock-board .lock-disc>strong {font-size:clamp(19px,calc(24px * var(--lock-zoom)),42px)}
+  .lock-board .lock-tile-copy {font-size:clamp(12px,calc(14px * var(--lock-zoom)),24px)}
+  .tablet-bottom {display:none}
+  .lock-status-choices {grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 8px}
+  #sw-tablet .lock-status-choices button {min-height:44px;padding:7px 9px;font-size:16px!important}
+  .lock-status-menu>header strong {font-size:20px}.lock-status-menu>header strong span {font-size:16px}
+}

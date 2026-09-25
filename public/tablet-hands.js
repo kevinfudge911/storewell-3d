@@ -35,7 +35,8 @@
       const r=root.getBoundingClientRect(),d=device.getBoundingClientRect();
       const size=Math.max(142,Math.min(260,r.width*.21,r.height*.34));
       // Only the thumb crosses the bezel; the glove stays outside the reading area.
-      const x=d.left-r.left+10,y=d.bottom-r.top-Math.max(130,d.height*.29);
+      const bezel=parseFloat(getComputedStyle(device).paddingLeft)||12;
+      const x=d.left-r.left+Math.min(bezel-3,25),y=d.bottom-r.top-Math.max(130,d.height*.29);
       grip.style.width=size+'px';grip.style.left=(x-size*.835)+'px';grip.style.top=(y-size*.18)+'px';
       tap.style.width=Math.max(152,Math.min(280,r.width*.29,r.height*.42))+'px';
     }

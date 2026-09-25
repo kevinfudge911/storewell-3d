@@ -14,6 +14,19 @@
   }
   function choices(root){
     let active=null;
+    function reflow(){
+      if(!active)return;
+      const {anchor,menu}=active,grid=anchor?.closest('.lock-tile-grid');
+      if(!grid)return;
+      const tiles=[...grid.querySelectorAll(':scope > .lock-tile')],index=tiles.indexOf(anchor);
+      const columns=getComputedStyle(grid).gridTemplateColumns.split(/\s+/).length;
+      const last=tiles[Math.min(tiles.length-1,Math.floor(index/columns)*columns+columns-1)];
+      if(last&&last.nextElementSibling!==menu){
+        const focused=menu.contains(document.activeElement)?document.activeElement:null;
+        last.after(menu);focused?.focus({preventScroll:true});
+      }
+    }
+    window.addEventListener('resize',()=>requestAnimationFrame(reflow));
     function close(restoreFocus=true){
       if(!active)return;
       const {menu,anchor}=active;active=null;menu.remove();
@@ -63,7 +76,58 @@
         }
       });
     }
-    return Object.freeze({open,close,get isOpen(){return !!active;}});
+    return Object.freeze({open,close,reflow,get isOpen(){return !!active;}});
   }
-  window.StoreWellLockUI=Object.freeze({statuses,disc,choices});
+  // Keep one-finger scrolling native. Own only two-finger resize gestures.
+  function pinchZoom(element,{get,set,selector,onStart=()=>{},onEnd=()=>{}}){
+    let pinch=null,ignoreUntil=0;
+    const accepts=e=>!selector||e.target.closest(selector);
+    const distance=e=>Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    function start(e){
+      if(e.touches.length!==2||!accepts(e))return;
+      const d=distance(e);if(d<8)return;
+      e.preventDefault();pinch={distance:d,zoom:get()};ignoreUntil=Infinity;onStart();
+    }
+    function move(e){
+      if(!pinch)return;
+      e.preventDefault();
+      if(e.touches.length===2)set(pinch.zoom*distance(e)/pinch.distance);
+    }
+    function end(e){
+      if(!pinch)return;
+      if(e.touches?.length){e.preventDefault();return;}
+      pinch=null;ignoreUntil=Date.now()+400;onEnd();
+    }
+    function click(e){if(e.detail!==0&&Date.now()<ignoreUntil&&accepts(e)){e.preventDefault();e.stopImmediatePropagation();}}
+    function wheel(e){if(!e.ctrlKey||!accepts(e))return;e.preventDefault();onStart();set(get()*Math.exp(-e.deltaY*.008));onEnd();}
+    element.addEventListener('touchstart',start,{passive:false});
+    element.addEventListener('touchmove',move,{passive:false});
+    element.addEventListener('touchend',end,{passive:false});
+    element.addEventListener('touchcancel',()=>end({touches:[]}));
+    element.addEventListener('click',click,true);
+    element.addEventListener('wheel',wheel,{passive:false});
+    return Object.freeze({get active(){return !!pinch;}});
+  }
+  const zoomButtons=()=>'<div class="lock-zoom-controls" role="group" aria-label="Lock size"><span>Pinch to resize</span><button type="button" data-lock-zoom="out" aria-label="Make locks smaller">−</button><button type="button" data-lock-zoom="reset" aria-label="Reset lock size">100%</button><button type="button" data-lock-zoom="in" aria-label="Make locks larger">+</button></div>';
+  function zoomBoard(root,{reflow=()=>{}}={}){
+    let zoom=1;
+    function refresh(){
+      root.querySelectorAll('[data-lock-zoom=reset]').forEach(b=>b.textContent=Math.round(zoom*100)+'%');
+      root.querySelectorAll('[data-lock-zoom=out]').forEach(b=>b.disabled=zoom<=.65);
+      root.querySelectorAll('[data-lock-zoom=in]').forEach(b=>b.disabled=zoom>=2);
+    }
+    function set(value){
+      zoom=Math.max(.65,Math.min(2,value));
+      root.style.setProperty('--lock-zoom',zoom);
+      root.dataset.lockScale=String(Math.round(zoom*100));
+      refresh();reflow();
+    }
+    const gesture=pinchZoom(root,{get:()=>zoom,set,selector:'.lock-board'});
+    root.addEventListener('click',e=>{
+      const b=e.target.closest('[data-lock-zoom]');if(!b||b.disabled)return;
+      e.stopPropagation();set(b.dataset.lockZoom==='reset'?1:zoom*(b.dataset.lockZoom==='in'?1.2:1/1.2));
+    });
+    return Object.freeze({refresh,get active(){return gesture.active;}});
+  }
+  window.StoreWellLockUI=Object.freeze({statuses,disc,choices,pinchZoom,zoomButtons,zoomBoard});
 })();

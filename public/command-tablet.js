@@ -31,7 +31,7 @@
   const escape = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const tablet=document.createElement('section');tablet.id='sw-tablet';tablet.hidden=true;
   tablet.setAttribute('role','dialog');tablet.setAttribute('aria-modal','true');tablet.setAttribute('aria-label','StoreWell command tablet');
-  tablet.innerHTML=`<div class="tablet-device"><div class="tablet-hardware" aria-hidden="true"><i></i><span>STOREWELL</span><b>FIELD COMMAND</b></div><div class="tablet-glass">
+  tablet.innerHTML=`<div class="tablet-device"><div class="tablet-case-details" aria-hidden="true" inert><i class="tablet-case-grip left"></i><i class="tablet-case-grip right"></i><i class="tablet-case-corner tl"></i><i class="tablet-case-corner tr"></i><i class="tablet-case-corner bl"></i><i class="tablet-case-corner br"></i><i class="tablet-case-speaker left"></i><i class="tablet-case-speaker right"></i><span class="tablet-case-mark">STOREWELL</span><i class="tablet-case-port"></i></div><div class="tablet-case-keys"><button class="tablet-case-key" data-action="case-sounds" aria-label="Status sounds" aria-pressed="true" title="Toggle status sounds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3ZM16 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg><span>SOUND</span></button><button class="tablet-case-key" data-action="exit" aria-label="Put away using tablet edge button" title="Put tablet away"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M7 5a9 9 0 1 0 10 0"/></svg><span>STOW</span></button></div><div class="tablet-hardware" aria-hidden="true"><i></i><span>STOREWELL</span><b>FIELD COMMAND</b></div><div class="tablet-glass">
     <header class="tablet-header"><button class="tablet-brand" data-nav="home" aria-label="StoreWell overview"><span class="tablet-emblem">${icon('units')}</span><span><strong>StoreWell</strong><small>FIELD COMMAND</small></span></button><div class="tablet-session"><span data-staff></span><small data-clock></small></div><button class="put-away" data-action="exit" aria-label="Put tablet away and return outside">${icon('exit')}<span>Outside</span></button></header>
     <div class="tablet-strip"><span class="tablet-connection" role="status">Connecting…</span><span>PROPERTY OPERATIONS</span></div>
     <nav class="tablet-nav" aria-label="Command tablet screens">${[['action','bell','Action required'],['locks','lock','All locks'],['route','route','Route'],['history','clock','Lock History'],['team','team','Team'],['more','gear','Control']].map(([key,sym,label])=>`<button data-nav="${key}" aria-controls="tablet-page" aria-pressed="false">${icon(sym)}<span>${label}</span>${key==='action'?'<b data-action-count aria-label="Locks requiring action">0</b>':''}</button>`).join('')}</nav>
@@ -42,6 +42,7 @@
   const hands=window.StoreWellTabletHands?.mount(tablet);
   const page=tablet.querySelector('main');
   const lockChoices=window.StoreWellLockUI.choices(page);
+const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow});
   let parkedTool=null,toolObserver;
   let app,screen='home',live=false,appLoginStarted=false,propertyPlan,selectedPropertyUnit,toastTimer;
   let filter='all',query='',lockView='board',selectedUnit=null,routeCursor=0,historyRecords={},historyState='Connecting to saved history…',unsubscribe,historyDownloadUrl,inventoryDownloadUrl,installPrompt,refreshScreen,priorFocus;
@@ -57,9 +58,10 @@
   function toast(message){const el=tablet.querySelector('.tablet-toast');el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,6000);}
   function releaseDownloads(){for(const url of [historyDownloadUrl,inventoryDownloadUrl])if(url)setTimeout(()=>URL.revokeObjectURL(url),60000);historyDownloadUrl=inventoryDownloadUrl=null;}
   function title(eyebrow,heading,subtitle=''){return `<header class="page-heading"><div><p>${eyebrow}</p><h1 tabindex="-1">${heading}</h1>${subtitle?`<span>${subtitle}</span>`:''}</div></header>`;}
-  function nav(key){tablet.querySelectorAll('[data-nav]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.nav===key));b.classList.toggle('active',b.dataset.nav===key);});}
+  function syncCaseSound(){tablet.querySelector('[data-action="case-sounds"]').setAttribute('aria-pressed',String(window._swSoundOn!==false));}
+  function nav(key){syncCaseSound();tablet.querySelectorAll('[data-nav]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.nav===key));b.classList.toggle('active',b.dataset.nav===key);});}
   function parkTool(){toolObserver?.disconnect();toolObserver=null;if(parkedTool){document.body.append(parkedTool);parkedTool.style.display='none';parkedTool=null;}}
-  function show(key,html){lockChoices.close(false);parkTool();releaseDownloads();refreshScreen=null;screen=key;page.dataset.screen=key;nav(key==='reports'?'more':key);page.innerHTML=html;page.scrollTop=0;page.querySelector('h1')?.focus({preventScroll:true});}
+  function show(key,html){lockChoices.close(false);parkTool();releaseDownloads();refreshScreen=null;screen=key;page.dataset.screen=key;nav(key==='reports'?'more':key);page.innerHTML=html;boardZoom.refresh();page.scrollTop=0;page.querySelector('h1')?.focus({preventScroll:true});}
   async function login(){if(window.__swCheckLogin?.()&&app?.state.editMode)return true;if(!app||!window.__swLoginGate)return false;try{await window.__swLoginGate(app);return !!window.__swCheckLogin?.();}catch(e){toast(e.message||'Staff sign-in could not connect.');return false;}}
   async function openTablet(next='locks'){
     if(!await login())return false;
@@ -103,8 +105,8 @@
     for(const u of rows){const location=window.__swPropertyRoute.sectionFor(app,u),index=route.findIndex(r=>r.id===u.id);let group=groups.at(-1);if(!group||group.id!==location.id){group={...location,stops:[]};groups.push(group);}group.stops.push({u,index,location});}
     return `<div class="lock-board"><div class="board-caption"><span>${icon('units')}BUILDING LOCKS</span><span>IN WALKING ORDER ${icon('route')}</span></div>${groups.map(g=>`<section class="lock-bank" aria-label="${escape(g.name)}"><header><div><h2>${escape(g.name)}</h2><p>${[...new Set(g.stops.map(s=>s.location.side))].map(escape).join(' → ')}</p></div><span>Stops ${g.stops[0].index+1}${g.stops.length>1?'–'+(g.stops.at(-1).index+1):''}</span></header><div class="lock-tile-grid">${g.stops.map(({u,index,location})=>lockTile(u,index,location)).join('')}</div></section>`).join('')||'<div class="empty-state"><strong>No locks match this view.</strong><p>Try another unit or status.</p><button class="tablet-button" data-action="all-locks">Show all locks</button></div>'}</div>`;
   }
-  function showLocks(){
-    show('locks',title('PROPERTY LOCK CONTROL',filter==='action'?'Action required':'All locks')+`<div class="board-route-start"><span>${icon('route')}</span><div><strong>Open main gate → C2 → C3</strong><small>Enter at the front-right gate. Start on the right side of the front building.</small></div><button data-action="route">Walk route ${icon('back')}</button></div>`+lockToolbar()+`<div class="view-switch"><div role="group" aria-label="Lock layout"><button data-layout="board" aria-pressed="${lockView==='board'}">${icon('lock')}Lock board</button><button data-layout="map" aria-pressed="${lockView==='map'}">${icon('units')}Property map</button><button data-layout="list" aria-pressed="${lockView==='list'}">${icon('route')}Route list</button></div><span data-match-count></span></div><details class="lock-legend"><summary>Status color key</summary><div>${Object.entries(STATUS).map(([key,[label,color]])=>`<span><i style="background:${color}"></i>${escape(label)}</span>`).join('')}</div></details><div id="tablet-locks"></div>`);
+  function showLocks(){page.dataset.lockView=lockView;
+    show('locks',title('PROPERTY LOCK CONTROL',filter==='action'?'Action required':'All locks')+`<div class="board-route-start"><span>${icon('route')}</span><div><strong>Open main gate → C2 → C3</strong><small>Enter at the front-right gate. Start on the right side of the front building.</small></div><button data-action="route">Walk route ${icon('back')}</button></div>`+lockToolbar()+`<div class="view-switch"><div role="group" aria-label="Lock layout"><button data-layout="board" aria-pressed="${lockView==='board'}">${icon('lock')}Lock board</button><button data-layout="map" aria-pressed="${lockView==='map'}">${icon('units')}Property map</button><button data-layout="list" aria-pressed="${lockView==='list'}">${icon('route')}Route list</button></div><span data-match-count></span></div>${window.StoreWellLockUI.zoomButtons()}<details class="lock-legend"><summary>Status color key</summary><div>${Object.entries(STATUS).map(([key,[label,color]])=>`<span><i style="background:${color}"></i>${escape(label)}</span>`).join('')}</div></details><div id="tablet-locks"></div>`);
     page.querySelectorAll('[data-layout]').forEach(b=>b.onclick=()=>{lockView=b.dataset.layout;showLocks();});
     bindFilters(drawLocks);drawLocks();refreshScreen=refreshLocks;
   }
@@ -129,10 +131,7 @@
     const setZoom=(value)=>{const old=zoom;zoom=Math.max(.65,Math.min(4.5,value));canvas.style.width=720*zoom+'px';scroller.scrollLeft=(scroller.scrollLeft+scroller.clientWidth/2)*zoom/old-scroller.clientWidth/2;scroller.scrollTop=(scroller.scrollTop+scroller.clientHeight/2)*zoom/old-scroller.clientHeight/2;slot.querySelector('[data-map-scale]').textContent=Math.round(zoom*100)+'%';};
     slot.querySelectorAll('[data-zoom]').forEach(b=>b.onclick=()=>setZoom(zoom*(b.dataset.zoom==='in'?1.25:.8)));
     slot.querySelectorAll('[data-map-zone]').forEach(b=>b.onclick=()=>{scroller.scrollTop={front:scroller.scrollHeight,middle:scroller.scrollHeight*.44,back:0}[b.dataset.mapZone];});
-    let pinch;
-    scroller.addEventListener('touchstart',e=>{if(e.touches.length===2)pinch={d:Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY),z:zoom};},{passive:true});
-    scroller.addEventListener('touchmove',e=>{if(e.touches.length===2&&pinch){e.preventDefault();setZoom(pinch.z*Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)/pinch.d);}},{passive:false});
-    scroller.addEventListener('touchend',()=>pinch=null);
+    window.StoreWellLockUI.pinchZoom(scroller,{get:()=>zoom,set:setZoom});
     let pan;
     scroller.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse'||e.button!==0||e.target.closest('[data-map-unit]'))return;pan={x:e.clientX,y:e.clientY,left:scroller.scrollLeft,top:scroller.scrollTop};scroller.setPointerCapture(e.pointerId);scroller.style.cursor='grabbing';e.preventDefault();});
     scroller.addEventListener('pointermove',e=>{if(pan){scroller.scrollLeft=pan.left+pan.x-e.clientX;scroller.scrollTop=pan.top+pan.y-e.clientY;}});
@@ -218,7 +217,7 @@
     if(a==='character')return openTool('My character',()=>window._swShowWardrobe?.(),'#sw-wardrobe');
     if(a==='controls')return openTool('Player controls',()=>window.__swGear?.(),'#sw-sens-panel');
     if(a==='chat')return showChat();
-    if(a==='sounds'){window.__swSoundToggle?.();more();return;}
+    if(a==='sounds'||a==='case-sounds'){window.__swSoundToggle?.();syncCaseSound();if(a==='sounds')more();else toast(window._swSoundOn===false?'Status sounds muted':'Status sounds on');return;}
     if(a==='hands'){hands?.toggle();more();return;}
     if(a==='logout')return window.__swLogout?.();
     if(a==='fullscreen'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{toast('Full screen is not available in this browser.');}return;}
@@ -277,7 +276,7 @@
     tablet.querySelector('[data-clock]').textContent=new Date().toLocaleString('en-US',{timeZone:'America/Chicago',weekday:'short',hour:'numeric',minute:'2-digit'})+' CT';
     tablet.querySelector('[data-action-count]').textContent=units().filter(u=>['flashred','flashgreen'].includes(u.status)).length;
     const c=tablet.querySelector('.tablet-connection');c.textContent=live?'Shared inventory connected':'Saved inventory · reconnecting';c.classList.toggle('connected',live);
-    if(!lockChoices.isOpen)refreshScreen?.();watchHistory();
+    if(!lockChoices.isOpen&&!boardZoom.active)refreshScreen?.();watchHistory();
   }
   async function syncHealth(){
     try{const response=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides.json',{signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error();const data=await response.json();if(app){const merged={...(data||{})};for(const [k,v]of Object.entries(app._pendingWrites||{}))if(Date.now()-v.t<10000)merged[k]=v.st;app._overrides=merged;app._repaintFromOverrides?.();}live=true;}catch{live=false;}refresh();
