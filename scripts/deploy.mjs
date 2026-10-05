@@ -13,6 +13,24 @@ const projectPath = `/accounts/${accountId}/pages/projects/${projectName}`;
 const recovered = JSON.parse(fs.readFileSync(new URL('./recovered-assets.json', import.meta.url), 'utf8'));
 if (!accountId || !token) throw new Error('Existing Cloudflare account and token environment variables are required.');
 
+// The October 2 direct upload omitted the approved handheld and exterior assets.
+// Fail before uploading if an incomplete frontend is being published again.
+const requiredFrontend = [
+  '/index.html', '/command-tablet.js', '/command-tablet.css',
+  '/command-hologram.css', '/tablet-case.css', '/lock-controls.js',
+  '/tablet-hands.js', '/tablet-hands.css', '/img/command-storage-lane.webp',
+  '/img/hands/soldier-grip.webp', '/img/hands/soldier-tap.webp',
+  '/property-route.js', '/status-sounds.js', '/staff.bundle.js',
+  '/notifications.js', '/exterior-characters.js', '/exterior-controls.js',
+  '/character-menu.js', '/exterior.css', '/models/Soldier.glb',
+  '/vendor/three.min.js', '/vendor/dc-runtime.js', '/sw.js',
+];
+for (const path of requiredFrontend) {
+  if (!fs.existsSync(`public${path}`) || fs.statSync(`public${path}`).size === 0) {
+    throw new Error(`Required StoreWell asset missing; production has not changed: ${path}`);
+  }
+}
+
 async function api(path, options = {}, bearer = token) {
   const response = await fetch(apiRoot + path, {
     signal: AbortSignal.timeout(60000),
@@ -59,6 +77,9 @@ const { formData } = await unstable_pages.deploy({
   commitDirty: false, functionsDirectory: 'functions', sourceMaps: false,
 });
 const manifest = JSON.parse(formData.get('manifest'));
+for (const path of requiredFrontend) {
+  if (!manifest[path]) throw new Error(`Upload omitted required StoreWell asset: ${path}`);
+}
 for (const [path, hash] of Object.entries(recovered.files)) manifest[path] ??= hash;
 const publish = new FormData();
 for (const [key, value] of formData.entries()) publish.append(key, value);
@@ -68,7 +89,7 @@ if (!publish.has('_worker.bundle')) throw new Error('Pages Functions were not co
 const submitted = await api(`${projectPath}/deployments`, { method: 'POST', body: publish });
 console.log(`Submitted ${branch}: ${submitted.url}`);
 const deployment = await waitForDeployment(submitted.id);
-for (const path of Object.keys(recovered.files)) {
+for (const path of Object.keys(manifest)) {
   if (deployment.files?.[path] !== manifest[path]) throw new Error(`Deployed asset missing: ${path}`);
 }
 console.log(JSON.stringify({ id: deployment.id, url: deployment.url, environment: deployment.environment, status: 'success', customAssets: Object.keys(recovered.files) }));

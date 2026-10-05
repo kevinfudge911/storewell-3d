@@ -13,3 +13,25 @@ The four standard character models and matching Three.js GLTFLoader are bundled 
 Compatibility repairs preserve purple as Ready to Rent, yellow as Rented / No Lock, and white as Empty. All modeled doors retain alert/frame metadata. The app can still open an outdoor plan when WebGL is unavailable. Staff edits remain sign-in protected, failed writes do not display as saved, and realtime updates do not trigger duplicate notifications.
 
 Run Node 24, `npm ci`, and `npm run build`. Offline checks parse the real Soldier geometry, skeleton and animation, verify exterior routes and inventory, and exercise both GPU-state and no-GPU entry/exit paths and staff tools without writing production data. Image decoding and GPU rendering are mocked; these checks cannot replace a visual check on a GPU-enabled device.
+
+## Approved handheld restoration — October 4, 2026 (Central)
+
+The September 25 approval in `AGENTS.md` supersedes the command-room description
+above. Command Center opens the orange/graphite handheld glass tablet. The saved
+source baseline is Git commit `77c4ada12bfb5d16048210503a7513fabdfbc714` and
+Cloudflare production deployment `369e79ac-c6d7-4033-8e6e-eef7e8c02339`.
+
+On October 2, a direct upload outside this repository replaced production with
+deployment `585e4c04-c185-4243-bdfe-dc2d5d17b215`. Its manifest contains only eight
+public files, versus 64 in the approved release. It omits the tablet artwork,
+round-lock controls, route, original sounds, character models and staff bundle.
+The replacement handheld has placeholder Activity and Control screens. Do not
+use that release as the approved interface baseline. The deployment remains
+available for reference; this recovery does not delete it.
+
+Restore the approved source through the existing workflow. Advance the service
+worker cache so old clients fetch the restored shell. The deployment script now
+rejects a missing handheld/exterior asset before publishing and verifies every
+uploaded asset in the resulting manifest. This recovery does not write, reset,
+import or migrate Firebase inventory, lock history, staff contacts or push
+subscriptions. It preserves the existing server-side staff session boundary.
