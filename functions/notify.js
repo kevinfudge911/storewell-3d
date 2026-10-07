@@ -16,6 +16,21 @@ function db(path,env){if(!env.FIREBASE_DB_SECRET)throw new Error('Notification d
 function endpointAllowed(endpoint){
   try{const u=new URL(endpoint);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&(/(^|\.)push\.apple\.com$/.test(u.hostname)||/(^|\.)notify\.windows\.com$/.test(u.hostname)||/(^|\.)push\.services\.mozilla\.com$/.test(u.hostname)||['fcm.googleapis.com','android.googleapis.com','web.push.apple.com'].includes(u.hostname));}catch{return false;}
 }
+function failureReason(error){
+  if(error?.name==='TimeoutError'||error?.name==='AbortError')return 'timeout';
+  if(['DataError','OperationError','NotSupportedError','InvalidAccessError'].includes(error?.name))return 'invalid_crypto_key';
+  return 'request_failed';
+}
+async function providerReason(response){
+  // Return a fixed diagnostic code, never a provider body, endpoint or key.
+  const detail=(await response.text().catch(()=>'' )).slice(0,4096).toLowerCase();
+  if(response.status===404||response.status===410)return 'subscription_expired';
+  if(/vapid/.test(detail)&&/do not correspond|mismatch|does not match/.test(detail))return 'signing_key_mismatch';
+  if(response.status===401||response.status===403)return 'provider_auth_rejected';
+  if(response.status===429)return 'provider_rate_limited';
+  if(response.status>=500)return 'provider_unavailable';
+  return 'provider_rejected';
+}
 export async function onRequestGet({env}){
   try{const keys=vapid(env);return json({configured:!!env.FIREBASE_DB_SECRET,publicKey:keys.publicKey});}
   catch{return json({configured:false,error:'Push signing key is unavailable'},503);}
@@ -30,15 +45,18 @@ export async function onRequestPost({request,env}){
   const notificationId=crypto.randomUUID();
   const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationId,url:'/'};
   let sent=0,failed=0,expired=0,skipped=0;
+  const failures=[];
+  const recordFailure=(stage,reason,status)=>{let item=failures.find(x=>x.stage===stage&&x.reason===reason&&x.status===status);if(item)item.count++;else failures.push({stage,reason,...(status?{status}:{}),count:1});};
   const selected=Object.entries(subs).filter(([,sub])=>{const prefs=sub?.prefs||DEFAULT_PREFS;if(prefs[d.type]!==true||(recipients&&!recipients.has(String(sub.staff||'').toLowerCase()))){skipped++;return false;}return true;});
   // Every encrypted message carries its own contents, avoiding shared-lastAlert races.
   for(let start=0;start<selected.length;start+=8){
     await Promise.all(selected.slice(start,start+8).map(async([id,sub])=>{
-      if(!endpointAllowed(sub?.endpoint)||!sub.keys?.p256dh||!sub.keys?.auth){failed++;return;}
-      try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:{ttl:3600}},sub,keys);const response=await fetch(sub.endpoint,{...payload,redirect:'error',signal:AbortSignal.timeout(12000)});
-        if(response.ok)sent++;else{failed++;if(response.status===404||response.status===410){expired++;await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}}
-      }catch{failed++;}
+      if(!endpointAllowed(sub?.endpoint)||!sub.keys?.p256dh||!sub.keys?.auth){failed++;recordFailure('subscription','invalid_subscription');return;}
+      let stage='receipt';
+      try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);stage='encryption';const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:{ttl:3600}},sub,keys);stage='delivery';const response=await fetch(sub.endpoint,{...payload,redirect:'error',signal:AbortSignal.timeout(12000)});
+        if(response.ok)sent++;else{failed++;recordFailure(stage,await providerReason(response),response.status);if(response.status===404||response.status===410){expired++;try{await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}catch{/* A cleanup failure must not count the same delivery twice. */}}}
+      }catch(error){failed++;recordFailure(stage,failureReason(error));}
     }));
   }
-  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId},failed&&sent===0?502:200);
+  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,...(failures.length?{failures}:{})},failed&&sent===0?502:200);
 }

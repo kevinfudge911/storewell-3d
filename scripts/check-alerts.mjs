@@ -21,6 +21,15 @@ assert.equal(d.sent,1);assert.equal(d.failed,1);assert.equal(d.skipped,1);assert
 const send=requests.find(x=>x.url.endsWith('/valid'));assert(send);assert.equal(new Headers(send.init.headers).get('Content-Encoding'),'aes128gcm');assert(new Headers(send.init.headers).get('Authorization').startsWith('vapid '));assert(send.init.body.byteLength>1000,'Notification has an encrypted payload');assert(!Buffer.from(send.init.body).toString().includes('Unit G2'),'Message is not plaintext');assert(requests.some(x=>x.init.method==='DELETE'),'Expired subscriptions are cleaned');
 requests=[];r=await push.onRequestPost({env,request:request({type:'report',title:'Report',recipients:['Kevin']})});d=await r.json();assert.equal(d.sent,1);assert(!requests.some(x=>x.url.endsWith('/expired')),'Reports honor selected staff recipients');
 assert.equal((await push.onRequestPost({env:{},request:request({type:'report',title:'Report'})})).status,503);
+// Provider failures are actionable without leaking endpoints or cryptographic material.
+globalThis.fetch=async(url)=>String(url).includes('/pushSubs.json')?Response.json({a:subscription('Brad','https://fcm.googleapis.com/private-device')}):new Response('VAPID credentials do not correspond to subscription private-device',{status:403});
+r=await push.onRequestPost({env,request:request({type:'report',title:'Diagnostic check',recipients:['Brad']})});d=await r.json();
+assert.equal(r.status,502);assert.equal(d.failed,1);assert.deepEqual(d.failures,[{stage:'delivery',reason:'signing_key_mismatch',status:403,count:1}]);
+assert(!JSON.stringify(d).includes('private-device'),'Diagnostic output does not disclose the subscription');
+globalThis.fetch=async(url)=>{if(String(url).includes('/pushSubs.json'))return Response.json({a:subscription('Brad','https://fcm.googleapis.com/expired')});if(String(url).includes('/pushSubs/'))throw new Error('Cleanup offline');return new Response('',{status:410});};
+d=await (await push.onRequestPost({env,request:request({type:'report',title:'Expired device'})})).json();assert.equal(d.failed,1,'Cleanup failure does not count a delivery twice');
+globalThis.fetch=async(url)=>{if(String(url).includes('/pushSubs.json'))return Response.json({a:subscription('Brad','https://fcm.googleapis.com/timeout')});throw new DOMException('Endpoint timed out','TimeoutError');};
+d=await (await push.onRequestPost({env,request:request({type:'report',title:'Timeout'})})).json();assert.equal(d.failures[0].reason,'timeout');assert.equal(d.failures[0].stage,'delivery');
 globalThis.fetch=async()=>Response.json({code:'unauthorized'},{status:401});
 r=await email.onRequestPost({env,request:request({to:'staff@example.test',body:'Report'})});assert.equal(r.status,502);assert.equal((await r.json()).success,false,'Provider rejection is an HTTP failure');
 let payload;
