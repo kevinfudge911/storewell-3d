@@ -23,13 +23,20 @@ function failureReason(error){
 }
 async function providerReason(response){
   // Return a fixed diagnostic code, never a provider body, endpoint or key.
-  const detail=(await response.text().catch(()=>'' )).slice(0,4096).toLowerCase();
+  const detail=(await response.text().catch(()=>'')).slice(0,4096).toLowerCase();
   if(response.status===404||response.status===410)return 'subscription_expired';
   if(/vapid/.test(detail)&&/do not correspond|mismatch|does not match/.test(detail))return 'signing_key_mismatch';
   if(response.status===401||response.status===403)return 'provider_auth_rejected';
   if(response.status===429)return 'provider_rate_limited';
   if(response.status>=500)return 'provider_unavailable';
   return 'provider_rejected';
+}
+function failureMessage(failures){
+  const reasons=new Set(failures.map(x=>x.reason));
+  if(reasons.has('subscription_expired')||reasons.has('signing_key_mismatch'))return 'A saved device registration needs refreshing. Open StoreWell on that device and select Notifications.';
+  if(reasons.has('provider_auth_rejected')||reasons.has('invalid_crypto_key'))return 'The push service could not authorize this delivery. The saved lock status is unchanged.';
+  if(reasons.has('timeout')||reasons.has('provider_unavailable')||reasons.has('provider_rate_limited'))return 'The push provider is temporarily unavailable. Please retry.';
+  return 'Push delivery could not be completed. Please retry.';
 }
 export async function onRequestGet({env}){
   try{const keys=vapid(env);return json({configured:!!env.FIREBASE_DB_SECRET,publicKey:keys.publicKey});}
@@ -53,10 +60,11 @@ export async function onRequestPost({request,env}){
     await Promise.all(selected.slice(start,start+8).map(async([id,sub])=>{
       if(!endpointAllowed(sub?.endpoint)||!sub.keys?.p256dh||!sub.keys?.auth){failed++;recordFailure('subscription','invalid_subscription');return;}
       let stage='receipt';
-      try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);stage='encryption';const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:{ttl:3600}},sub,keys);stage='delivery';const response=await fetch(sub.endpoint,{...payload,redirect:'error',signal:AbortSignal.timeout(12000)});
+      // workerd accepts manual/follow only. Manual also prevents credentials from following a redirect.
+      try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);stage='encryption';const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:{ttl:3600}},sub,keys);stage='delivery';const response=await fetch(sub.endpoint,{...payload,redirect:'manual',signal:AbortSignal.timeout(12000)});
         if(response.ok)sent++;else{failed++;recordFailure(stage,await providerReason(response),response.status);if(response.status===404||response.status===410){expired++;try{await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}catch{/* A cleanup failure must not count the same delivery twice. */}}}
       }catch(error){failed++;recordFailure(stage,failureReason(error));}
     }));
   }
-  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,...(failures.length?{failures}:{})},failed&&sent===0?502:200);
+  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,...(failures.length?{failures,error:failureMessage(failures)}:{})},failed&&sent===0?502:200);
 }

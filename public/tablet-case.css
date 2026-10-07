@@ -372,3 +372,22 @@
  #sw-tablet .tablet-bottom button {flex:0 1 auto;flex-direction:row;gap:6px;min-height:35px;padding:4px 12px;font-size:13px!important}
  #sw-tablet .tablet-bottom button svg {width:16px!important;height:16px!important}
 }
+/* Keep controls readable over the storage-lane reflections without covering the glass. */
+#sw-tablet .tablet-nav button {color:#effaff;background-color:#04263e70;text-shadow:0 1px 3px #00101f}
+#sw-tablet .tablet-nav button.active {color:#fff;background-color:#12608280}
+#sw-tablet .tablet-bottom {background-color:#062a4099}
+#sw-tablet .tablet-bottom button {color:#f2fcff;background-color:#10435d91;border-color:#91dcf7b3;min-height:44px;font-weight:600}
+#sw-tablet .view-switch button {min-height:44px;color:#effbff;text-shadow:0 1px 3px #00101f}
+#sw-tablet .lock-disc>strong {color:#f5fdff;text-shadow:0 1px 4px #00101f,0 0 7px #00101f}
+#sw-tablet button:focus-visible {outline:2px solid #e3fbff;outline-offset:3px}
+@media(max-width:700px) {
+ #sw-tablet .tablet-nav button {font-size:14px!important;min-height:46px;padding:7px 4px;letter-spacing:0}
+ #sw-tablet .tablet-bottom button {font-size:14px!important;min-height:52px;letter-spacing:0;white-space:normal;line-height:1.15}
+ #sw-tablet .view-switch button {font-size:14px!important;padding:7px 8px}
+ #sw-tablet .lock-color-key>span {font-size:11.5px;color:#e8f8ff}
+}
+@media(orientation:landscape) and (max-height:600px) {
+ #sw-tablet .tablet-nav button {font-size:14px!important;min-height:44px}
+ #sw-tablet .tablet-bottom button {font-size:14px!important;min-height:44px}
+ #sw-tablet .view-switch button {font-size:13px!important}
+}
