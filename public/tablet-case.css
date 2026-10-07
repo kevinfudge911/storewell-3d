@@ -395,4 +395,20 @@
  #sw-tablet .tablet-nav button {font-size:14px!important;min-height:44px}
  #sw-tablet .tablet-bottom button {font-size:14px!important;min-height:44px}
  #sw-tablet .view-switch button {font-size:13px!important}
+ #sw-tablet .tablet-page[data-screen=locks] {display:grid;grid-template-columns:minmax(110px,1fr) auto auto;align-content:start;gap:4px 6px;padding:6px 12px 10px}
+ #sw-tablet .tablet-page[data-screen=locks]>.lock-toolbar {grid-column:1;grid-row:1;width:auto;float:none;margin:0;gap:7px}
+ #sw-tablet .tablet-page[data-screen=locks]>.view-switch {grid-column:2;grid-row:1;margin:0;min-height:44px}
+ #sw-tablet .tablet-page[data-screen=locks]>.lock-zoom-controls {grid-column:3;grid-row:1;float:none;clear:none;margin:0;min-height:44px;gap:0}
+ #sw-tablet .tablet-page[data-screen=locks]>.lock-zoom-controls>span {display:none}
+ #sw-tablet .tablet-page[data-screen=locks]>.lock-zoom-controls [data-lock-zoom=reset] {min-width:46px}
+ #sw-tablet .tablet-page[data-screen=locks]>#tablet-locks {grid-column:1/-1}
+ #sw-tablet .tablet-page[data-screen=locks] .filter-field {min-width:82px;max-width:105px}
+ #sw-tablet .tablet-page[data-screen=locks] .search-field input {font-size:13px!important}
+}
+@media(orientation:landscape) and (max-height:460px) {
+ /* The case keeps Sound and Stow available; reclaim the duplicated brand row. */
+ #sw-tablet .tablet-header {display:none}
+ #sw-tablet .tablet-device {--case-bottom:16px}
+ #sw-tablet,#sw-tablet.tablet-hands-on,.preview-screen #sw-tablet {padding-bottom:19px}
+ #sw-tablet .lock-color-key {scrollbar-width:thin}
 }
