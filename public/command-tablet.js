@@ -279,7 +279,7 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
     if(!lockChoices.isOpen&&!boardZoom.active)refreshScreen?.();watchHistory();
   }
   async function syncHealth(){
-    try{const response=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides.json',{signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error();const data=await response.json();if(app){const merged={...(data||{})};for(const [k,v]of Object.entries(app._pendingWrites||{}))if(Date.now()-v.t<10000)merged[k]=v.st;app._overrides=merged;app._repaintFromOverrides?.();}live=true;}catch{live=false;}refresh();
+    try{const response=await fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockOverrides.json',{cache:'no-store',signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error();const data=await response.json();if(data!==null&&(typeof data!=='object'||Array.isArray(data)||Object.values(data).some(st=>typeof st!=='string'||!Object.hasOwn(STATUS,st))))throw new Error('Invalid inventory response');if(app){const merged={...(data||{})};for(const [k,v]of Object.entries(app._pendingWrites||{}))if(Date.now()-v.t<10000)merged[k]=v.st;app._overrides=merged;app._repaintFromOverrides?.();}live=true;}catch{live=false;}refresh();
   }
   window.addEventListener('online',syncHealth);window.addEventListener('offline',()=>{live=false;refresh();});
   setInterval(refresh,2000);setInterval(syncHealth,15000);refresh();syncHealth();
