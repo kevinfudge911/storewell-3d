@@ -53,7 +53,10 @@
       <span class="sw-tlbl">FIND</span></button>
     <button onClick="{{ openCommandCenter }}" id="sw-cmd-tab" aria-label="Enter Command Center" class="sw-tab" style="background: linear-gradient(135deg, rgb(77, 182, 247), rgb(21, 96, 200), rgb(13, 61, 138)); box-shadow: rgba(0, 0, 0, 0.45) -5px 4px 14px, rgba(255, 255, 255, 0.5) 0px 2px 4px inset;">
       <span style="font-size: 26px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.4) 0px 1px 2px);">⚡</span>
-      <span class="sw-tlbl" style="font-size: 10px; letter-spacing: 0.5px;">CMD</span></button>
+      <span class="sw-tlbl">Command Center</span></button>
+    <button onClick="{{ adjustControls }}" id="sw-speed-tab" aria-label="Speed & Turn" aria-controls="sw-sens-panel" aria-expanded="false" class="sw-tab" style="background:linear-gradient(#157d91,#075061);">
+      <span aria-hidden="true" style="font-size:28px;line-height:1;">⚙️</span>
+      <span class="sw-tlbl">Speed &amp; Turn</span></button>
     <button onClick="{{ goHome }}" id="sw-exit-tab" class="sw-tab" style="display: none; background: linear-gradient(rgb(224, 82, 82), rgb(181, 32, 32));">
       <span style="font-size: 22px; line-height: 1; filter: drop-shadow(rgba(0, 0, 0, 0.35) 0px 1px 1px);">✕</span>
       <span class="sw-tlbl">EXIT</span></button>
@@ -203,6 +206,7 @@ class Component extends DCLogic {
   }
   renderVals(){ return { mountRef:this.mountRef, loadRef:this.loadRef, mode:this.state.mode,
     setWalk:()=>this.setMode('walk'), setDrive:()=>this.setMode('drive'), setFly:()=>this.setMode('fly'), setUfo:()=>this.setMode('ufo'), setView:()=>this.setMode('orbit'), goOffice:()=>{ try{ if(window.__swCommandCenter)window.__swCommandCenter(); }catch(e){} },
+    adjustControls:()=>window.__swGear?.(),
     showJoy: this.state.isTouch && this.state.mode!=='orbit',
     showRideBtns: this.state.isTouch && (this.state.mode==='drive'||this.state.mode==='fly'||this.state.mode==='ufo'),
     inAir: this.state.isTouch && (this.state.mode==='fly'||this.state.mode==='ufo'),
@@ -1502,7 +1506,7 @@ class Component extends DCLogic {
     if(U){ mv.add(f); }
     if(Dn){ mv.addScaledVector(f,-0.7); }
     if(o.strafe){ const rt=new THREE.Vector3(-Math.cos(o.h),0,Math.sin(o.h)); if(R) mv.add(rt); if(L) mv.sub(rt); }
-    if(mv.lengthSq()>0){ let base=(o===this.walker&&window._swWalkSpd>0&&localStorage.getItem('sw_walk_spd')!=null)?window._swWalkSpd:o.spd; let spd=this._joyMag>0?base*Math.max(0.35,this._joyMag):base; if(this._inCommandRoom) spd*=1.7; mv.normalize().multiplyScalar(spd); o.g.position.add(mv); moving=true; }
+    if(mv.lengthSq()>0){ let base=(o===this.walker&&window._swWalkSpd>0&&localStorage.getItem('sw_walk_spd')!=null)?window._swWalkSpd:o.spd; if(o===this.car&&window._swDriveScale>0)base*=window._swDriveScale; let spd=this._joyMag>0?base*Math.max(0.35,this._joyMag):base; if(this._inCommandRoom) spd*=1.7; mv.normalize().multiplyScalar(spd); o.g.position.add(mv); moving=true; }
     if(this._blocked(o.g.position,o)){
       const tx=old.clone(); tx.x=o.g.position.x; const tz=old.clone(); tz.z=o.g.position.z;
       if(!this._blocked(tx,o)) o.g.position.copy(tx);

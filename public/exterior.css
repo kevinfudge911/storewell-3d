@@ -2,12 +2,31 @@
 @keyframes sw-flash-red{0%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}50%{background:#ff4444;box-shadow:0 0 0 2px #ff000022,0 0 12px #ff000066;}100%{background:#ff0000;box-shadow:0 0 0 8px #ff000055,0 0 50px #ff0000,0 0 100px #ff000088;}}
 @keyframes sw-flash-green{0%{background:#00ff44;box-shadow:0 0 0 8px #00ff4455,0 0 50px #00ff44,0 0 100px #00ff4488;}50%{background:#44ff88;box-shadow:0 0 0 2px #00ff4422,0 0 12px #00ff4466;}100%{background:#00ff44;box-shadow:0 0 0 8px #00ff4455,0 0 50px #00ff44,0 0 100px #00ff4488;}}
 /* Right-side book tabs — fixed to viewport, always visible */
-#sw-tabs{ position:fixed; right:0; top:10px; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-start; gap:5px; z-index:200; padding:0; pointer-events:none; }
-.sw-tab{ pointer-events:all; flex:0 0 auto; width:64px; min-height:62px; border:none; cursor:pointer; border-radius:14px 0 0 14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:8px 4px 8px 10px; color:#fff; -webkit-tap-highlight-color:transparent; transition:transform .08s; box-shadow:-4px 3px 10px rgba(0,0,0,.35),inset 0 2px 3px rgba(255,255,255,.45); }
+#sw-tabs{ position:fixed; right:env(safe-area-inset-right,0px); top:max(12px,env(safe-area-inset-top)); display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-start; gap:7px; z-index:200; padding:0; pointer-events:none; }
+.sw-tab{ pointer-events:all; flex:0 0 auto; width:136px; min-height:74px; border:none; cursor:pointer; border-radius:14px 0 0 14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:10px 12px; color:#fff; -webkit-tap-highlight-color:transparent; transition:transform .08s; box-shadow:-4px 3px 10px rgba(0,0,0,.35),inset 0 2px 3px rgba(255,255,255,.45); }
 .sw-tab:active{ transform:translateX(6px); }
-.sw-tab#sw-cmd-tab{ min-height:76px; width:70px; }
-.sw-tlbl{ font:800 9px 'Segoe UI',Arial; letter-spacing:.3px; text-transform:uppercase; text-shadow:0 1px 2px rgba(0,0,0,.45); }
+.sw-tab#sw-cmd-tab{ min-height:84px; }
+.sw-tab:focus-visible{outline:3px solid #fff;outline-offset:-5px}
+.sw-tlbl{ font:800 18px/1.2 'Segoe UI',Arial; letter-spacing:.2px; text-align:center; text-shadow:0 1px 3px rgba(0,0,0,.65); }
 /* Keep sw-glbl for compatibility with setBell() */
 .sw-glbl{ font:800 9px 'Segoe UI',Arial; letter-spacing:.3px; text-transform:uppercase; text-shadow:0 1px 2px rgba(0,0,0,.45); }
 /* Hide tabs when Command Center is open */
 body.sw-cc-open #sw-tabs{ display:none !important; }
+/* Short screens use a top dock, leaving the joystick clear at bottom right. */
+@media(max-height:700px){
+ #sw-tabs{right:max(12px,env(safe-area-inset-right));left:max(12px,env(safe-area-inset-left));width:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));align-items:stretch;gap:6px}
+ #sw-tabs .sw-tab{width:100%;min-height:68px;border-radius:12px;padding:8px 5px}
+ #sw-tabs .sw-tlbl{font-size:16px}
+ .sw-tab:active{transform:translateY(2px)}
+}
+@media(max-width:600px) and (min-height:701px){.sw-tab{width:116px}.sw-tlbl{font-size:17px}}
+/* Outside speed controls share the saved settings with the Command Center. */
+body:not(.storewell-deck-open) #sw-sens-panel{top:50%!important;left:50%!important;right:auto!important;transform:translate(-50%,-50%);width:min(390px,calc(100vw - 32px))!important;max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;padding:20px!important;color-scheme:light}
+#sw-sens-panel .sw-speed-header{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:22px;font-weight:800;margin-bottom:10px}
+#sw-sens-panel .sw-speed-header button{min-width:44px;min-height:44px;border:0;border-radius:8px;background:#e7edf2;color:#173a4c;font-size:26px;cursor:pointer}
+#sw-sens-panel .sw-speed-help{font:15px/1.45 'Segoe UI',Arial;color:#405a69;margin:0 0 16px}
+#sw-sens-panel .sw-speed-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+#sw-sens-panel .sw-speed-row label{font:700 18px/1.25 'Segoe UI',Arial;color:#173a4c}
+#sw-sens-panel .sw-speed-row input{width:96px;min-height:48px;padding:8px;border:1px solid #8ba5b4;border-radius:8px;background:#f3f7fa;color:#173a4c;font:800 20px 'Segoe UI',Arial;text-align:center}
+#sw-sens-panel #sw-sens-save{min-height:48px;font-size:18px}
+#sw-tablet .tablet-tool-host #sw-sens-panel .sw-speed-header,#sw-tablet .tablet-tool-host #sw-sens-panel .sw-speed-help{color:#d5edfc!important}

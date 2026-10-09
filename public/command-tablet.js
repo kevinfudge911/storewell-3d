@@ -233,10 +233,11 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
     if(selected) selectedPropertyUnit = selected;
     if(!propertyPlan) {
       propertyPlan = document.createElement('main'); propertyPlan.id = 'sw-property-fallback';
-      propertyPlan.innerHTML = `<header><div><p>OUTSIDE · STORAGE PROPERTY</p><h1>StoreWell Storage</h1></div><nav aria-label="Property controls"><button data-property="find">Find a unit</button><button data-property="command">Enter Command Center</button></nav></header><div class="property-caption"><span>3D graphics are unavailable on this device. Showing the property plan.</span><strong class="property-selection" role="status"></strong></div><div class="property-plan"><svg role="group" aria-label="Storage property and unit locations"></svg></div>`;
+      propertyPlan.innerHTML = `<header><div><p>OUTSIDE · STORAGE PROPERTY</p><h1>StoreWell Storage</h1></div><nav aria-label="Property controls"><button data-property="find">Find a unit</button><button data-property="command">Enter Command Center</button><button data-property="speed" aria-controls="sw-sens-panel" aria-expanded="false">Speed &amp; Turn</button></nav></header><div class="property-caption"><span>3D graphics are unavailable on this device. Showing the property plan.</span><strong class="property-selection" role="status"></strong></div><div class="property-plan"><svg role="group" aria-label="Storage property and unit locations"></svg></div>`;
       document.body.append(propertyPlan);
       propertyPlan.querySelector('[data-property="command"]').onclick = openTablet;
       propertyPlan.querySelector('[data-property="find"]').onclick = () => openTablet('locks');
+      propertyPlan.querySelector('[data-property="speed"]').onclick = () => window.__swGear?.();
       const select=e=>{const id=e.target.closest('[data-plan-unit]')?.dataset.planUnit;if(id){const unit=units().find(u=>u.id===id);if(unit)window.__swOpenUnitMenu(unit.id);}};
       propertyPlan.querySelector('svg').onclick=select;
       propertyPlan.querySelector('svg').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(e);}};
