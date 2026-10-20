@@ -51,7 +51,18 @@ export async function onRequestPost({request,env}){
   catch{return json({success:false,error:'Notification service is not ready',sent:0,failed:0},503);}
   const recipients=Array.isArray(d.recipients)?new Set(d.recipients.filter(x=>typeof x==='string').map(x=>x.toLowerCase())):null;
   const notificationId=crypto.randomUUID();
-  const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationTag(d,notificationId),activity:notificationActivity(d),url:'/'};
+  let activity;
+  // Read notification ordering metadata, never update history from this endpoint.
+  // Older records without the optional marker retain exact-event fallback tags.
+  if(notificationActivity(d,0)){
+    try{
+      const response=await fetch(db('lockLog/'+encodeURIComponent(d.eventId),env),{signal:AbortSignal.timeout(12000)});
+      if(!response.ok)throw new Error();
+      const record=await response.json();
+      if(record?.type==='lock' && String(record.label||'').replace(/[-\s]/g,'').toUpperCase()===String(d.unit).replace(/[-\s]/g,'').toUpperCase())activity=notificationActivity(d,record.notificationCommittedAt);
+    }catch{return json({success:false,error:'Notification ordering could not be confirmed. The saved lock status is unchanged.',sent:0,failed:0},503);}
+  }
+  const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationTag(d,notificationId),activity,url:'/'};
   let sent=0,failed=0,expired=0,skipped=0;
   const failures=[];
   const recordFailure=(stage,reason,status)=>{let item=failures.find(x=>x.stage===stage&&x.reason===reason&&x.status===status);if(item)item.count++;else failures.push({stage,reason,...(status?{status}:{}),count:1});};

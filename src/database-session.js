@@ -1,5 +1,5 @@
 // A remembered staff login and Firebase's restored connection become ready separately.
-export function createDatabaseSession({auth,signInAnonymously,db,ref,push,update,isOnline=()=>navigator.onLine!==false}) {
+export function createDatabaseSession({auth,signInAnonymously,db,ref,push,update,serverTimestamp,isOnline=()=>navigator.onLine!==false}) {
   let connecting;
   async function ensureAuth(refresh=false) {
     if(!connecting){
@@ -17,7 +17,9 @@ export function createDatabaseSession({auth,signInAnonymously,db,ref,push,update
     await ensureAuth();
     if(!isOnline())throw Object.assign(new Error('StoreWell is offline'),{code:'database/offline'});
     const key=push(ref(db,'lockLog')).key;
-    const changes={['lockOverrides/'+unit]:status,['lockLog/'+key]:entry};
+    // Keep the original history timestamp/fields. Only new entries gain optional
+    // notification ordering metadata, resolved by Firebase in this same commit.
+    const changes={['lockOverrides/'+unit]:status,['lockLog/'+key]:{...entry,notificationCommittedAt:serverTimestamp()}};
     try{await update(ref(db),changes);}
     catch(error){
       if(!/permission.?denied|expired.?token/i.test(String(error.code||error.message)))throw error;

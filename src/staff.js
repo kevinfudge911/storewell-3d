@@ -1,11 +1,11 @@
 
 import{initializeApp}from"firebase/app";
-import{getDatabase,ref,set,update,push,remove,get,onValue,onDisconnect}from"firebase/database";
+import{getDatabase,ref,set,update,push,remove,get,onValue,onDisconnect,serverTimestamp}from"firebase/database";
 import{getAuth,signInAnonymously}from"firebase/auth";
 import{createDatabaseSession}from"./database-session.js";
 const _app=initializeApp({apiKey:"AIzaSyBdYyhNaNJs-Xv8Fe4bOuAoXWNOb_1D_94",authDomain:"storewell-3d.firebaseapp.com",databaseURL:"https://storewell-3d-default-rtdb.firebaseio.com",projectId:"storewell-3d",storageBucket:"storewell-3d.firebasestorage.app",messagingSenderId:"1093355976155",appId:"1:1093355976155:web:33b21794eaf968d006e3fe"});
 const _db=getDatabase(_app),_auth=getAuth(_app);
-const _session=createDatabaseSession({auth:_auth,signInAnonymously,db:_db,ref,push,update});
+const _session=createDatabaseSession({auth:_auth,signInAnonymously,db:_db,ref,push,update,serverTimestamp});
 window.__swEnsureFirebase=_session.ensureAuth;window.__swCommitLockChange=_session.saveChange;
 _session.ensureAuth().catch(e=>console.warn('Database connection not ready',e.code));
 window.addEventListener('online',()=>_session.ensureAuth().catch(()=>{}));

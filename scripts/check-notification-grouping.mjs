@@ -19,12 +19,13 @@ for(const eventId of [undefined,{},12,'a/b','x'.repeat(151)])assert.equal(tag({.
 for(const unit of [undefined,{},12,'C/2','x'.repeat(13),''])assert.equal(tag({...base,unit}),'delivery-1');
 assert.equal(tag({...base,type:'report'}),'delivery-1');
 assert.equal(tag({type:'green',title:'Unit C2'}),'delivery-1','Never infer identity from titles');
-assert.deepEqual(notificationActivity(base),{key:'storewell:lock:C2:green',eventId:'history-1',eventAt:119999});
+assert.deepEqual(notificationActivity(base,119999),{key:'storewell:lock:C2:green',eventId:'history-1',eventAt:119999});
+assert.equal(notificationActivity(base),undefined,'Client timestamps alone cannot authorize grouping or stale replacement');
 for(const eventAt of [undefined,{},'123',-1,1.5,Infinity]){
-  assert.equal(notificationActivity({...base,eventAt}),undefined);
+  assert.equal(notificationActivity(base,eventAt),undefined);
   assert.equal(tag({...base,eventAt}),tag(base),'An exact saved identity is stable even without a usable ordering timestamp');
 }
-for(const type of ['red','flashred','flashgreen','report'])assert.equal(notificationActivity({...base,type}),undefined,'Urgent events and reports never enter routine grouping');
+for(const type of ['red','flashred','flashgreen','report'])assert.equal(notificationActivity({...base,type},119999),undefined,'Urgent events and reports never enter routine grouping');
 
 const signer=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
 const receiver=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
@@ -49,10 +50,10 @@ async function decrypt(body){
   return JSON.parse(new TextDecoder().decode(plain.slice(0,end)));
 }
 const source=fs.readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-const visible=new Map(),durable=new Map(),displayed=[],receipts=[],payloads=[],deleted=[];
-let failDisplay=false,failStorage=false,serverNow=119999,staleReplays=0;
+const visible=new Map(),durable=new Map(),records=new Map(),displayed=[],receipts=[],payloads=[],deleted=[];
+let failDisplay=false,failStorage=false,failOrderRead=false,serverNow=119999,staleReplays=0;
 const cacheStorage={
-  keys:async()=>['storewell-old-shell','storewell-handheld-alerts-v45',...durable.keys()],
+  keys:async()=>['storewell-old-shell','storewell-handheld-alerts-v46',...durable.keys()],
   delete:async name=>{deleted.push(name);durable.delete(name);return true;},
   open:async name=>{
     assert.equal(name,'storewell-notification-state-v1');
@@ -66,18 +67,20 @@ const cacheStorage={
 };
 function worker(){
   const events={};
+  const clients={claim:async()=>{},matchAll:async()=>[],openWindow:async()=>{}};
   vm.runInNewContext(source,{
-    self:{location:{origin:'https://storewell.test'},clients:{claim:async()=>{}},addEventListener:(name,fn)=>events[name]=fn,registration:{showNotification:async(title,options)=>{
+    self:{location:{origin:'https://storewell.test'},clients,addEventListener:(name,fn)=>events[name]=fn,registration:{showNotification:async(title,options)=>{
       if(failDisplay)throw new Error('Offline display failure');
       displayed.push({title,options});visible.set(options.tag,{title,options});
-    }}},URL,Response,caches:cacheStorage,fetch:async(url,init)=>{assert.equal(url,'/push-receipt');receipts.push(JSON.parse(init.body));return Response.json({success:true});},
+    }}},URL,Response,clients,caches:cacheStorage,fetch:async(url,init)=>{assert.equal(url,'/push-receipt');receipts.push(JSON.parse(init.body));return Response.json({success:true});},
   });
   return events;
 }
 let events=worker();
 const restart=()=>events=worker();
-function resetDevice(){visible.clear();durable.clear();failDisplay=false;failStorage=false;restart();}
+function resetDevice(){visible.clear();durable.clear();records.clear();failDisplay=false;failStorage=false;failOrderRead=false;restart();}
 async function display(payload){let pending;events.push({data:{json:()=>payload},waitUntil:p=>pending=p});await pending;}
+async function clickDismiss(){const tag=[...visible.keys()].at(-1);let pending;events.notificationclick({notification:{close:()=>visible.delete(tag)},waitUntil:p=>pending=p});await pending;}
 const latest=()=>[...visible.values()].at(-1);
 const originalFetch=globalThis.fetch,originalNow=Date.now;
 try{
@@ -85,39 +88,65 @@ try{
   globalThis.fetch=async(url,init={})=>{
     const parsed=new URL(url);
     if(parsed.hostname==='storewell-3d-default-rtdb.firebaseio.com'){
-      assert.equal(parsed.pathname,'/pushSubs.json');assert.equal(init.method,undefined,'No database mutations');
+      assert.equal(init.method,undefined,'Notification delivery never mutates database records');
+      if(parsed.pathname.startsWith('/lockLog/'))return failOrderRead?new Response('',{status:503}):Response.json(records.get(decodeURIComponent(parsed.pathname.slice('/lockLog/'.length,-'.json'.length)))||null);
+      assert.equal(parsed.pathname,'/pushSubs.json');
       return Response.json({fixture:subscription});
     }
     assert.equal(String(url),subscription.endpoint);assert.equal(init.redirect,'manual');
     payloads.push(await decrypt(init.body));return new Response('',{status:201});
   };
-  async function send(message){
+  async function send(message,committedAt=message.eventAt){
+    // This value belongs to the intercepted database fixture, not the HTTP body.
+    if(message.eventId)records.set(message.eventId,{type:'lock',label:message.unit,notificationCommittedAt:committedAt});
     const result=await(await onRequestPost({env,request:new Request('https://storewell.test/notify',{method:'POST',body:JSON.stringify({title:'Offline lock fixture',body:'Latest activity',...message})})})).json();
     assert.equal(result.sent,1);const payload=payloads.at(-1);
     assert.equal(payload.receipt.id,result.notificationId,'Delivery receipt identity remains independent');
     return {payload,result};
   }
-  async function deliver(message){const sent=await send(message);await display(sent.payload);return sent;}
+  async function deliver(message,committedAt){const sent=await send(message,committedAt);await display(sent.payload);return sent;}
 
   for(const type of ['green','blue','yellow','purple','white','black']){
     resetDevice();serverNow=119999;
     const first=await deliver({...base,type,body:'First saved activity'});
-    serverNow=120000;restart();
+    assert.equal(latest().options.silent,undefined,'The first successful routine alert retains normal sound');
+    serverNow=120000;visible.clear();restart();
     const retry=await deliver({...base,type,body:'First saved activity'});
     assert.notEqual(first.result.notificationId,retry.result.notificationId);
     assert.equal(visible.size,1,'SAME saved event at 119999/120000ms remains one alert after restart');
+    assert.equal(latest().options.silent,true,'Exact retry after dismissal and worker restart is quiet');
     const next={...base,type,eventId:'history-2',eventAt:120000,body:'Newest operator'};
+    await clickDismiss();restart();
     await deliver(next);assert.equal(visible.size,1,'Distinct routine updates group across the former bucket boundary');
+    assert.equal(latest().options.silent,true,'Grouped successor after click and worker restart is quiet');
     assert.equal(latest().options.body,'Newest operator');
     serverNow=999999;restart();await deliver(next);
     assert.equal(visible.size,1,'Retry of latest event stays stable long after the rolling window');
     // Exactly 120 seconds still shares the burst; 120001ms from latest starts a new one.
     await deliver({...next,eventId:'history-3',eventAt:240000});assert.equal(visible.size,1);
     await deliver({...next,eventId:'history-4',eventAt:360001});assert.equal(visible.size,2,'A real gap starts a new alert');
+    assert.equal(latest().options.silent,undefined,'A distinct later burst retains its normal first alert');
     const count=displayed.length,ack=receipts.length;restart();await deliver(next);
     assert.equal(displayed.length,count+1,'Older burst redraws only the cached newest group');assert.equal(visible.size,2,'An older burst cannot be resurrected');assert.equal(receipts.length,ack);staleReplays++;
   }
   assert(displayed.every(x=>x.options.renotify===false));
+
+  // Neither raw client time nor lexicographic key order can hide a later commit.
+  resetDevice();
+  const fast=await deliver({...base,eventId:'zz-fast-clock',eventAt:1000000,body:'Fast device'},1000);
+  visible.clear();restart();
+  const later=await deliver({...base,eventId:'aa-later-commit',eventAt:999999,body:'Later committed update'},1001);
+  assert.equal(later.payload.activity.eventAt,1001,'Encrypted ordering comes from resolved server metadata');
+  assert.equal(latest().options.body,'Later committed update','A lower client time and lower key cannot discard a later commit');
+  assert.equal(latest().options.silent,true);assert.equal(visible.size,1);
+  restart();await display(fast.payload);staleReplays++;
+  assert.equal(latest().options.body,'Later committed update','Delayed earlier commit still cannot replace newer contents');
+  resetDevice();await deliver(base,null);await deliver({...base,eventId:'legacy-2'},null);
+  assert.equal(visible.size,2,'Unmarked legacy records retain distinct alerts rather than guessing order from client clocks');
+  resetDevice();failOrderRead=true;const deliveriesBefore=payloads.length;
+  const unavailable=await onRequestPost({env,request:new Request('https://storewell.test/notify',{method:'POST',body:JSON.stringify({...base,title:'Offline fixture'})})});
+  assert.equal(unavailable.status,503);assert.equal((await unavailable.json()).sent,0);assert.equal(payloads.length,deliveriesBefore,'Unconfirmed ordering cannot enter a routine group');
+  await deliver({...base,type:'flashred'});assert.equal(visible.size,1,'Urgent delivery does not depend on ordering metadata reads');
 
   resetDevice();
   const older=await send({...base,eventAt:120001,eventId:'older',body:'Old operator'});
@@ -151,6 +180,7 @@ try{
   resetDevice();failDisplay=true;const before=receipts.length;
   await assert.rejects(deliver(base),/Offline display failure/);assert.equal(receipts.length,before);
   restart();failDisplay=false;await deliver(base);assert.equal(visible.size,1,'Exact event retries a failed display after restart');
+  assert.equal(latest().options.silent,undefined,'A failed first display does not mark the group as successfully alerted');
   failStorage=true;const displayedBefore=displayed.length,receiptsBefore=receipts.length;
   await assert.rejects(deliver({...base,eventId:'history-2',eventAt:120000}),/Offline storage failure/);
   assert.equal(displayed.length,displayedBefore,'No unsafe grouped display without durable ordering');assert.equal(receipts.length,receiptsBefore);
@@ -158,4 +188,4 @@ try{
   failStorage=false;restart();await deliver({...base,eventId:'history-2',eventAt:120000});assert.equal(visible.size,2,'Queue recovers and routine retry replaces its group');
   assert.equal(receipts.length,displayed.length-staleReplays,'Only successfully displayed original payloads are acknowledged; stale pushes redraw current contents without false receipts');
 }finally{globalThis.fetch=originalFetch;Date.now=originalNow;}
-console.log('PASS: rolling boundary grouping, stable retries, durable stale-event rejection after restart/dismissal, races/ties, urgent/distinct events, encrypted payloads, receipt truthfulness and failure recovery. Offline only.');
+console.log('PASS: quiet exact retries and grouped successors after dismissal/click/restart, normal first/failed-display retry alerts, authoritative commit ordering despite client/key rollback, rolling boundaries, durable stale-content protection, urgent/distinct events and truthful receipts. Offline only.');

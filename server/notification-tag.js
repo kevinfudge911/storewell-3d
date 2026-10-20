@@ -11,10 +11,10 @@ export function notificationTag(message, deliveryId) {
   // Every saved event has a stable retry identity, independent of delivery time.
   return identity ? `storewell:event:${identity.unit}:${message.type}:${identity.eventId}` : deliveryId;
 }
-export function notificationActivity(message) {
+export function notificationActivity(message,committedAt) {
   const identity=lockIdentity(message);
-  if (!identity || !ROUTINE.has(message.type) || !Number.isSafeInteger(message.eventAt) || message.eventAt<0) return undefined;
-  // This timestamp is the saved history entry's t, forwarded after commit.
-  // Grouping and ordering happen on the device, never by server arrival time.
-  return {key:`storewell:lock:${identity.unit}:${message.type}`,eventId:identity.eventId,eventAt:message.eventAt};
+  if (!identity || !ROUTINE.has(message.type) || !Number.isSafeInteger(committedAt) || committedAt<0) return undefined;
+  // Only the resolved Firebase commit marker can order grouped notifications.
+  // Client entry.t, push-key timestamps and HTTP arrival time are not authoritative.
+  return {key:`storewell:lock:${identity.unit}:${message.type}`,eventId:identity.eventId,eventAt:committedAt};
 }

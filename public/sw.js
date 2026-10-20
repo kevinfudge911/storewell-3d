@@ -1,6 +1,6 @@
 // StoreWell service worker v2 (safe) - GET-only caching + push notifications.
 // Never touches POST/PUT requests, so it can never break lock saves or reports.
-const CACHE = 'storewell-handheld-alerts-v45';
+const CACHE = 'storewell-handheld-alerts-v46';
 // Device-local presentation state. Keep it across shell-cache upgrades and
 // notification dismissal so delayed pushes cannot roll back newer activity.
 const NOTIFICATION_STATE = 'storewell-notification-state-v1';
@@ -30,6 +30,7 @@ async function displayAlert(alert) {
     let tag=alert.tag||'storewell-update';
     let title=alert.title,body=alert.body,receipt=alert.receipt,silent=false;
     const activity=routineActivity(alert);
+    let savedState,stateKey,nextState;
     if(activity){
         // Group tags cannot collide with an exact-event fallback that lacks
         // ordering metadata. Clearing state also retains this stable identity.
@@ -44,15 +45,23 @@ async function displayAlert(alert) {
         if(stale){
             // userVisibleOnly pushes must still show a notification. Redraw only
             // the persisted newest contents, never acknowledge the stale payload.
-            tag=previous.tag;title=previous.title;body=previous.body;receipt=null;silent=true;
+            tag=previous.tag;title=previous.title;body=previous.body;receipt=null;silent=previous.displayed===true;
+            savedState=state;stateKey=key;nextState=previous;
         }else{
-            if(valid && (activity.eventId===previous.eventId || activity.eventAt-previous.eventAt<=GROUP_WINDOW_MS))tag=previous.tag;
+            const sameGroup=valid && (activity.eventId===previous.eventId || activity.eventAt-previous.eventAt<=GROUP_WINDOW_MS);
+            if(sameGroup){tag=previous.tag;silent=previous.displayed===true;}
             // Persist BEFORE display. Exact retries can recover a failed display
             // without extending the rolling interval or resetting its identity.
-            await state.put(key,Response.json({tag,eventId:activity.eventId,eventAt:activity.eventAt,title,body}));
+            nextState={tag,eventId:activity.eventId,eventAt:activity.eventAt,title,body,displayed:sameGroup && previous.displayed===true};
+            await state.put(key,Response.json(nextState));
+            savedState=state;stateKey=key;
         }
     }
     await self.registration.showNotification(title,{body,tag,renotify:false,...(silent?{silent:true}:{}),icon:'/icons/icon-192.png',badge:'/icons/icon-192.png',data:{url:'/'}});
+    // Record successful display separately from the pre-display ordering reserve.
+    // A failed first display remains audible on retry; a dismissed group's later
+    // redraws remain silent even after this worker has been restarted.
+    if(savedState)await savedState.put(stateKey,Response.json({...nextState,displayed:true}));
     if(receipt)await fetch('/push-receipt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(receipt)}).catch(()=>{});
 }
 // Serialize read/compare/write/display, including concurrently arriving pushes.
