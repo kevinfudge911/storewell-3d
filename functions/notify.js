@@ -1,5 +1,6 @@
 import { buildPushPayload } from '@block65/webcrypto-web-push';
 import {makeReceipt} from './push-receipt.js';
+import {notificationTag,notificationActivity} from '../server/notification-tag.js';
 const FB='https://storewell-3d-default-rtdb.firebaseio.com';
 const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
 const TYPES=new Set(['flashred','flashgreen','red','green','blue','yellow','purple','white','black','report']);
@@ -50,7 +51,7 @@ export async function onRequestPost({request,env}){
   catch{return json({success:false,error:'Notification service is not ready',sent:0,failed:0},503);}
   const recipients=Array.isArray(d.recipients)?new Set(d.recipients.filter(x=>typeof x==='string').map(x=>x.toLowerCase())):null;
   const notificationId=crypto.randomUUID();
-  const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationId,url:'/'};
+  const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationTag(d,notificationId),activity:notificationActivity(d),url:'/'};
   let sent=0,failed=0,expired=0,skipped=0;
   const failures=[];
   const recordFailure=(stage,reason,status)=>{let item=failures.find(x=>x.stage===stage&&x.reason===reason&&x.status===status);if(item)item.count++;else failures.push({stage,reason,...(status?{status}:{}),count:1});};

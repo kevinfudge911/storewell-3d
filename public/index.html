@@ -1165,10 +1165,11 @@ class Component extends DCLogic {
     if(prev===st)return true;
     const who=this.state.staffName||'Staff';
     const entry={label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now(),type:'lock'};
+    let historyId;
     try{
       if(!window.__swCommitLockChange)throw new Error('Database services are still loading');
       // Wait for the restored database session, then save the status and history together.
-      await window.__swCommitLockChange(k,st,entry);
+      historyId=await window.__swCommitLockChange(k,st,entry);
     }catch(e){
       console.warn('Shared status save failed',e.code||'connection-unavailable');
       alert(/permission.?denied/i.test(String(e.code||e.message))?'StoreWell rejected this save. The unit has not changed. Please reload the app and try again.':'StoreWell could not connect to save this change. Your unit has not changed. Reconnect and try again; your staff login is still remembered.');
@@ -1182,7 +1183,7 @@ class Component extends DCLogic {
     this._pendingWrites[k]={st,t:Date.now()};
     window.dispatchEvent(new CustomEvent('sw-lock-history',{detail:entry}));
     // SDK writes do not pass through fetch. Notify explicitly, only after a confirmed save.
-    window.__swNotifyStatus?.(st,label,who).catch(()=>{});
+    window.__swNotifyStatus?.(st,label,who,historyId,entry.t).catch(()=>{});
     const rec=this._locks[k]; if(rec){ const c=this._LC()[st]||'#1f9d4d';
       rec.mat.color.set(c);
       this._flashers=this._flashers.filter(m=>m!==rec.mat);

@@ -58,7 +58,9 @@ w.eval(fs.readFileSync(new URL('../public/notifications.js',import.meta.url),'ut
 await w.__swTestNotif();
 assert.deepEqual([...testRequests[0].recipients],['Offline test'],'Testing alerts never broadcasts to the whole team');
 assert(w.document.querySelector('#sw-alert-notice').textContent.startsWith('No device'),'Zero recipients are not presented as successful delivery');
-w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.length,1,'An unsigned visitor cannot send a staff test');
+await w.__swNotifyStatus('flashred','C2','Offline test','saved-history-id',123);
+assert.equal(testRequests[1].unit,'C2');assert.equal(testRequests[1].eventId,'saved-history-id','The client forwards the saved activity identity');assert.equal(testRequests[1].eventAt,123,'Ordering uses the saved entry timestamp');
+w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.length,2,'An unsigned visitor cannot send a staff test');
 // The new tablet shortcut uses the real device subscription path and retains preferences.
 w.document.body.insertAdjacentHTML('beforeend','<button id="sw-tablet-notifications">Notifications</button>');
 w.__swCheckLogin=()=>'Offline test';

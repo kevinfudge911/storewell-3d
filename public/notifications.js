@@ -48,9 +48,9 @@
     }catch(e){if(!supported()||Notification.permission!=='granted')setBell(false);if(embedded)throw e;notice(e.message);}
   };
   window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else setBell(false);};
-  window.__swNotifyStatus=async(type,unit,who)=>{
+  window.__swNotifyStatus=async(type,unit,who,eventId,eventAt)=>{
     if(!LABELS[type]||type==='report')return;
-    try{return await post('/notify',{type,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});}
+    try{return await post('/notify',{type,unit,eventId,eventAt,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});}
     catch(e){notice('Status saved. Push alerts could not be sent: '+e.message);throw e;}
   };
   window.__swNotifyReport=(body,recipients)=>post('/notify',{type:'report',title:'StoreWell report',body, ...(recipients?{recipients}:{})});
