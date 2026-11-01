@@ -38,7 +38,7 @@ r=await email.onRequestPost({env,request:request({to:'staff@example.test',body:'
 // Exercise the real report modal: partial failures retain data and retry only pending recipients.
 const dom=new JSDOM('<body></body>',{url:'https://storewell.test',runScripts:'outside-only'}),w=dom.window;
 w.__swCheckLogin=()=>'Offline test';w.AbortSignal.timeout=()=>undefined;
-w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mike:{email:'mike@example.test',pref:'email'},Brad:{pref:'none'}});
+w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mike:{email:'mike@example.test',pref:'email'},Brad:{email:'brad@example.test',pref:'none'}});
 const initial={label:'G2',from:'Rented',to:'Locked out',t:100};const newer={label:'G3',from:'Empty',to:'Rented',t:200};
 w.__swApp={state:{sessionLog:[initial],staffName:'Offline test'},setState(v){Object.assign(this.state,v);}};
 let emails=[],attempt=0;
@@ -47,9 +47,39 @@ const staff=fs.readFileSync(new URL('../src/staff.js',import.meta.url),'utf8');
 w.eval(staff.slice(staff.indexOf('async function _sendEmail('),staff.indexOf('\nfunction _toast(')));
 w.eval(staff.slice(staff.indexOf('window.__swSaveReport=function(){'),staff.indexOf('// Joystick repositioning')));
 w.__swSaveReport();await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
+assert(emails.includes('brad@example.test'),'Every report includes Brad email even when his notification preference is none');
+const bradRow=[...w.document.querySelectorAll('#sw-sr-contacts label')].find(el=>el.textContent.startsWith('Brad'));
+assert(bradRow.querySelector('input').checked&&bradRow.querySelector('input').disabled,'Brad email is required, not an optional recipient');
 assert.equal(w.__swApp.state.sessionLog.length,1,'Email failure retains the report');assert(w.document.querySelector('#sw-sr-status').textContent.includes('Still pending'));
 w.__swApp.state.sessionLog.push(newer);attempt++;await w.document.querySelector('#sw-sr-send').onclick();
 assert.equal(emails.filter(e=>e==='kevin@example.test').length,1,'Retry does not duplicate an accepted email');assert.equal(emails.filter(e=>e==='mike@example.test').length,2);assert.equal(w.__swApp.state.sessionLog.length,1);assert.equal(w.__swApp.state.sessionLog[0],newer,'Finishing a report preserves changes made during delivery');
+assert.equal(emails.filter(e=>e==='brad@example.test').length,1,'Other recipient retries do not resend Brad email');
+// A stalled first recipient cannot prevent Brad's full report from starting.
+w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mike:{pref:'text'},Brad:{email:'brad@example.test',pref:'push'}});
+let releaseKevin;const mailBodies=[];let mikeFails=true;
+w.__swNotifyReport=async(body,names)=>{if(names[0]==='Mike'&&mikeFails)throw new Error('Device unavailable');return {sent:1};};
+w.fetch=async(url,init)=>{const data=JSON.parse(init.body);mailBodies.push(data);if(data.to==='kevin@example.test')await new Promise(resolve=>releaseKevin=resolve);return {ok:true,json:async()=>({success:true,messageId:'offline-report'})};};
+w.__swSaveReport();await new Promise(r=>setTimeout(r,10));const sending=w.document.querySelector('#sw-sr-send').onclick();await new Promise(r=>setTimeout(r,0));
+assert(mailBodies.some(d=>d.to==='brad@example.test'&&d.body.includes('G3: Empty → Rented')),'Brad full report is submitted while the earlier recipient is still pending');
+releaseKevin();await sending;assert.equal(w.__swApp.state.sessionLog.length,1,'Push failure keeps the report pending');
+// Reopening after a refresh restores accepted email receipts rather than resending.
+delete w.__swApp._reportAcceptedWho;delete w.__swApp._reportAccepted;mikeFails=false;
+w.__swSaveReport();await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
+assert.equal(mailBodies.filter(d=>d.to==='brad@example.test').length,1,'Reloaded retry does not duplicate Brad accepted email');
+assert.equal(w.__swApp.state.sessionLog.length,0,'Report clears only after all required deliveries are accepted');
+// A working push does not stand in for Brad's required email.
+w._loadStaffConfig=async()=>({Kevin:{pref:'none'},Mike:{pref:'none'},Brad:{email:'brad@example.test',pref:'both'}});
+w.__swApp.state.sessionLog=[{...initial,t:300}];let emailFails=true,emailAttempts=0,pushAttempts=0;
+w.fetch=async()=>{emailAttempts++;return {ok:!emailFails,json:async()=>({success:!emailFails,error:'Email service unavailable'})};};
+w.__swNotifyReport=async()=>{pushAttempts++;return {sent:1};};
+w.__swSaveReport();await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
+assert.equal(w.__swApp.state.sessionLog.length,1);assert(w.document.querySelector('#sw-sr-status').textContent.includes('Brad email: Email service unavailable'));
+emailFails=false;await w.document.querySelector('#sw-sr-send').onclick();
+assert.equal(emailAttempts,2);assert.equal(pushAttempts,1,'Retry sends the missing email without duplicating the accepted push');assert.equal(w.__swApp.state.sessionLog.length,0);
+// Retained report entry points open the same reviewed flow and cannot clear data early.
+let opened=0;const openReport=w.__swSaveReport;w.__swSaveReport=()=>opened++;
+w.eval(staff.slice(staff.indexOf('window.__swStaffReport=async function('),staff.indexOf('window.__swChatRead=')));
+await w.__swStaffReport('Kevin',[initial]);assert.equal(opened,1);w.__swSaveReport=openReport;
 // The staff test button targets only its signed-in owner and distinguishes a
 // service accepting a request from an actual eligible receiving device.
 const testRequests=[];

@@ -171,9 +171,17 @@ assert(w.document.querySelector('#sw-rounds-ts').textContent.endsWith(' CT'),'Ro
 click('[data-round-unit="C3"]');await new Promise(r=>setTimeout(r,0));assert.equal(w.document.querySelector('.lock-status-menu').getAttribute('aria-label'),'Unit C3 status choices','A round stop opens its status choices');assert(w.document.querySelector('.tablet-tool-host [data-round-unit="C3"]'),'The rounds checklist stays in place');w.fetch=beforeRoundsFetch;
 click('[data-nav="home"]');
 // The shared persistence boundary must reject failures and retain atomic history.
+app.setState({staffName:'Offline test'});await new Promise(r=>setTimeout(r,0));
 const played=[];w._swPlaySound=st=>played.push(st);const original=app._statusOf('G2');w.fetch=async()=>({ok:false});assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original);assert.equal(played.length,0,'Failed save stays silent');
 let writes=0,alerts=0,savedEventAt;w.__swCommitLockChange=async(key,state,entry)=>{assert.equal(key,'G2');assert.equal(state,'black');assert.equal(entry.type,'lock');savedEventAt=entry.t;writes++;return 'saved-history-id';};w.__swNotifyStatus=async(type,unit,who,eventId,eventAt)=>{assert.equal(eventId,'saved-history-id','Alert identity comes from the confirmed history record');assert.equal(eventAt,savedEventAt,'Alert ordering carries the persisted history time');alerts++;};
 await app.setStatus('G2','black');assert.equal(writes,1);assert.equal(alerts,1);assert.deepEqual(played,['black'],'A successful change uses its original sound key once');await app.setStatus('G2','black');assert.equal(writes,1,'Current status creates no duplicate history');assert.deepEqual(played,['black'],'Current status does not replay its sound');w.__swCommitLockChange=async()=>{throw new Error('offline failure');};await app.setStatus('G2','green');assert.equal(writes,1);assert.equal(alerts,1,'Failed saves never alert');assert.deepEqual(played,['black'],'Failed retries do not play a sound');
+const pending=JSON.parse(w.localStorage.getItem('sw_pending_report:'+app.state.staffName));
+assert.equal(pending.at(-1).eventId,'saved-history-id','Pending reports contain only confirmed history entries');
+const priorUser=w.localStorage.getItem('sw_user');w.localStorage.setItem('sw_user',app.state.staffName);
+const reloaded=new app.constructor({});assert.deepEqual(JSON.parse(JSON.stringify(reloaded.state.sessionLog)),pending,'A fresh app instance restores the full unsent report');
+if(priorUser===null)w.localStorage.removeItem('sw_user');else w.localStorage.setItem('sw_user',priorUser);
+let reportOpened=0;const savedReport=w.__swSaveReport;w.__swSaveReport=()=>reportOpened++;
+app.renderVals().sendReport();assert.equal(reportOpened,1,'The retained report action uses the retryable delivery screen');assert.equal(app.state.sessionLog.length,pending.length,'Opening a report cannot clear it or claim delivery');w.__swSaveReport=savedReport;
 assert(!logs.some(x=>/SyntaxError|ReferenceError|TypeError/.test(x)),logs.join('\n'));
 console.log(`PASS (${noGpu?'no GPU':'GPU renderer'}): ${order.length} modeled doors, every tablet launcher, property route, filters, complete history, exports and confirmed saves. No production writes.`);
 dom.window.close();

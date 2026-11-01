@@ -87,7 +87,7 @@ async function _sendSMS(){throw new Error('SMS is retired. Choose push notificat
 try{ window.__swSMS=_sendSMS; }catch(e){}
 async function _sendEmail(to,toName,from,msg,key){
   if(!to)throw new Error('Email recipient is missing');
-  const response=await fetch('/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,toName,subject:'StoreWell · '+(from||'Staff'),body:msg})});
+  const response=await fetch('/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,toName,subject:'StoreWell · '+(from||'Staff'),body:msg}),signal:AbortSignal.timeout(20000)});
   const data=await response.json();if(!response.ok||!data.success)throw new Error(data.error||'Email was not accepted');
   if(window._swAuth?.currentUser&&window._swPush)window._swPush(window._swRef(window._swDB,'lockLog'),{type:'email',label:'Email',from:from||'Staff',to:toName||to,who:from||'Staff',msg:String(msg||'').slice(0,80),t:Date.now()}).catch(()=>{});
   return data;
@@ -456,14 +456,6 @@ window.__swOperationsOpen=async function(initialTab='overview'){
   });
 
   // ── Send report ──
-  function doSendReport(sentEl){
-    const log=(app&&app.state&&app.state.sessionLog)||[];
-    if(!log.length){ sentEl.style.display='block'; sentEl.textContent='No changes to report.'; setTimeout(()=>sentEl.style.display='none',2000); return; }
-    if(window.__swStaffReport) window.__swStaffReport(app.state.staffName||'Staff',log);
-    if(app&&app.setState) app.setState({reportSent:'✅ Sent!',sessionLog:[]});
-    sentEl.style.display='block'; sentEl.textContent='✅ Sent to team!';
-    setTimeout(()=>sentEl.style.display='none',2500);
-  }
   document.getElementById('sw-send-report').onclick=()=>{ panel.remove(); if(window.__swSaveReport) window.__swSaveReport(); };
 
   // Closing an operations window must preserve the current staff session and room.
@@ -816,7 +808,10 @@ window.__swShowHelp=function(){
 
 window.__swSaveReport=function(){
   const app=window.__swApp;if(!window.__swCheckLogin?.())return;
-  const log=[...(app?.state.sessionLog||[])],checked={},accepted=app._reportAccepted||(app._reportAccepted=new Set());
+  const who=app.state.staffName||'Staff',receiptKey='sw_report_accepted:'+who;
+  let savedReceipts=[];try{savedReceipts=JSON.parse(localStorage.getItem(receiptKey)||'[]');}catch{}
+  if(app._reportAcceptedWho!==who){app._reportAccepted=new Set(Array.isArray(savedReceipts)?savedReceipts:[]);app._reportAcceptedWho=who;}
+  const log=[...(app?.state.sessionLog||[])],checked={},accepted=app._reportAccepted;
   const signature=JSON.stringify(log.map(r=>[r.t,r.label,r.from,r.to]));
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   document.getElementById('sw-save-report-modal')?.remove();
@@ -825,27 +820,29 @@ window.__swSaveReport=function(){
   overlay.innerHTML='<div style="width:100%;max-width:500px;max-height:90dvh;overflow:auto;background:linear-gradient(145deg,#153248,#071522);border:1px solid #5195b0;border-radius:16px;padding:22px;"><header style="display:flex;gap:12px;align-items:center;"><h2 style="flex:1;font-size:21px;">Save &amp; send report</h2><button id="sw-sr-close" aria-label="Close report">×</button></header><p>'+log.length+' changes this session</p><div>'+log.map(r=>'<p style="padding:9px 0;border-bottom:1px solid #335061"><b>'+esc(r.label)+'</b> · '+esc(r.from)+' → '+esc(r.to)+'</p>').join('')+'</div><p id="sw-sr-loading">Loading team recipients…</p><div id="sw-sr-contacts"></div><p id="sw-sr-status" role="status" style="line-height:1.6;color:#ffd48a"></p><footer style="display:flex;gap:10px;margin-top:20px;"><button id="sw-sr-send" disabled>Send report</button><button id="sw-sr-save">Save only</button></footer></div>';
   document.body.append(overlay);overlay.querySelectorAll('button').forEach(b=>b.style.cssText='padding:12px 16px;background:#155b80;border:1px solid #6298b2;color:white;border-radius:7px;font:700 14px Arial;cursor:pointer;');
   const status=overlay.querySelector('#sw-sr-status'),send=overlay.querySelector('#sw-sr-send');
-  const finish=()=>{app.setState({sessionLog:(app.state.sessionLog||[]).filter(r=>!log.includes(r))});};
+  const finish=()=>{const remaining=(app.state.sessionLog||[]).filter(r=>!log.includes(r));app._rememberReportLog?.(remaining,who);app.setState({sessionLog:remaining});for(const id of accepted)if(id.startsWith(signature+'|'))accepted.delete(id);try{localStorage.setItem(receiptKey,JSON.stringify([...accepted]));}catch{}};
   overlay.querySelector('#sw-sr-close').onclick=()=>overlay.remove();overlay.querySelector('#sw-sr-save').onclick=()=>{finish();overlay.remove();};
   let staff=[];
   _loadStaffConfig().then(cfg=>{
     staff=['Kevin','Mike','Brad'].map(name=>({name,...(cfg?.[name]||{}),pref:cfg?.[name]?.pref||'email'}));
-    overlay.querySelector('#sw-sr-loading').textContent='Choose recipients. Phone alerts use push notifications.';
+    overlay.querySelector('#sw-sr-loading').textContent='Brad receives an email with every report. Choose any other recipients.';
     const target=overlay.querySelector('#sw-sr-contacts');
-    for(const c of staff){checked[c.name]=c.pref!=='none';const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 0';const box=document.createElement('input');box.type='checkbox';box.checked=checked[c.name];box.disabled=c.pref==='none';box.onchange=()=>checked[c.name]=box.checked;row.append(box,document.createTextNode(c.name+' · '+({email:'Email',text:'Push notifications',push:'Push notifications',both:'Email + push',none:'Disabled in team settings'}[c.pref]||'Email')));target.append(row);}
+    for(const c of staff){const required=c.name==='Brad';checked[c.name]=required||c.pref!=='none';const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 0';const box=document.createElement('input');box.type='checkbox';box.checked=checked[c.name];box.disabled=required||c.pref==='none';box.onchange=()=>checked[c.name]=box.checked;const label=required?(['text','push','both'].includes(c.pref)?'Email + push':'Email'):({email:'Email',text:'Push notifications',push:'Push notifications',both:'Email + push',none:'Disabled in team settings'}[c.pref]||'Email');row.append(box,document.createTextNode(c.name+' · '+label));target.append(row);}
     send.disabled=!log.length;
   }).catch(e=>{overlay.querySelector('#sw-sr-loading').textContent=e.message+'. Close and reopen to retry.';});
   send.onclick=async()=>{
-    const targets=staff.filter(c=>checked[c.name]);if(!targets.length){status.textContent='Select a recipient, or choose Save only.';return;}
+    const targets=staff.filter(c=>c.name==='Brad'||checked[c.name]);if(!targets.length){status.textContent='Select a recipient, or choose Save only.';return;}
     send.disabled=true;send.textContent='Sending…';overlay.querySelector('#sw-sr-save').disabled=true;
-    const ts=new Date().toLocaleString(),who=app.state.staffName||'Staff';
+    const ts=new Date().toLocaleString('en-US',{timeZone:'America/Chicago'})+' CT';
     const body='StoreWell report · '+ts+' · '+who+'\n\n'+log.map(r=>r.label+': '+r.from+' → '+r.to).join('\n');
     const failures=[],successes=[];
+    const jobs=[];
     for(const c of targets){
       const channels=c.pref==='both'?['email','push']:['text','push'].includes(c.pref)?['push']:['email'];
-      for(const channel of channels){
+      if(c.name==='Brad'&&!channels.includes('email'))channels.unshift('email');
+      for(const channel of channels)jobs.push((async()=>{
         const id=signature+'|'+c.name+'|'+channel;
-        if(accepted.has(id)){successes.push(c.name+' '+channel);continue;}
+        if(accepted.has(id)){successes.push(c.name+' '+channel);return;}
         try{
           if(channel==='email'){
             if(!c.email)throw new Error('no email address in team settings');
@@ -855,12 +852,13 @@ window.__swSaveReport=function(){
             const result=await window.__swNotifyReport(body.slice(0,1600),[c.name]);
             if(!result.sent)throw new Error('no device has report alerts enabled');
           }
-          accepted.add(id);successes.push(c.name+' '+channel);
+          accepted.add(id);try{localStorage.setItem(receiptKey,JSON.stringify([...accepted]));}catch{}successes.push(c.name+' '+channel);
         }catch(e){failures.push(c.name+' '+channel+': '+e.message);}
-      }
+      })());
     }
+    await Promise.all(jobs);
     if(failures.length){status.textContent=(successes.length?'Accepted: '+successes.join(', ')+'. ':'')+'Still pending: '+failures.join('; ')+'. Your report is kept. Retry sends only pending recipients.';send.disabled=false;send.textContent='Retry pending';overlay.querySelector('#sw-sr-save').disabled=false;}
-    else{finish();status.textContent='Accepted by the delivery services: '+successes.join(', ')+'.';send.textContent='Report sent';}
+    else{finish();if(window._swAuth?.currentUser&&window._swPush)window._swPush(window._swRef(window._swDB,'staffReports'),{name:who,changes:log,ts:Date.now()}).catch(()=>{});status.textContent='Accepted by the delivery services: '+successes.join(', ')+'.';send.textContent='Report sent';}
   };
 };
 
@@ -1135,7 +1133,7 @@ window.__swLoginGate=async function(sc){
   if(existing){
     if(sc&&sc.setState){
       try{localStorage.setItem('sw_staff_name',existing);localStorage.setItem('sw_user',existing);}catch(er){}
-      sc.setState({editMode:true,staffName:existing,showLogin:false});
+      sc.setState({editMode:true,staffName:existing,sessionLog:sc._reportLogFor?.(existing)||[],showLogin:false});
       if(window.__swStaffOnline) window.__swStaffOnline(existing);
       window.dispatchEvent(new CustomEvent('sw-staff-signed-in'));
     }
@@ -1187,7 +1185,7 @@ window.__swLoginGate=async function(sc){
         if(!response.ok||!result.name)throw new Error(result.error||'Sign-in could not connect. Please retry.');
         _verifiedStaff=result.name;localStorage.setItem('sw_user',result.name);localStorage.setItem('sw_staff_name',result.name);
         overlay.remove();
-        if(sc&&sc.setState){sc.setState({editMode:true,staffName:result.name,showLogin:false});if(window.__swStaffOnline)window.__swStaffOnline(result.name);}
+        if(sc&&sc.setState){sc.setState({editMode:true,staffName:result.name,sessionLog:sc._reportLogFor?.(result.name)||[],showLogin:false});if(window.__swStaffOnline)window.__swStaffOnline(result.name);}
         window.dispatchEvent(new CustomEvent('sw-staff-signed-in'));
         resolve(result.name);
       }catch(error){overlay.querySelector('#sw-login-err').textContent=error.message;shake();}
@@ -1222,16 +1220,8 @@ window.__swAdminSave=async function(contacts,ejsKey){
   const result=await response.json();if(!response.ok||!result.success)throw new Error(result.error||'Contacts could not be saved.');
 };
 window.__swStaffReport=async function(fromName,changes){
-  if(!fromName||!changes?.length)return;
-  push(ref(_db,'staffReports'),{name:fromName,changes,ts:Date.now()}).catch(()=>console.warn('Staff report activity could not be recorded'));
-  const cfg=await _loadStaffConfig();const key=cfg._ejsKey||'';
-  const msg=fromName+' updated StoreWell ('+new Date().toLocaleString()+'):\n'+changes.map(c=>'• Unit '+c.label+': '+c.from+' → '+c.to).join('\n');
-  for(const name of['Kevin','Mike','Brad']){
-    if(name===fromName)continue;
-    const c=cfg[name]||{},pref=c.pref||'none';
-    if((pref==='email'||pref==='both')&&c.email)await _sendEmail(c.email,name,fromName,msg,key);
-    if(pref==='text'||pref==='push'||pref==='both')await window.__swNotifyReport?.(fromName+': '+msg,[name]);
-  }
+  // Retained callers use the same reviewed, retryable delivery flow.
+  return window.__swSaveReport();
 };
 window.__swChatRead=async()=>{
   const response=await fetch('/staff-chat',{cache:'no-store',signal:AbortSignal.timeout(12000)});const data=await response.json();if(!response.ok)throw new Error(data.error||'Staff chat could not load.');return data.messages||[];

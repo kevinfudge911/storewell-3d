@@ -197,12 +197,20 @@ class Component extends DCLogic {
     this.loadRef = React.createRef();
     let _sn=''; try{ _sn=localStorage.getItem('sw_user')||''; }catch(e){}
     let _touch=false; try{ _touch=('ontouchstart' in window)||(navigator.maxTouchPoints>0); }catch(e){}
-    this.state = { mode:'orbit', editMode:!!_sn, staffName:_sn, pickUnit:null, pickStatus:null, showLogin:false, isTouch:_touch, showAdmin:false };
+    this.state = { mode:'orbit', editMode:!!_sn, staffName:_sn, sessionLog:this._reportLogFor(_sn), pickUnit:null, pickStatus:null, showLogin:false, isTouch:_touch, showAdmin:false };
     this._joyRef = React.createRef(); this._joyThumbRef = React.createRef(); this._tk={}; this._talt={};
     this._pinRef = React.createRef(); this._remRef = React.createRef();
     this._nameRef = React.createRef(); this._msgRef = React.createRef();
     this._net = null; // Firebase realtime adapter plugs in here
     this._qRef = React.createRef();
+  }
+  _reportLogFor(name){
+    if(this.state?.staffName===name)return this.state.sessionLog||[];
+    try{const rows=JSON.parse(localStorage.getItem('sw_pending_report:'+name)||'[]');return Array.isArray(rows)?rows:[];}catch{return [];}
+  }
+  _rememberReportLog(rows,name=this.state.staffName){
+    try{localStorage.setItem('sw_pending_report:'+name,JSON.stringify(rows));}catch{}
+    return rows;
   }
   renderVals(){ return { mountRef:this.mountRef, loadRef:this.loadRef, mode:this.state.mode,
     setWalk:()=>this.setMode('walk'), setDrive:()=>this.setMode('drive'), setFly:()=>this.setMode('fly'), setUfo:()=>this.setMode('ufo'), setView:()=>this.setMode('orbit'), goOffice:()=>{ try{ if(window.__swCommandCenter)window.__swCommandCenter(); }catch(e){} },
@@ -255,10 +263,7 @@ class Component extends DCLogic {
     ejsKey:this.state.ejsKey||'',
     adminInput:(e)=>{ const f=e.target.dataset.field,n=e.target.dataset.name,v=e.target.value; if(f==='ejsKey'){ this.setState({ejsKey:v}); return; } const c=(this.state.adminContacts||[]).map(x=>x.name===n?{...x,[f]:v}:x); this.setState({adminContacts:c}); },
     saveAdmin:()=>{ if(window.__swAdminSave) window.__swAdminSave(this.state.adminContacts||[], this.state.ejsKey||''); this.setState({adminSaved:true}); },
-    sendReport:()=>{ const log=this.state.sessionLog||[]; if(!log.length){ this.setState({reportSent:'No changes this session.'}); return; }
-      try{ navigator.clipboard&&navigator.clipboard.writeText('StoreWell ('+new Date().toLocaleString()+'):\n'+log.map(r=>'• '+r.label+': '+r.from+' → '+r.to).join('\n')); }catch(e){}
-      if(window.__swStaffReport) window.__swStaffReport(this.state.staffName||'Staff',log);
-      this.setState({reportSent:'✅ Sent to team!', sessionLog:[]}); },
+    sendReport:()=>window.__swSaveReport?.(),
     reportSent:this.state.reportSent,
     chatOpen:this.state.chatOpen, chatName:this.state.chatName, hasName:!!this.state.chatName,
     noName:!this.state.chatName, nameRef:this._nameRef, msgRef:this._msgRef,
@@ -1176,7 +1181,7 @@ class Component extends DCLogic {
       return false;
     }
     this._overrides[k]=st;
-    if(prev!==st){ const log=(this.state.sessionLog||[]).concat([{label, from:this._statusLabel(prev), to:this._statusLabel(st), t:Date.now()}]); this.setState({sessionLog:log}); try{ if(window._swPlaySound) window._swPlaySound(st); }catch(e){} }
+    if(prev!==st){ const log=(this.state.sessionLog||[]).concat([{...entry,eventId:historyId}]); this._rememberReportLog(log,who);this.setState({sessionLog:log}); try{ if(window._swPlaySound) window._swPlaySound(st); }catch(e){} }
     try{ localStorage.setItem('sw_locks', JSON.stringify(this._overrides)); }catch(e){}
     // Sync only this key to Firebase using the authenticated SDK (REST fetch fails auth rules)
     if(!this._pendingWrites) this._pendingWrites={};
