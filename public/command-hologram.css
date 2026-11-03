@@ -76,6 +76,7 @@
 #sw-tablet .tablet-tool-host>#sw-pref-panel{background:#0a304257!important;border-color:#74d0f29e!important;padding:20px!important}
 #sw-tablet .tablet-tool-host>#sw-pref-panel label{border-color:#70b9d44d!important}
 #sw-tablet .tablet-tool-host #sw-sens-panel label{color:#d5edfc!important}
+@media screen{#sw-tablet .tablet-tool-host #sw-sens-panel div{color:#d5edfc!important}}
 #sw-tablet .tablet-tool-host #sw-sr-status{color:#ffdda0!important}
 #sw-tablet .tablet-tool-host button{min-height:42px}
 @media(max-width:1100px){.tablet-header{gap:12px}.tablet-brand strong{font-size:22px}.tablet-brand strong span{font-size:15px}.tablet-nav{padding:0 10px;gap:4px}.tablet-nav button{font-size:11px!important;gap:5px}.tablet-nav button>svg{display:none}.tablet-page{padding:20px}.lock-tile-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.lock-tile{gap:9px;padding-left:11px}.lock-tile-copy strong{font-size:19px}}
