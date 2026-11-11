@@ -135,3 +135,29 @@ Save & reports took him to another screen instead of just sending to Brad.
   report dialog and starts sending at once (Brad's email is still required,
   failures still keep the report, Save only still exists). Control > Save &
   reports still has the inventory download, history and Prepare report.
+
+## November 11 readable workspace and voice
+
+Kevin authorized building the revised interface live on November 11 instead of
+waiting for another visual preview. This supersedes the prior review hold and
+November 10 A− / A+ controls. Keep the readable white screen and physical case.
+
+- Use a compact labeled Menu rather than six always-visible crowded tabs.
+  Preserve All locks, Action required, Route, Lock history, Team and Control.
+  Alerts, Send report and History stay immediately available at the bottom.
+- No text-size buttons or stored text-size override. Automatic responsive sizing
+  should be readable on phones and tablets. Keep the browser viewport zoom enabled
+  and safe lock-board/map pinch. Scrolling or pinching must not select a status.
+- Tapping a lock opens a compact, vertically scrollable labeled status list beside
+  its row, with all nine unchanged meanings. Preserve the round colored discs,
+  sounds, hands, and app.setStatus as the only shared save boundary.
+- The color key opens only on demand. History always shows a unit identifier,
+  old/new status, operator and Central time. Normalize legacy field/status names
+  in presentation only; retain original archive records, IDs and full backup.
+- Talk is optional. Recognition begins only from an explicit microphone button.
+  A recognized or typed command is a proposal until explicit confirmation.
+  Reject ambiguous units/statuses and stale proposals. Browser speech availability
+  and microphone permissions vary; retain the typed-command fallback.
+
+Run npm run build, including readable-tablet and voice checks, before deployment.
+Use isolated samples and mocked services for save/report tests, never live data.

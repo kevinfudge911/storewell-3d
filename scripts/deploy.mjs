@@ -17,7 +17,8 @@ if (!accountId || !token) throw new Error('Existing Cloudflare account and token
 // Fail before uploading if an incomplete frontend is being published again.
 const requiredFrontend = [
   '/index.html', '/command-tablet.js', '/command-tablet.css',
-  '/command-hologram.css', '/tablet-case.css', '/lock-controls.js',
+  '/command-hologram.css', '/tablet-case.css', '/tablet-readable.css', '/text-size.js', '/lock-controls.js',
+  '/voice-commands.js', '/voice-commands.css',
   '/tablet-hands.js', '/tablet-hands.css', '/img/command-storage-lane.webp',
   '/img/hands/soldier-grip.webp', '/img/hands/soldier-tap.webp',
   '/property-route.js', '/status-sounds.js', '/staff.bundle.js',

@@ -105,14 +105,14 @@ assert.equal(w._swGetChar().shirt,'#123456','Saved character preferences remain 
 assert(app._computePath({x:0,z:10},{x:0,z:-100}).length>=2,'Recovered navigation can route around the buildings');
 assert(app._locks.G2.doorMat&&app._locks.G2.frame,'Unit G2 retains the newer alert material and no-lock frame');
 console.log('Doors without door-frame metadata:',Object.values(app._locks).filter(rec=>!rec.doorMat||!rec.frame).map(rec=>rec.label).join(', '));
-w.eval(read('property-route.js'));w.eval(read('lock-controls.js'));w.eval(read('tablet-hands.js'));w.eval(read('command-tablet.js'));
+w.eval(read('property-route.js'));w.eval(read('lock-controls.js'));w.eval(read('tablet-hands.js'));w.eval(read('voice-commands.js'));w.eval(read('command-tablet.js'));
 const click=s=>{const el=w.document.querySelector(s);assert(el,s);el.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));};
 let signed=false;w.__swCheckLogin=()=>signed?'Offline test':null;w.__swLoginGate=async()=>null;
 const enter=()=>w.__swCommandCenter();
 assert.equal(w.__swDeckVisible,false);assert.equal(w.document.querySelector('#sw-tablet').hidden,true);
 await enter();assert.equal(w.__swDeckVisible,false,'A cancelled login cannot open staff controls');
 signed=true;app.state.editMode=true;w._swAuth={currentUser:{uid:'offline'}};
-const records={early:{label:'C2',from:'green',to:'red',who:'Offline test',t:1782780000000,type:'lock'},email:{label:'Email',type:'email',t:1782780010000}};
+const records={early:{label:'C2',from:'Rented',to:'Late',who:'Offline test',t:1782780000000,type:'lock'},email:{label:'Email',type:'email',t:1782780010000}};
 for(let i=0;i<610;i++)records['later-'+i]={label:'G2',from:'green',to:'red',who:'Offline test',t:1782880000000+i,type:'lock'};
 w._swRef=(db,key)=>key;w._swOnValue=(key,cb)=>{assert.equal(key,'lockLog');cb({val:()=>records});return()=>{};};
 await enter();assert.equal(w.__swDeckVisible,true);assert.equal(renderers,1,'Tablet does not start a room renderer');

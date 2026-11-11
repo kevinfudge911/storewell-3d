@@ -1,0 +1,26 @@
+/* Voice input is a compact inline review, not another navigation screen. */
+#sw-tablet .sw-voice-open{min-height:44px;padding:.45em .8em;font:inherit;font-weight:800;border:1px solid currentColor;border-radius:12px;background:transparent;color:inherit;cursor:pointer;white-space:nowrap}
+#sw-tablet .sw-voice-panel{flex:0 1 auto;min-height:0;max-height:58%;overflow:auto;padding:12px 16px;background:#fff;color:#17304c;border-bottom:2px solid #c4d1de;font-size:clamp(16px,calc(15px * var(--ui,1)),24px);line-height:1.35;overscroll-behavior:contain}
+#sw-tablet .sw-voice-panel[hidden],#sw-tablet .sw-voice-panel [hidden]{display:none!important}
+#sw-tablet .sw-voice-heading,#sw-tablet .sw-voice-entry,#sw-tablet .sw-voice-confirm,#sw-tablet .sw-voice-entry form>div{display:flex;align-items:center;gap:10px}
+#sw-tablet .sw-voice-heading{justify-content:space-between;margin-bottom:8px}
+#sw-tablet .sw-voice-panel button{min-height:44px;padding:.45em .7em;font:inherit;font-weight:800;border-radius:10px;border:1px solid #9daec1;background:#edf3f9;color:#163b60;cursor:pointer}
+#sw-tablet .sw-voice-panel button:disabled{opacity:.55;cursor:default}
+#sw-tablet .sw-voice-panel [data-voice-close]{font-size:24px;min-width:44px;padding:0 8px;flex:0 0 auto}
+#sw-tablet .sw-voice-entry{align-items:stretch;flex-wrap:wrap}
+#sw-tablet .sw-voice-entry form{flex:1;min-width:200px}
+#sw-tablet .sw-voice-entry label{display:block;font-size:.85em;margin-bottom:4px}
+#sw-tablet .sw-voice-entry input{flex:1;min-width:0;width:100%;min-height:44px;font:inherit;border:1px solid #9daec1;border-radius:10px;padding:.45em .6em;background:white;color:#18334e}
+#sw-tablet .sw-voice-panel [data-voice-mic]{flex:0 1 auto;background:#e6f2ff;min-width:130px}
+#sw-tablet .sw-voice-panel [data-voice-mic][aria-pressed=true]{background:#a82829;color:white;border-color:#a82829}
+#sw-tablet .sw-voice-message{margin:8px 0;font-weight:600}
+#sw-tablet .sw-voice-proposal{font-weight:900;font-size:1.15em;margin:10px 0;color:#0e2d4d}
+#sw-tablet .sw-voice-panel [data-voice-confirm]{background:#116b42;border-color:#116b42;color:#fff}
+#sw-tablet .sw-voice-help,#sw-tablet .sw-voice-privacy{font-size:.85em;margin:8px 0 0}
+#sw-tablet .sw-voice-privacy summary{cursor:pointer;min-height:32px}
+#sw-tablet .sw-voice-privacy p{margin:4px 0 8px}
+#sw-tablet .sw-voice-panel :focus-visible{outline:3px solid #166fbe;outline-offset:2px}
+@media(max-width:520px){#sw-tablet .sw-voice-panel{padding:10px;max-height:65%}#sw-tablet .sw-voice-entry{display:block}#sw-tablet .sw-voice-entry [data-voice-mic]{width:100%;margin-bottom:8px}}
+
+/* The tablet glass is inverted once; restore this native white panel. */
+#sw-tablet .sw-voice-panel{filter:invert(1) hue-rotate(180deg)}

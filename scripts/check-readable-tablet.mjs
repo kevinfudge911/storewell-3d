@@ -1,0 +1,27 @@
+// Display and interaction checks only. Never reads or writes production records.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {JSDOM} from 'jsdom';
+import {transform} from 'esbuild';
+const read=f=>fs.readFileSync(new URL('../public/'+f,import.meta.url),'utf8');
+const dom=new JSDOM('<main><div class="lock-board"><div class="lock-tile-grid"><button class="lock-tile" data-unit="F7">F7</button></div></div></main>',{runScripts:'outside-only',pretendToBeVisual:true,url:'https://storewell.test'}),w=dom.window;
+w.eval(read('lock-controls.js'));const ui=w.StoreWellLockUI;
+const record={label:'F7',from:'Late',to:'Ready to Rent',who:'Kevin',t:1794368460000,type:'lock'};
+const before=JSON.stringify(record),normalized=ui.historyRecord('saved-id',record);
+assert.equal(normalized.id,'saved-id');assert.equal(normalized.label,'F7');assert.equal(normalized.from,'red');assert.equal(normalized.to,'purple');assert.equal(JSON.stringify(record),before,'Display normalization never rewrites source history');
+assert.equal(ui.historyRecord('legacy',{unit:'C2',oldStatus:'Rented',newStatus:'Lock It',staff:'Mike',timestamp:1794368460000}).label,'C2');
+assert.equal(ui.historyRecord('missing',{from:'Empty',to:'Rented'}).label,'','A missing unit is not fabricated');
+assert.equal(ui.statusKey('Rented · No Lock'),'yellow');assert.equal(ui.statusKey('flashgreen'),'flashgreen');assert.equal(ui.statusKey('Unknown historic status'),'Unknown historic status');
+const transition=ui.transition('F7','Late','Ready to Rent');assert(transition.includes('data-lock-status="red"'));assert(transition.includes('data-lock-status="purple"'));assert(transition.includes('F7'));
+const root=w.document.querySelector('main'),anchor=root.querySelector('button');let saves=0;
+const picker=ui.choices(root);picker.open({unit:{id:'F7',label:'F7',status:'green'},anchor,onChange:async()=>{saves++;return true;}});
+assert.equal(root.querySelectorAll('[data-status]').length,9);assert.equal(root.querySelector('[data-status=purple] .status-choice-label').textContent,'Ready to Rent');
+const choice=root.querySelector('[data-status=purple]');
+const touch=(type,points)=>{const e=new w.Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,'touches',{value:points.map(([clientX,clientY])=>({clientX,clientY}))});choice.dispatchEvent(e);return e};
+assert(!touch('touchstart',[[10,10]]).defaultPrevented);assert(!touch('touchmove',[[10,80]]).defaultPrevented);touch('touchend',[]);choice.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:1}));await Promise.resolve();assert.equal(saves,0,'Scroll release cannot choose a status');
+choice.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));await Promise.resolve();await Promise.resolve();assert.equal(saves,1,'Keyboard choice still saves once');
+const markup=read('command-tablet.js');assert(markup.includes('class="tablet-navigation"'));assert(markup.includes('id="tablet-color-key" hidden'));assert(markup.includes('Unit not recorded'));assert(markup.includes("timeZone:'America/Chicago'"));
+assert(!read('text-size.js').includes('data-print-size'));assert(!read('text-size.js').includes('sw_text_size'),'No old text-size override is read or written');
+const html=read('index.html');assert(html.includes('width=device-width, initial-scale=1'));assert(!/user-scalable=no|maximum-scale=1/.test(html));assert(html.includes('/tablet-readable.css'));assert(html.includes('/voice-commands.js'));
+await transform(read('tablet-readable.css'),{loader:'css'});dom.window.close();
+console.log('PASS: compact labeled choices, safe scrolling, readable human-name history, original archive unchanged, on-demand key, Menu navigation, native viewport zoom and no A controls.');

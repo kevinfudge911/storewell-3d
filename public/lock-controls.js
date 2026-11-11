@@ -25,7 +25,7 @@
     glyph.dataset.lockStatus=state;glyph.style.setProperty('--status',color(state));glyph.innerHTML=mapGlyph(label,state);
   }
   const legend=()=>`<div class="lock-color-key" role="group" aria-label="Lock color key">${Object.entries(statuses).map(([key,[label]])=>`<span>${disc('',key)}<span>${escape(label)}</span></span>`).join('')}</div>`;
-  const statusButtons=(selected,attr='data-status')=>Object.entries(statuses).map(([key,[label]])=>`<button type="button" ${attr}="${key}" aria-label="${escape(label)}" aria-pressed="${key===selected}" style="--status:${color(key)}">${disc(label,key)}<b class="choice-check" aria-hidden="true">${key===selected?'✓':''}</b></button>`).join('');
+  const statusButtons=(selected,attr='data-status')=>Object.entries(statuses).map(([key,[label]])=>`<button type="button" ${attr}="${key}" aria-label="${escape(label)}" aria-pressed="${key===selected}" style="--status:${color(key)}">${disc('',key)}<span class="status-choice-label">${escape(label)}</span><b class="choice-check" aria-hidden="true">${key===selected?'✓':''}</b></button>`).join('');
   const filterLabel=state=>statuses[state]?`${disc('',state)}<span>${escape(stateName(state))}</span>`:`<span>${state==='action'?'Action required':'All statuses'}</span>`;
   const statusFilter=(state,id)=>`<div class="filter-field"><button type="button" id="${escape(id)}" data-status-filter aria-label="Filter locks by status" aria-expanded="false">${filterLabel(state)}<span aria-hidden="true">⌄</span></button></div>`;
   function bindStatusFilter(root,{id,get,set}){
@@ -41,7 +41,21 @@
       menu.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close(true);}});
     });
   }
+  function statusKey(value){
+    const text=String(value??'').trim();
+    const compact=text.toLowerCase().replace(/[\s·_-]/g,'');
+    return Object.keys(statuses).find(key=>key===compact||statuses[key][0].toLowerCase().replace(/[\s·_-]/g,'')===compact)||text;
+  }
+  // Normalize copies for presentation only. The original archive and backup stay untouched.
+  function historyRecord(id,record){
+    const scalar=value=>typeof value==='string'||typeof value==='number'?String(value).trim():'';
+    const label=[record.label,record.unit,record.unitLabel,record.unitNumber,record.unitId].map(scalar).find(Boolean)||'';
+    const from=record.from??record.oldStatus??record.previousStatus;
+    const to=record.to??record.newStatus??record.status;
+    return {...record,id,label,from:statusKey(from),to:statusKey(to),who:scalar(record.who)||scalar(record.staff)||scalar(record.person)||'Staff',t:record.t??record.timestamp};
+  }
   function transition(label,from,to){
+    from=statusKey(from);to=statusKey(to);
     const before=statuses[from]?disc(label,from):`<span class="unrecorded-lock">${escape(stateName(from))}</span>`;
     const after=statuses[to]?disc(label,to):`<span class="unrecorded-lock">${escape(stateName(to))}</span>`;
     return `<div class="lock-transition" role="img" aria-label="Unit ${escape(label)}: ${escape(stateName(from))} to ${escape(stateName(to))}">${before}<span class="lock-transition-arrow" aria-hidden="true">→</span>${after}</div>`;
@@ -79,7 +93,7 @@
       close(false);
       const menu=document.createElement('section');menu.className='lock-status-menu';menu.id='sw-lock-status-choices';
       menu.setAttribute('role','group');menu.setAttribute('aria-label',`Unit ${unit.label} status choices`);
-      menu.innerHTML=`<header><strong tabindex="-1">${escape(unit.label)} <span>· Change status</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header><div class="lock-status-choices">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
+      menu.innerHTML=`<header><strong tabindex="-1">Unit ${escape(unit.label)} <span>· ${escape(stateName(unit.status))}</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header><div class="lock-status-choices" tabindex="0" aria-label="Status choices, scroll for more">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
       const grid=anchor?.closest('.lock-tile-grid'),card=anchor?.closest('.unit-card');
       const map=anchor?.closest('.property-map-scroll,.preview-map');
       const route=anchor?.closest('.current-stop,.preview-route-header');
@@ -97,6 +111,8 @@
       const state={menu,anchor,unit,busy:false};active=state;
       anchor?.setAttribute('aria-expanded','true');anchor?.setAttribute('aria-controls',menu.id);
       menu.querySelector('header strong').focus({preventScroll:true});
+      const selected=menu.querySelector('[aria-pressed=true]');if(selected)menu.querySelector('.lock-status-choices').scrollTop=Math.max(0,selected.offsetTop-menu.querySelector('.lock-status-choices').offsetTop-52);
+      suppressGestureClicks(menu);
       reveal();
       menu.addEventListener('click',async e=>{
         e.stopPropagation();const b=e.target.closest('button');if(!b||b.disabled||state.busy)return;
@@ -118,10 +134,19 @@
     }
     return Object.freeze({open,close,reflow,get isOpen(){return !!active;}});
   }
-  // Keep one-finger scrolling native. Own only two-finger resize gestures.
+  // Scrolling or browser pinching a choice must not become a status click.
+  function suppressGestureClicks(element){
+    let start=null,moved=false,ignoreUntil=0;
+    element.addEventListener('touchstart',e=>{if(!start)start=e.touches[0];if(e.touches.length>1)moved=true;},{passive:true});
+    element.addEventListener('touchmove',e=>{const p=e.touches[0];if(start&&p&&Math.hypot(p.clientX-start.clientX,p.clientY-start.clientY)>8)moved=true;},{passive:true});
+    const end=e=>{if(e.touches.length)return;if(moved)ignoreUntil=Date.now()+400;start=null;moved=false;};
+    element.addEventListener('touchend',end,{passive:true});element.addEventListener('touchcancel',end,{passive:true});
+    element.addEventListener('click',e=>{if(e.detail!==0&&Date.now()<ignoreUntil){e.preventDefault();e.stopImmediatePropagation();}},true);
+  }
+  // Keep one-finger scrolling native. Own only two-finger lock/map resize gestures.
   function pinchZoom(element,{get,set,selector,onStart=()=>{},onEnd=()=>{}}){
     let pinch=null,ignoreUntil=0;
-    const accepts=e=>!selector||e.target.closest(selector);
+    const accepts=e=>(!selector||e.target.closest(selector))&&!e.target.closest('.lock-status-menu,.lock-filter-menu');
     const distance=e=>Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
     function start(e){
       if(e.touches.length!==2||!accepts(e))return;
@@ -169,5 +194,5 @@
     });
     return Object.freeze({refresh,get active(){return gesture.active;}});
   }
-  window.StoreWellLockUI=Object.freeze({statuses,disc,mapDisc,paintMapPin,legend,statusFilter,bindStatusFilter,transition,choices,pinchZoom,zoomButtons,zoomBoard});
+  window.StoreWellLockUI=Object.freeze({statuses,statusKey,historyRecord,disc,mapDisc,paintMapPin,legend,statusFilter,bindStatusFilter,transition,choices,pinchZoom,zoomButtons,zoomBoard});
 })();
