@@ -112,3 +112,26 @@ only; the case, hands, outdoor backdrop and every function are unchanged.
   `--lock-zoom` sizing as the lock tiles. Keep them equal to the lock size at
   every zoom level, in portrait, landscape and phone width.
 - Pictures inside the screen are flipped back so they keep their true colors.
+
+## November 10 big print, fewer words, one-tap report
+
+Kevin, November 10, 2026 (10:01 PM Central), from his phone: the print around
+the locks was far too small "for us old people", there were too many words, and
+Save & reports took him to another screen instead of just sending to Brad.
+
+- `text-size.js` sets `--ui` on `#sw-tablet` (saved per device as
+  `sw_text_size`); the A− / A+ buttons in the status strip change it. His phone
+  reports a wide, low-density page (about 923 CSS px across), so a low-density
+  touch screen starts at 2x in portrait. Words and buttons zoom with `--ui`;
+  locks and status choices keep their own pinch / plus-minus size and stay
+  equal to each other. Keep this control and keep the print at least this big.
+- In portrait the tablet fills the whole screen (no 1000px height cap).
+- Hidden as extra words (CSS only, nothing removed from the code): the FIELD
+  COMMAND tagline, clock, PROPERTY OPERATIONS, the page title on lock screens,
+  the route-start banner, "Pinch to resize", stop numbers on tiles, "Stops
+  x–y", the lock count and the bottom-bar brand. Do not add words back without
+  Kevin asking.
+- Bottom bar is Alerts, Send report, History. Send report opens the existing
+  report dialog and starts sending at once (Brad's email is still required,
+  failures still keep the report, Save only still exists). Control > Save &
+  reports still has the inventory download, history and Prepare report.

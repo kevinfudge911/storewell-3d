@@ -807,6 +807,7 @@ window.__swShowHelp=function(){
 
 
 window.__swSaveReport=function(){
+  const autoSend=!!arguments[0]?.auto;
   const app=window.__swApp;if(!window.__swCheckLogin?.())return;
   const who=app.state.staffName||'Staff',receiptKey='sw_report_accepted:'+who;
   let savedReceipts=[];try{savedReceipts=JSON.parse(localStorage.getItem(receiptKey)||'[]');}catch{}
@@ -816,9 +817,9 @@ window.__swSaveReport=function(){
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   document.getElementById('sw-save-report-modal')?.remove();
   const overlay=document.createElement('section');overlay.id='sw-save-report-modal';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-label','Save and send report');
-  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:#010910d9;display:grid;place-items:center;padding:16px;font:14px Arial;color:#d7ecf9;color-scheme:dark;';
-  overlay.innerHTML='<div style="width:100%;max-width:500px;max-height:90dvh;overflow:auto;background:linear-gradient(145deg,#153248,#071522);border:1px solid #5195b0;border-radius:16px;padding:22px;"><header style="display:flex;gap:12px;align-items:center;"><h2 style="flex:1;font-size:21px;">Save &amp; send report</h2><button id="sw-sr-close" aria-label="Close report">×</button></header><p>'+log.length+' changes this session</p><div>'+log.map(r=>'<p style="padding:9px 0;border-bottom:1px solid #335061"><b>'+esc(r.label)+'</b> · '+esc(r.from)+' → '+esc(r.to)+'</p>').join('')+'</div><p id="sw-sr-loading">Loading team recipients…</p><div id="sw-sr-contacts"></div><p id="sw-sr-status" role="status" style="line-height:1.6;color:#ffd48a"></p><footer style="display:flex;gap:10px;margin-top:20px;"><button id="sw-sr-send" disabled>Send report</button><button id="sw-sr-save">Save only</button></footer></div>';
-  document.body.append(overlay);overlay.querySelectorAll('button').forEach(b=>b.style.cssText='padding:12px 16px;background:#155b80;border:1px solid #6298b2;color:white;border-radius:7px;font:700 14px Arial;cursor:pointer;');
+  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:#010910d9;display:grid;place-items:center;padding:12px;font:17px/1.35 Arial;color:#0b2233;color-scheme:light;';
+  overlay.innerHTML='<div style="width:100%;max-width:560px;max-height:92dvh;overflow:auto;background:#fff;border:2px solid #0b63ce;border-radius:16px;padding:20px;"><header style="display:flex;gap:12px;align-items:center;"><h2 style="flex:1;font-size:22px;margin:0;">Send report</h2><button id="sw-sr-close" aria-label="Close report">×</button></header><p>'+log.length+' changes this session</p><div>'+log.map(r=>'<p style="padding:9px 0;margin:0;border-bottom:1px solid #b9c7d2;font-size:18px"><b>'+esc(r.label)+'</b> · '+esc(r.from)+' → '+esc(r.to)+'</p>').join('')+'</div><p id="sw-sr-loading">Loading team recipients…</p><div id="sw-sr-contacts"></div><p id="sw-sr-status" role="status" style="line-height:1.4;font-size:18px;font-weight:700;color:#8a4b00"></p><footer style="display:flex;gap:10px;margin-top:20px;"><button id="sw-sr-send" disabled>Send report</button><button id="sw-sr-save">Save only</button></footer></div>';
+  document.body.append(overlay);overlay.querySelectorAll('button').forEach(b=>b.style.cssText='min-height:46px;padding:10px 16px;background:#0b63ce;border:0;color:white;border-radius:9px;font:700 17px Arial;cursor:pointer;');
   const status=overlay.querySelector('#sw-sr-status'),send=overlay.querySelector('#sw-sr-send');
   const finish=()=>{const remaining=(app.state.sessionLog||[]).filter(r=>!log.includes(r));app._rememberReportLog?.(remaining,who);app.setState({sessionLog:remaining});for(const id of accepted)if(id.startsWith(signature+'|'))accepted.delete(id);try{localStorage.setItem(receiptKey,JSON.stringify([...accepted]));}catch{}};
   overlay.querySelector('#sw-sr-close').onclick=()=>overlay.remove();overlay.querySelector('#sw-sr-save').onclick=()=>{finish();overlay.remove();};
@@ -829,6 +830,8 @@ window.__swSaveReport=function(){
     const target=overlay.querySelector('#sw-sr-contacts');
     for(const c of staff){const required=c.name==='Brad';checked[c.name]=required||c.pref!=='none';const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 0';const box=document.createElement('input');box.type='checkbox';box.checked=checked[c.name];box.disabled=required||c.pref==='none';box.onchange=()=>checked[c.name]=box.checked;const label=required?(['text','push','both'].includes(c.pref)?'Email + push':'Email'):({email:'Email',text:'Push notifications',push:'Push notifications',both:'Email + push',none:'Disabled in team settings'}[c.pref]||'Email');row.append(box,document.createTextNode(c.name+' · '+label));target.append(row);}
     send.disabled=!log.length;
+    if(!log.length)overlay.querySelector('#sw-sr-loading').textContent='Nothing new to send. Change a lock first, then tap Send report.';
+    else if(autoSend){overlay.querySelector('#sw-sr-loading').textContent='Sending to Brad…';send.click();}
   }).catch(e=>{overlay.querySelector('#sw-sr-loading').textContent=e.message+'. Close and reopen to retry.';});
   send.onclick=async()=>{
     const targets=staff.filter(c=>c.name==='Brad'||checked[c.name]);if(!targets.length){status.textContent='Select a recipient, or choose Save only.';return;}
@@ -858,7 +861,7 @@ window.__swSaveReport=function(){
     }
     await Promise.all(jobs);
     if(failures.length){status.textContent=(successes.length?'Accepted: '+successes.join(', ')+'. ':'')+'Still pending: '+failures.join('; ')+'. Your report is kept. Retry sends only pending recipients.';send.disabled=false;send.textContent='Retry pending';overlay.querySelector('#sw-sr-save').disabled=false;}
-    else{finish();if(window._swAuth?.currentUser&&window._swPush)window._swPush(window._swRef(window._swDB,'staffReports'),{name:who,changes:log,ts:Date.now()}).catch(()=>{});status.textContent='Accepted by the delivery services: '+successes.join(', ')+'.';send.textContent='Report sent';}
+    else{finish();if(window._swAuth?.currentUser&&window._swPush)window._swPush(window._swRef(window._swDB,'staffReports'),{name:who,changes:log,ts:Date.now()}).catch(()=>{});status.style.color='#0b6b32';status.textContent='✓ Sent: '+successes.join(', ')+'.';send.textContent='Report sent';}
   };
 };
 
