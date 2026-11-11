@@ -807,39 +807,60 @@ window.__swShowHelp=function(){
 
 
 window.__swSaveReport=function(){
-  const autoSend=!!arguments[0]?.auto;
+  const autoSend=arguments[0]?.auto!==false;
   const app=window.__swApp;if(!window.__swCheckLogin?.())return;
-  const who=app.state.staffName||'Staff',receiptKey='sw_report_accepted:'+who;
-  let savedReceipts=[];try{savedReceipts=JSON.parse(localStorage.getItem(receiptKey)||'[]');}catch{}
+  // Repeated taps reuse the same request, including while contacts load.
+  if(app._reportRun?.loading||app._reportRun?.sending){
+    if(!app._reportRun.overlay.isConnected)document.body.append(app._reportRun.overlay);
+    return app._reportRun.overlay;
+  }
+  const who=app.state.staffName||'Staff',receiptKey='sw_report_accepted:'+who,outboxKey='sw_report_outbox:'+who,lastKey='sw_last_report_result:'+who;
+  let savedReceipts=[],outbox=[],lastResult;
+  try{savedReceipts=JSON.parse(localStorage.getItem(receiptKey)||'[]');outbox=JSON.parse(localStorage.getItem(outboxKey)||'[]');lastResult=JSON.parse(localStorage.getItem(lastKey)||'null');}catch{}
+  if(app._reportOutboxWho===who&&Array.isArray(app._reportOutbox))outbox=app._reportOutbox;
   if(app._reportAcceptedWho!==who){app._reportAccepted=new Set(Array.isArray(savedReceipts)?savedReceipts:[]);app._reportAcceptedWho=who;}
-  const log=[...(app?.state.sessionLog||[])],checked={},accepted=app._reportAccepted;
+  const rowId=r=>r.eventId||JSON.stringify([r.t,r.label,r.from,r.to,r.who]);
+  const current=app.state.sessionLog||[],outboxIds=new Set((Array.isArray(outbox)?outbox:[]).map(rowId));
+  const pending=current.filter(r=>outboxIds.has(rowId(r)));
+  const log=pending.length?pending:[...current],checked={},accepted=app._reportAccepted;
   const signature=JSON.stringify(log.map(r=>[r.t,r.label,r.from,r.to]));
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const noticeScale=autoSend?Math.max(1,Math.min(2,parseFloat(document.getElementById('sw-tablet')?.style.getPropertyValue('--ui'))||1)):1;
+  const footerRect=document.querySelector('#sw-tablet .tablet-bottom')?.getBoundingClientRect();
+  const noticeBottom=Math.max(88*noticeScale,footerRect?.height>0?window.innerHeight-footerRect.top+12:0);
+  const central=t=>new Date(t).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' CT';
   document.getElementById('sw-save-report-modal')?.remove();
-  const overlay=document.createElement('section');overlay.id='sw-save-report-modal';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-label','Save and send report');
-  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:#010910d9;display:grid;place-items:center;padding:12px;font:17px/1.35 Arial;color:#0b2233;color-scheme:light;';
-  overlay.innerHTML='<div style="width:100%;max-width:560px;max-height:92dvh;overflow:auto;background:#fff;border:2px solid #0b63ce;border-radius:16px;padding:20px;"><header style="display:flex;gap:12px;align-items:center;"><h2 style="flex:1;font-size:22px;margin:0;">Send report</h2><button id="sw-sr-close" aria-label="Close report">×</button></header><p>'+log.length+' changes this session</p><div>'+log.map(r=>'<p style="padding:9px 0;margin:0;border-bottom:1px solid #b9c7d2;font-size:18px"><b>'+esc(r.label)+'</b> · '+esc(r.from)+' → '+esc(r.to)+'</p>').join('')+'</div><p id="sw-sr-loading">Loading team recipients…</p><div id="sw-sr-contacts"></div><p id="sw-sr-status" role="status" style="line-height:1.4;font-size:18px;font-weight:700;color:#8a4b00"></p><footer style="display:flex;gap:10px;margin-top:20px;"><button id="sw-sr-send" disabled>Send report</button><button id="sw-sr-save">Save only</button></footer></div>';
-  document.body.append(overlay);overlay.querySelectorAll('button').forEach(b=>b.style.cssText='min-height:46px;padding:10px 16px;background:#0b63ce;border:0;color:white;border-radius:9px;font:700 17px Arial;cursor:pointer;');
-  const status=overlay.querySelector('#sw-sr-status'),send=overlay.querySelector('#sw-sr-send');
-  const finish=()=>{const remaining=(app.state.sessionLog||[]).filter(r=>!log.includes(r));app._rememberReportLog?.(remaining,who);app.setState({sessionLog:remaining});for(const id of accepted)if(id.startsWith(signature+'|'))accepted.delete(id);try{localStorage.setItem(receiptKey,JSON.stringify([...accepted]));}catch{}};
-  overlay.querySelector('#sw-sr-close').onclick=()=>overlay.remove();overlay.querySelector('#sw-sr-save').onclick=()=>{finish();overlay.remove();};
+  const overlay=document.createElement('section');overlay.id='sw-save-report-modal';overlay.setAttribute('role',autoSend?'status':'dialog');overlay.setAttribute('aria-label','Report delivery');
+  overlay.style.cssText=autoSend?'position:fixed;left:50%;bottom:max('+Math.round(noticeBottom)+'px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:100001;width:min('+Math.round(540*noticeScale)+'px,calc(100vw - 28px));max-height:65dvh;overflow:auto;background:#fff;border:2px solid #0b63ce;border-radius:14px;padding:16px;box-sizing:border-box;box-shadow:0 8px 32px #0005;font:17px/1.4 Arial;color:#0b2233;color-scheme:light;':'position:fixed;inset:0;z-index:9999;background:#010910d9;display:grid;place-items:center;padding:12px;font:17px/1.35 Arial;color:#0b2233;color-scheme:light;';
+  overlay.innerHTML='<div style="'+(autoSend?'zoom:'+noticeScale+';':'width:100%;max-width:560px;max-height:92dvh;overflow:auto;background:#fff;border:2px solid #0b63ce;border-radius:16px;padding:20px;')+'"><header style="display:flex;gap:12px;align-items:center;"><h2 style="flex:1;font-size:20px;margin:0;">Report delivery</h2><button id="sw-sr-close" aria-label="Dismiss report status">×</button></header><div'+(autoSend?' hidden':'')+'><p>'+log.length+' unsent changes</p>'+log.map(r=>'<p style="padding:9px 0;margin:0;border-bottom:1px solid #b9c7d2;font-size:18px"><b>'+esc(r.label)+'</b> · '+esc(r.from)+' → '+esc(r.to)+'</p>').join('')+'</div><p id="sw-sr-loading">'+(log.length?'Sending '+log.length+' change'+(log.length===1?'':'s')+' to your saved recipients…':'No unsent changes on this device.')+'</p><div id="sw-sr-contacts"'+(autoSend?' hidden':'')+'></div><p id="sw-sr-status" role="status" style="line-height:1.4;font-size:17px;font-weight:700;color:#8a4b00"></p><footer><button id="sw-sr-send"'+(autoSend?' hidden':'')+' disabled>Send report</button></footer></div>';
+  document.body.append(overlay);overlay.querySelectorAll('button').forEach(b=>b.style.cssText='min-height:44px;padding:10px 14px;background:#0b63ce;border:0;color:white;border-radius:9px;font:700 17px Arial;cursor:pointer;');
+  const status=overlay.querySelector('#sw-sr-status'),send=overlay.querySelector('#sw-sr-send'),loading=overlay.querySelector('#sw-sr-loading');
+  const run=app._reportRun={overlay,loading:!!log.length,sending:false};
+  const finish=()=>{const sentIds=new Set(log.map(rowId)),remaining=(app.state.sessionLog||[]).filter(r=>!sentIds.has(rowId(r)));app._rememberReportLog?.(remaining,who);app.setState({sessionLog:remaining});app._reportOutbox=[];app._reportOutboxWho=who;for(const id of accepted)if(id.startsWith(signature+'|'))accepted.delete(id);try{localStorage.setItem(receiptKey,JSON.stringify([...accepted]));localStorage.removeItem(outboxKey);}catch{}};
+  // Dismissing this notice never clears an unsent report.
+  overlay.querySelector('#sw-sr-close').onclick=()=>overlay.remove();
+  if(!log.length){
+    if(lastResult?.at&&Array.isArray(lastResult.accepted))status.textContent='Last report accepted '+central(lastResult.at)+': '+lastResult.accepted.join(', ')+'. Recipient receipt is not confirmed.';
+    else status.textContent='This does not confirm an earlier report was sent. Check History for saved changes and email activity.';
+    return overlay;
+  }
   let staff=[];
   _loadStaffConfig().then(cfg=>{
     staff=['Kevin','Mike','Brad'].map(name=>({name,...(cfg?.[name]||{}),pref:cfg?.[name]?.pref||'email'}));
-    overlay.querySelector('#sw-sr-loading').textContent='Brad receives an email with every report. Choose any other recipients.';
     const target=overlay.querySelector('#sw-sr-contacts');
     for(const c of staff){const required=c.name==='Brad';checked[c.name]=required||c.pref!=='none';const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 0';const box=document.createElement('input');box.type='checkbox';box.checked=checked[c.name];box.disabled=required||c.pref==='none';box.onchange=()=>checked[c.name]=box.checked;const label=required?(['text','push','both'].includes(c.pref)?'Email + push':'Email'):({email:'Email',text:'Push notifications',push:'Push notifications',both:'Email + push',none:'Disabled in team settings'}[c.pref]||'Email');row.append(box,document.createTextNode(c.name+' · '+label));target.append(row);}
-    send.disabled=!log.length;
-    if(!log.length)overlay.querySelector('#sw-sr-loading').textContent='Nothing new to send. Change a lock first, then tap Send report.';
-    else if(autoSend){overlay.querySelector('#sw-sr-loading').textContent='Sending to Brad…';send.click();}
-  }).catch(e=>{overlay.querySelector('#sw-sr-loading').textContent=e.message+'. Close and reopen to retry.';});
+    run.loading=false;send.disabled=false;
+    if(autoSend)send.click();else loading.textContent='Brad receives an email with every report.';
+  }).catch(e=>{run.loading=false;loading.textContent='Report not sent. '+e.message+'. Your changes are kept.';send.hidden=false;send.disabled=false;send.textContent='Retry';send.onclick=()=>window.__swSaveReport({auto:autoSend});});
   send.onclick=async()=>{
-    const targets=staff.filter(c=>c.name==='Brad'||checked[c.name]);if(!targets.length){status.textContent='Select a recipient, or choose Save only.';return;}
-    send.disabled=true;send.textContent='Sending…';overlay.querySelector('#sw-sr-save').disabled=true;
+    if(run.sending)return;
+    const targets=staff.filter(c=>c.name==='Brad'||checked[c.name]);if(!targets.length){status.textContent='Select a recipient.';return;}
+    run.sending=true;send.disabled=true;send.hidden=autoSend;send.textContent='Sending…';
+    app._reportOutbox=[...log];app._reportOutboxWho=who;
+    try{localStorage.setItem(outboxKey,JSON.stringify(log));}catch{}
     const ts=new Date().toLocaleString('en-US',{timeZone:'America/Chicago'})+' CT';
     const body='StoreWell report · '+ts+' · '+who+'\n\n'+log.map(r=>r.label+': '+r.from+' → '+r.to).join('\n');
-    const failures=[],successes=[];
-    const jobs=[];
+    const failures=[],successes=[],jobs=[];
     for(const c of targets){
       const channels=c.pref==='both'?['email','push']:['text','push'].includes(c.pref)?['push']:['email'];
       if(c.name==='Brad'&&!channels.includes('email'))channels.unshift('email');
@@ -859,10 +880,16 @@ window.__swSaveReport=function(){
         }catch(e){failures.push(c.name+' '+channel+': '+e.message);}
       })());
     }
-    await Promise.all(jobs);
-    if(failures.length){status.textContent=(successes.length?'Accepted: '+successes.join(', ')+'. ':'')+'Still pending: '+failures.join('; ')+'. Your report is kept. Retry sends only pending recipients.';send.disabled=false;send.textContent='Retry pending';overlay.querySelector('#sw-sr-save').disabled=false;}
-    else{finish();if(window._swAuth?.currentUser&&window._swPush)window._swPush(window._swRef(window._swDB,'staffReports'),{name:who,changes:log,ts:Date.now()}).catch(()=>{});status.style.color='#0b6b32';status.textContent='✓ Sent: '+successes.join(', ')+'.';send.textContent='Report sent';}
+    await Promise.all(jobs);successes.sort((a,b)=>(a==='Brad email'?0:1)-(b==='Brad email'?0:1));run.sending=false;loading.textContent='';
+    if(failures.length){status.textContent=(successes.length?'Accepted: '+successes.join(', ')+'. ':'')+'Still pending: '+failures.join('; ')+'. Your report is kept. Retry sends only pending recipients.';send.hidden=false;send.disabled=false;send.textContent='Retry pending';}
+    else{
+      finish();if(window._swAuth?.currentUser&&window._swPush)window._swPush(window._swRef(window._swDB,'staffReports'),{name:who,changes:log,ts:Date.now()}).catch(()=>{});
+      const result={at:Date.now(),accepted:successes,changes:log.length};try{localStorage.setItem(lastKey,JSON.stringify(result));}catch{}
+      status.style.color='#0b6b32';status.textContent='✓ Sent: '+successes.join(', ')+'. Receipt not confirmed.';send.hidden=true;
+      const remaining=app.state.sessionLog?.length||0;if(remaining)loading.textContent=remaining+' newer change'+(remaining===1?' is':'s are')+' still unsent. Tap Send report when ready.';
+    }
   };
+  return overlay;
 };
 
 // Joystick repositioning — re-binds every time sc-if recreates the element

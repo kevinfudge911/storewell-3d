@@ -25,7 +25,7 @@
     glyph.dataset.lockStatus=state;glyph.style.setProperty('--status',color(state));glyph.innerHTML=mapGlyph(label,state);
   }
   const legend=()=>`<div class="lock-color-key" role="group" aria-label="Lock color key">${Object.entries(statuses).map(([key,[label]])=>`<span>${disc('',key)}<span>${escape(label)}</span></span>`).join('')}</div>`;
-  const statusButtons=(selected,attr='data-status')=>Object.entries(statuses).map(([key,[label]])=>`<button type="button" ${attr}="${key}" aria-label="${escape(label)}" aria-pressed="${key===selected}" style="--status:${color(key)}">${disc('',key)}<span class="status-choice-label">${escape(label)}</span><b class="choice-check" aria-hidden="true">${key===selected?'✓':''}</b></button>`).join('');
+  const statusButtons=(selected,attr='data-status')=>Object.entries(statuses).map(([key,[label]])=>`<button type="button" ${attr}="${key}" aria-label="${escape(label)}" aria-pressed="${key===selected}" style="--status:${color(key)}">${disc(attr==='data-status'?label:'',key)}${attr==='data-status'?'':`<span class="status-choice-label">${escape(label)}</span>`}</button>`).join('');
   const filterLabel=state=>statuses[state]?`${disc('',state)}<span>${escape(stateName(state))}</span>`:`<span>${state==='action'?'Action required':'All statuses'}</span>`;
   const statusFilter=(state,id)=>`<div class="filter-field"><button type="button" id="${escape(id)}" data-status-filter aria-label="Filter locks by status" aria-expanded="false">${filterLabel(state)}<span aria-hidden="true">⌄</span></button></div>`;
   function bindStatusFilter(root,{id,get,set}){
@@ -62,24 +62,23 @@
   }
   function choices(root){
     let active=null;
-    function reflow(){
-      if(!active)return;
-      const {anchor,menu}=active,grid=anchor?.closest('.lock-tile-grid');
-      if(!grid)return;
-      const tiles=[...grid.querySelectorAll(':scope > .lock-tile')],index=tiles.indexOf(anchor);
-      const columns=getComputedStyle(grid).gridTemplateColumns.split(/\s+/).length;
-      const last=tiles[Math.min(tiles.length-1,Math.floor(index/columns)*columns+columns-1)];
-      if(last&&last.nextElementSibling!==menu){
-        const focused=menu.contains(document.activeElement)?document.activeElement:null;
-        last.after(menu);focused?.focus({preventScroll:true});
+    function sizeChoices(menu,anchor){
+      // Match the actual tapped lock, including board zoom and automatic tablet sizing.
+      const bounds=(anchor?.querySelector('.lock-disc')||anchor)?.getBoundingClientRect();
+      const page=root.getBoundingClientRect(),available=root.clientWidth||1000;
+      const size=Math.max(88,Math.min(bounds?.width||132,available-44));
+      menu.style.setProperty('--choice-size',size+'px');
+      const width=size+36,height=menu.offsetHeight||size*2.25+96;
+      const left=Math.max(4,Math.min((bounds?.left||page.left)-page.left-2,available-width-4));
+      let top=(bounds?.bottom||page.top)-page.top+4;
+      if(root.clientHeight&&top+height>root.clientHeight){
+        const above=(bounds?.top||page.top)-page.top-height-4;
+        top=above>=4?above:Math.max(4,root.clientHeight-height-4);
       }
+      menu.style.left=(left+root.scrollLeft)+'px';menu.style.top=(top+root.scrollTop)+'px';
     }
-    function reveal(){
-      const menu=active?.menu;if(!menu)return;
-      // In a short landscape viewport, bring the actual status buttons above the footer.
-      const target=root.clientHeight&&menu.offsetHeight>root.clientHeight?menu.querySelector('.lock-status-choices'):menu;
-      target?.scrollIntoView?.({block:'nearest'});
-    }
+    function reflow(){if(active)sizeChoices(active.menu,active.anchor);}
+    function reveal(){reflow();}
     window.addEventListener('resize',()=>requestAnimationFrame(()=>{reflow();reveal();}));
     function close(restoreFocus=true){
       if(!active)return;
@@ -93,25 +92,14 @@
       close(false);
       const menu=document.createElement('section');menu.className='lock-status-menu';menu.id='sw-lock-status-choices';
       menu.setAttribute('role','group');menu.setAttribute('aria-label',`Unit ${unit.label} status choices`);
-      menu.innerHTML=`<header><strong tabindex="-1">Unit ${escape(unit.label)} <span>· ${escape(stateName(unit.status))}</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header><div class="lock-status-choices" tabindex="0" aria-label="Status choices, scroll for more">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
-      const grid=anchor?.closest('.lock-tile-grid'),card=anchor?.closest('.unit-card');
-      const map=anchor?.closest('.property-map-scroll,.preview-map');
-      const route=anchor?.closest('.current-stop,.preview-route-header');
-      if(grid){
-        // Expand after the tapped row, so its locks remain together.
-        const rowTop=anchor.getBoundingClientRect().top;
-        let rowEnd=anchor;
-        for(let next=anchor.nextElementSibling;next&&Math.abs(next.getBoundingClientRect().top-rowTop)<3;next=next.nextElementSibling)rowEnd=next;
-        rowEnd.after(menu);
-      }else if(card)card.after(menu);
-      else if(map)map.before(menu);
-      else if(route)route.after(menu);
-      else if(root.firstElementChild)root.firstElementChild.after(menu);
-      else root.append(menu);
+      menu.innerHTML=`<header><strong tabindex="-1">Unit ${escape(unit.label)} <span>· ${escape(stateName(unit.status))}</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header><div class="lock-status-choices" tabindex="0" aria-label="Status choices, scroll for more">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.id==='unit-history'?'History':a.id==='locate'?'Outside':a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
+      // A narrow anchored dropdown overlays the board without reserving a blank row.
+      root.append(menu);
+      sizeChoices(menu,anchor);
       const state={menu,anchor,unit,busy:false};active=state;
       anchor?.setAttribute('aria-expanded','true');anchor?.setAttribute('aria-controls',menu.id);
       menu.querySelector('header strong').focus({preventScroll:true});
-      const selected=menu.querySelector('[aria-pressed=true]');if(selected)menu.querySelector('.lock-status-choices').scrollTop=Math.max(0,selected.offsetTop-menu.querySelector('.lock-status-choices').offsetTop-52);
+      const selected=menu.querySelector('[aria-pressed=true]');if(selected)menu.querySelector('.lock-status-choices').scrollTop=Math.max(0,selected.offsetTop-menu.querySelector('.lock-status-choices').offsetTop-5);
       suppressGestureClicks(menu);
       reveal();
       menu.addEventListener('click',async e=>{

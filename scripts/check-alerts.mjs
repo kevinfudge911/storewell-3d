@@ -46,7 +46,7 @@ w.fetch=async(url,init)=>{if(String(url).includes('staffConfig'))return {ok:true
 const staff=fs.readFileSync(new URL('../src/staff.js',import.meta.url),'utf8');
 w.eval(staff.slice(staff.indexOf('async function _sendEmail('),staff.indexOf('\nfunction _toast(')));
 w.eval(staff.slice(staff.indexOf('window.__swSaveReport=function(){'),staff.indexOf('// Joystick repositioning')));
-w.__swSaveReport();await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
+w.__swSaveReport({auto:false});await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
 assert(emails.includes('brad@example.test'),'Every report includes Brad email even when his notification preference is none');
 const bradRow=[...w.document.querySelectorAll('#sw-sr-contacts label')].find(el=>el.textContent.startsWith('Brad'));
 assert(bradRow.querySelector('input').checked&&bradRow.querySelector('input').disabled,'Brad email is required, not an optional recipient');
@@ -59,12 +59,12 @@ w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mi
 let releaseKevin;const mailBodies=[];let mikeFails=true;
 w.__swNotifyReport=async(body,names)=>{if(names[0]==='Mike'&&mikeFails)throw new Error('Device unavailable');return {sent:1};};
 w.fetch=async(url,init)=>{const data=JSON.parse(init.body);mailBodies.push(data);if(data.to==='kevin@example.test')await new Promise(resolve=>releaseKevin=resolve);return {ok:true,json:async()=>({success:true,messageId:'offline-report'})};};
-w.__swSaveReport();await new Promise(r=>setTimeout(r,10));const sending=w.document.querySelector('#sw-sr-send').onclick();await new Promise(r=>setTimeout(r,0));
+w.__swSaveReport({auto:false});await new Promise(r=>setTimeout(r,10));const sending=w.document.querySelector('#sw-sr-send').onclick();await new Promise(r=>setTimeout(r,0));
 assert(mailBodies.some(d=>d.to==='brad@example.test'&&d.body.includes('G3: Empty → Rented')),'Brad full report is submitted while the earlier recipient is still pending');
 releaseKevin();await sending;assert.equal(w.__swApp.state.sessionLog.length,1,'Push failure keeps the report pending');
 // Reopening after a refresh restores accepted email receipts rather than resending.
-delete w.__swApp._reportAcceptedWho;delete w.__swApp._reportAccepted;mikeFails=false;
-w.__swSaveReport();await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
+delete w.__swApp._reportAcceptedWho;delete w.__swApp._reportAccepted;delete w.__swApp._reportOutboxWho;delete w.__swApp._reportOutbox;mikeFails=false;
+w.__swSaveReport({auto:false});await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
 assert.equal(mailBodies.filter(d=>d.to==='brad@example.test').length,1,'Reloaded retry does not duplicate Brad accepted email');
 assert.equal(w.__swApp.state.sessionLog.length,0,'Report clears only after all required deliveries are accepted');
 // A working push does not stand in for Brad's required email.
@@ -72,10 +72,48 @@ w._loadStaffConfig=async()=>({Kevin:{pref:'none'},Mike:{pref:'none'},Brad:{email
 w.__swApp.state.sessionLog=[{...initial,t:300}];let emailFails=true,emailAttempts=0,pushAttempts=0;
 w.fetch=async()=>{emailAttempts++;return {ok:!emailFails,json:async()=>({success:!emailFails,error:'Email service unavailable'})};};
 w.__swNotifyReport=async()=>{pushAttempts++;return {sent:1};};
-w.__swSaveReport();await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
+w.__swSaveReport({auto:false});await new Promise(r=>setTimeout(r,10));await w.document.querySelector('#sw-sr-send').onclick();
 assert.equal(w.__swApp.state.sessionLog.length,1);assert(w.document.querySelector('#sw-sr-status').textContent.includes('Brad email: Email service unavailable'));
 emailFails=false;await w.document.querySelector('#sw-sr-send').onclick();
 assert.equal(emailAttempts,2);assert.equal(pushAttempts,1,'Retry sends the missing email without duplicating the accepted push');assert.equal(w.__swApp.state.sessionLog.length,0);
+// One tap sends without a chooser, duplicate taps reuse loading/sending, and
+// later visits show acceptance evidence without sending an empty report.
+w._loadStaffConfig=async()=>({Kevin:{pref:'none'},Mike:{pref:'none'},Brad:{email:'brad@example.test',pref:'email'}});
+w.__swApp.state.sessionLog=[{label:'C3',from:'Empty',to:'Ready to Rent',t:400,eventId:'sample-c3'}];
+let releaseSend,autoCalls=0;
+w.fetch=async()=>{autoCalls++;await new Promise(resolve=>releaseSend=resolve);return {ok:true,json:async()=>({success:true,messageId:'offline-auto'})};};
+const fixtureTablet=w.document.createElement('div');fixtureTablet.id='sw-tablet';fixtureTablet.style.setProperty('--ui','2');fixtureTablet.innerHTML='<footer class="tablet-bottom"></footer>';w.document.body.append(fixtureTablet);fixtureTablet.firstElementChild.getBoundingClientRect=()=>({top:w.innerHeight-230,height:180});
+const firstNotice=w.__swSaveReport();assert(firstNotice.style.bottom.includes('242px'),'Notice clears the actual scaled footer');assert(firstNotice.firstElementChild.getAttribute('style').includes('zoom:2'),'Wide low-density report text matches the tablet');fixtureTablet.remove();assert.equal(w.__swSaveReport(),firstNotice,'Double tap while loading reuses one operation');
+await new Promise(r=>setTimeout(r,10));assert.equal(autoCalls,1,'A single tap starts Brad email');
+assert.equal(w.__swSaveReport(),firstNotice,'Double tap while sending cannot duplicate delivery');
+assert(w.document.querySelector('#sw-sr-contacts').hidden,'The one-tap flow has no recipient chooser');
+assert(!w.document.querySelector('#sw-sr-save'),'No Save only action can clear pending data');
+w.document.querySelector('#sw-sr-close').click();assert.equal(w.__swApp.state.sessionLog.length,1,'Dismissing while sending preserves unsent data');
+w.__swSaveReport();assert(firstNotice.isConnected,'A repeated tap restores the same in-flight status');
+releaseSend();await new Promise(r=>setTimeout(r,10));assert.equal(w.__swApp.state.sessionLog.length,0);
+assert(w.document.querySelector('#sw-sr-status').textContent.includes('Sent: Brad email'));
+w.__swSaveReport();await new Promise(r=>setTimeout(r,0));assert.equal(autoCalls,1,'Empty queue never repeats the last report');
+assert(w.document.querySelector('#sw-sr-status').textContent.includes('Last report accepted'));
+// Keep a failed report snapshot stable if a newer change is made before reopening.
+w.__swApp.state.sessionLog=[{...initial,t:500}];let partialFails=true;const reopenEmails=[];
+w._loadStaffConfig=async()=>({Kevin:{pref:'none'},Mike:{email:'mike@example.test',pref:'email'},Brad:{email:'brad@example.test',pref:'email'}});
+w.fetch=async(url,init)=>{const data=JSON.parse(init.body);reopenEmails.push(data);const ok=data.to!=='mike@example.test'||!partialFails;return {ok,json:async()=>({success:ok,messageId:ok?'offline-reopen':undefined,error:'Offline fixture'})};};
+w.__swSaveReport();await new Promise(r=>setTimeout(r,10));assert.equal(w.__swApp.state.sessionLog.length,1);
+w.__swApp.state.sessionLog.push({...newer,t:600});delete w.__swApp._reportAcceptedWho;delete w.__swApp._reportAccepted;delete w.__swApp._reportOutboxWho;delete w.__swApp._reportOutbox;partialFails=false;
+w.__swSaveReport();await new Promise(r=>setTimeout(r,10));
+assert.equal(reopenEmails.filter(x=>x.to==='brad@example.test').length,1,'Reopening with newer pending changes does not duplicate an accepted report');
+assert.equal(w.__swApp.state.sessionLog.length,1);assert.equal(w.__swApp.state.sessionLog[0].t,600,'Newer changes stay pending for the next report');
+// A storage/quota failure still preserves the retry snapshot in this session.
+const originalSetItem=w.Storage.prototype.setItem;w.Storage.prototype.setItem=function(key,value){if(key.startsWith('sw_report_outbox:'))throw new Error('Storage full');return originalSetItem.call(this,key,value);};
+w.__swApp.state.sessionLog=[{...initial,t:700}];reopenEmails.length=0;partialFails=true;
+w.__swSaveReport();await new Promise(r=>setTimeout(r,10));w.__swApp.state.sessionLog.push({...newer,t:800});partialFails=false;
+w.__swSaveReport();await new Promise(r=>setTimeout(r,10));
+assert.equal(reopenEmails.filter(x=>x.to==='brad@example.test').length,1,'Outbox storage failure cannot resend an accepted report on reopening');
+assert.equal(w.__swApp.state.sessionLog.length,1);assert.equal(w.__swApp.state.sessionLog[0].t,800);
+w.Storage.prototype.setItem=originalSetItem;
+// A missing local queue is not claimed as earlier delivery evidence.
+w.__swApp.state.sessionLog=[];w.localStorage.removeItem('sw_last_report_result:Offline test');w.__swSaveReport();
+assert(w.document.querySelector('#sw-sr-status').textContent.includes('does not confirm an earlier report was sent'));
 // Retained report entry points open the same reviewed flow and cannot clear data early.
 let opened=0;const openReport=w.__swSaveReport;w.__swSaveReport=()=>opened++;
 w.eval(staff.slice(staff.indexOf('window.__swStaffReport=async function('),staff.indexOf('window.__swChatRead=')));
@@ -89,6 +127,7 @@ await w.__swTestNotif();
 assert.deepEqual([...testRequests[0].recipients],['Offline test'],'Testing alerts never broadcasts to the whole team');
 assert(w.document.querySelector('#sw-alert-notice').textContent.startsWith('No device'),'Zero recipients are not presented as successful delivery');
 await w.__swNotifyStatus('flashred','C2','Offline test','saved-history-id',123);
+assert(w.document.querySelector('#sw-alert-notice').textContent.includes('No registered device has Lock It alerts enabled'),'Zero eligible devices are visible after a saved lock');
 assert.equal(testRequests[1].unit,'C2');assert.equal(testRequests[1].eventId,'saved-history-id','The client forwards the saved activity identity');assert.equal(testRequests[1].eventAt,123,'Ordering uses the saved entry timestamp');
 w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.length,2,'An unsigned visitor cannot send a staff test');
 // The new tablet shortcut uses the real device subscription path and retains preferences.

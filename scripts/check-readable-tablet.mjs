@@ -14,12 +14,14 @@ assert.equal(ui.historyRecord('missing',{from:'Empty',to:'Rented'}).label,'','A 
 assert.equal(ui.statusKey('Rented · No Lock'),'yellow');assert.equal(ui.statusKey('flashgreen'),'flashgreen');assert.equal(ui.statusKey('Unknown historic status'),'Unknown historic status');
 const transition=ui.transition('F7','Late','Ready to Rent');assert(transition.includes('data-lock-status="red"'));assert(transition.includes('data-lock-status="purple"'));assert(transition.includes('F7'));
 const root=w.document.querySelector('main'),anchor=root.querySelector('button');let saves=0;
+anchor.innerHTML=ui.disc('F7','green');let actualSize=154;anchor.querySelector('.lock-disc').getBoundingClientRect=()=>({width:actualSize,left:0});
 const picker=ui.choices(root);picker.open({unit:{id:'F7',label:'F7',status:'green'},anchor,onChange:async()=>{saves++;return true;}});
-assert.equal(root.querySelectorAll('[data-status]').length,9);assert.equal(root.querySelector('[data-status=purple] .status-choice-label').textContent,'Ready to Rent');
+assert.equal(root.querySelector('.lock-status-menu').parentElement,root,'Dropdown does not reserve an empty grid row');assert.equal(root.querySelectorAll('[data-status]').length,9);assert.equal(root.querySelector('[data-status=purple] .lock-disc>strong').textContent,'Ready to Rent');assert.equal(root.querySelectorAll('.choice-check').length,0,'No detached checkmark target');
+assert.equal(root.querySelector('.lock-status-menu').style.getPropertyValue('--choice-size'),'154px','Choice matches the tapped lock');actualSize=210;picker.reflow();assert.equal(root.querySelector('.lock-status-menu').style.getPropertyValue('--choice-size'),'210px','Resizing locks also resizes choices');
 const choice=root.querySelector('[data-status=purple]');
 const touch=(type,points)=>{const e=new w.Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,'touches',{value:points.map(([clientX,clientY])=>({clientX,clientY}))});choice.dispatchEvent(e);return e};
 assert(!touch('touchstart',[[10,10]]).defaultPrevented);assert(!touch('touchmove',[[10,80]]).defaultPrevented);touch('touchend',[]);choice.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:1}));await Promise.resolve();assert.equal(saves,0,'Scroll release cannot choose a status');
-choice.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));await Promise.resolve();await Promise.resolve();assert.equal(saves,1,'Keyboard choice still saves once');
+choice.querySelector('svg use').dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));await Promise.resolve();await Promise.resolve();assert.equal(saves,1,'Tapping the lock art itself saves once');
 const markup=read('command-tablet.js');assert(markup.includes('class="tablet-navigation"'));assert(markup.includes('id="tablet-color-key" hidden'));assert(markup.includes('Unit not recorded'));assert(markup.includes("timeZone:'America/Chicago'"));
 assert(!read('text-size.js').includes('data-print-size'));assert(!read('text-size.js').includes('sw_text_size'),'No old text-size override is read or written');
 const html=read('index.html');assert(html.includes('width=device-width, initial-scale=1'));assert(!/user-scalable=no|maximum-scale=1/.test(html));assert(html.includes('/tablet-readable.css'));assert(html.includes('/voice-commands.js'));

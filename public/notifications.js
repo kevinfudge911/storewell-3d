@@ -50,7 +50,7 @@
   window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else setBell(false);};
   window.__swNotifyStatus=async(type,unit,who,eventId,eventAt)=>{
     if(!LABELS[type]||type==='report')return;
-    try{return await post('/notify',{type,unit,eventId,eventAt,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});}
+    try{const result=await post('/notify',{type,unit,eventId,eventAt,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});if(!result.sent)notice('Status saved. No registered device has '+LABELS[type]+' alerts enabled. Check Alerts on the receiving device.');return result;}
     catch(e){notice('Status saved. Push alerts could not be sent: '+e.message);throw e;}
   };
   window.__swNotifyReport=(body,recipients)=>post('/notify',{type:'report',title:'StoreWell report',body, ...(recipients?{recipients}:{})});

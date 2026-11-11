@@ -1,6 +1,6 @@
 // StoreWell service worker v2 (safe) - GET-only caching + push notifications.
 // Never touches POST/PUT requests, so it can never break lock saves or reports.
-const CACHE = 'storewell-handheld-readable-v48';
+const CACHE = 'storewell-one-tap-report-v49';
 // Device-local presentation state. Keep it across shell-cache upgrades and
 // notification dismissal so delayed pushes cannot roll back newer activity.
 const NOTIFICATION_STATE = 'storewell-notification-state-v1';

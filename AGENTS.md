@@ -161,3 +161,22 @@ November 10 A− / A+ controls. Keep the readable white screen and physical case
 
 Run npm run build, including readable-tablet and voice checks, before deployment.
 Use isolated samples and mocked services for save/report tests, never live data.
+
+## November 11 one-tap report correction
+
+Send report immediately sends the pending local report to the saved recipients,
+including Brad's required email, without navigating away or asking for another
+Send tap. A compact notice shows progress, service acceptance or retained failure.
+Never equate service acceptance with recipient receipt. Dismissal preserves
+pending changes; do not restore Save only. Repeated taps share the in-flight
+request. Keep failed snapshots stable while newer changes remain queued, and
+never resend an empty queue. Alert preferences remain per-device and unchanged.
+
+## November 11 full-size status buttons
+
+After reviewing his real phone screenshot, Kevin requested status choices as
+full-size round lock icons matching the selected lock, with names inside the
+icons and no right-side checkmark. Keep a narrow vertically scrollable chooser
+anchored by the selected lock without reserving an empty grid row. Do not show
+all nine in a large grid or boxed panel.
+The icon itself is the button. Preserve scroll/pinch safety and existing saves.
