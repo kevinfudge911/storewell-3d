@@ -412,3 +412,59 @@
  #sw-tablet,#sw-tablet.tablet-hands-on,.preview-screen #sw-tablet {padding-bottom:19px}
  #sw-tablet .lock-color-key {scrollbar-width:thin}
 }
+
+/* November 10, 2026 (Kevin): status choices are the same size as the locks and
+   follow the same pinch / plus-minus zoom, on the board and in the filter. */
+#sw-tablet .lock-status-choices {--lock-base:clamp(82px,10vw,132px);grid-template-columns:repeat(auto-fill,minmax(min(100%,calc(var(--lock-base) * var(--lock-zoom,1))),1fr))!important;gap:16px 14px;max-width:none;justify-items:center}
+#sw-tablet .lock-status-choices button {width:100%;max-width:calc(140px * var(--lock-zoom,1))}
+#sw-tablet .lock-status-choices .lock-disc>strong {font-size:clamp(14px,calc(18px * var(--lock-zoom,1)),32px)!important;line-height:1.1}
+#sw-tablet .lock-status-choices .choice-check {font-size:clamp(18px,calc(24px * var(--lock-zoom,1)),40px)}
+.lock-status-menu>header,.lock-choice-links {max-width:none}
+@media(max-width:700px) {
+ #sw-tablet .lock-status-choices {gap:13px 9px}
+ #sw-tablet .lock-status-choices .lock-disc>strong {font-size:clamp(13px,calc(15px * var(--lock-zoom,1)),28px)!important}
+}
+@media(orientation:landscape) and (max-height:600px) {
+ #sw-tablet .lock-status-choices {--lock-base:82px;gap:12px}
+ #sw-tablet .lock-status-choices button {max-width:calc(106px * var(--lock-zoom,1));min-height:0;padding:0}
+ #sw-tablet .lock-status-choices .lock-disc>strong {font-size:clamp(12px,calc(14px * var(--lock-zoom,1)),26px)!important}
+}
+
+/* November 10, 2026 (Kevin): the tablet screen is white, not blue glass, so it
+   is easy to read. The whole dark design is flipped to dark-on-white in one
+   place; pictures are flipped back so they keep their true colors. */
+#sw-tablet .tablet-glass {background:#000!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:invert(1) hue-rotate(180deg)}
+#sw-tablet .tablet-glass img,#sw-tablet .tablet-glass video,#sw-tablet .tablet-glass canvas {filter:invert(1) hue-rotate(180deg)}
+@media print {#sw-tablet .tablet-glass,#sw-tablet .tablet-glass img,#sw-tablet .tablet-glass video,#sw-tablet .tablet-glass canvas {filter:none!important}}
+/* Lock colors on the white screen. The round lock art is flipped back to true
+   color (reusing the filter each disc already had), so red is red and green is
+   green. Text and small marks outside the art use the matching flipped value. */
+#sw-tablet .tablet-glass [data-lock-status=green],#sw-tablet .tablet-glass [data-status=green],#sw-tablet .tablet-glass [data-filter-status=green] {--status:#37b66a!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=green]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=green] .map-lock-art {--status:#0b8a3e}
+#sw-tablet .tablet-glass [data-lock-status=red],#sw-tablet .tablet-glass [data-status=red],#sw-tablet .tablet-glass [data-filter-status=red] {--status:#ff856a!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=red]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=red] .map-lock-art {--status:#c4122f}
+#sw-tablet .tablet-glass [data-lock-status=flashred],#sw-tablet .tablet-glass [data-status=flashred],#sw-tablet .tablet-glass [data-filter-status=flashred] {--status:#ff753c!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=flashred]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=flashred] .map-lock-art {--status:#e2001f}
+#sw-tablet .tablet-glass [data-lock-status=flashgreen],#sw-tablet .tablet-glass [data-status=flashgreen],#sw-tablet .tablet-glass [data-filter-status=flashgreen] {--status:#02ab51!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=flashgreen]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=flashgreen] .map-lock-art {--status:#00a94f}
+#sw-tablet .tablet-glass [data-lock-status=blue],#sw-tablet .tablet-glass [data-status=blue],#sw-tablet .tablet-glass [data-filter-status=blue] {--status:#3ca9ff!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=blue]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=blue] .map-lock-art {--status:#0b63ce}
+#sw-tablet .tablet-glass [data-lock-status=yellow],#sw-tablet .tablet-glass [data-status=yellow],#sw-tablet .tablet-glass [data-filter-status=yellow] {--status:#b97b00!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=yellow]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=yellow] .map-lock-art {--status:#b97f00}
+#sw-tablet .tablet-glass [data-lock-status=purple],#sw-tablet .tablet-glass [data-status=purple],#sw-tablet .tablet-glass [data-filter-status=purple] {--status:#a987ff!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=purple]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=purple] .map-lock-art {--status:#7a3fd0}
+#sw-tablet .tablet-glass [data-lock-status=white],#sw-tablet .tablet-glass [data-status=white],#sw-tablet .tablet-glass [data-filter-status=white] {--status:#6e7b87!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=white]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=white] .map-lock-art {--status:#7b8894}
+#sw-tablet .tablet-glass [data-lock-status=black],#sw-tablet .tablet-glass [data-status=black],#sw-tablet .tablet-glass [data-filter-status=black] {--status:#eeeeee!important}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=black]>svg,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=black] .map-lock-art {--status:#111111}
+#sw-tablet .tablet-glass .lock-disc>svg {filter:invert(1) hue-rotate(180deg) drop-shadow(0 1px 2px color-mix(in srgb,var(--status) 35%,transparent))}
+#sw-tablet .tablet-glass .lock-map-disc .map-lock-art {filter:invert(1) hue-rotate(180deg)}
+#sw-tablet .tablet-glass .lock-disc>svg,#sw-tablet .tablet-glass .lock-map-disc .map-lock-art {stroke:var(--status)}
+#sw-tablet .tablet-glass .lock-disc .disc-body,#sw-tablet .tablet-glass .lock-map-disc .disc-body {stroke-width:4!important;fill:color-mix(in srgb,var(--status) 22%,#fff)!important}
+#sw-tablet .tablet-glass .lock-disc .disc-halo,#sw-tablet .tablet-glass .lock-map-disc .disc-halo {stroke-width:1!important;stroke-opacity:.6}
+#sw-tablet .tablet-glass .lock-disc .disc-highlight,#sw-tablet .tablet-glass .lock-map-disc .disc-highlight {stroke:#fff!important;stroke-opacity:.9}
+#sw-tablet .tablet-glass .lock-disc .disc-shackle,#sw-tablet .tablet-glass .lock-map-disc .disc-shackle {stroke-width:5!important;stroke-opacity:1;fill:none!important}
+#sw-tablet .tablet-glass .lock-disc .disc-key,#sw-tablet .tablet-glass .lock-disc .disc-ticks,#sw-tablet .tablet-glass .lock-map-disc .disc-key,#sw-tablet .tablet-glass .lock-map-disc .disc-ticks {stroke-opacity:1}
+#sw-tablet .tablet-glass .lock-disc[data-lock-status=white] .disc-body,#sw-tablet .tablet-glass .lock-map-disc[data-lock-status=white] .disc-body {fill:#fff!important}
+#sw-tablet .tablet-glass .lock-disc>strong {text-shadow:0 0 4px #000,0 0 2px #000}
+@media print {#sw-tablet .tablet-glass .lock-disc>svg,#sw-tablet .tablet-glass .lock-map-disc .map-lock-art {filter:none!important}}

@@ -95,3 +95,20 @@ the approved tablet must also appear behind the live tablet. Keep this image
 in the shared tablet case styling, with a production asset path, so the review
 and live command screen cannot diverge. It appears only while the tablet is
 open; putting the tablet away reveals the same outdoor location and controls.
+
+## November 10 white screen and lock-sized choices
+
+Kevin, November 10, 2026 (7:26 PM Central): the blue glass behind the tablet
+text was hard to read, and the status choices were too small and did not grow
+with the lock zoom. He asked for a white screen and choices the same size as
+the locks. This supersedes the translucent blue screen for the tablet display
+only; the case, hands, outdoor backdrop and every function are unchanged.
+
+- The white screen and its lock colors live at the end of `tablet-case.css`.
+  The dark design is flipped once on `.tablet-glass`; the round lock art is
+  flipped back inside the filter each disc already had, with true status colors.
+  Do not add per-screen color overrides or remove the flip without replacing it.
+- Status choices (board menu and filter menu) use the same `--lock-base` and
+  `--lock-zoom` sizing as the lock tiles. Keep them equal to the lock size at
+  every zoom level, in portrait, landscape and phone width.
+- Pictures inside the screen are flipped back so they keep their true colors.
