@@ -180,3 +180,11 @@ icons and no right-side checkmark. Keep a narrow vertically scrollable chooser
 anchored by the selected lock without reserving an empty grid row. Do not show
 all nine in a large grid or boxed panel.
 The icon itself is the button. Preserve scroll/pinch safety and existing saves.
+
+## November 15 Team screen on phones
+
+The phone audit found Menu > Team shifted half off the left edge with a stray
+"Close menu" bar: `bridge-light.css` centers `#sw-cmd-panel` with
+`transform:translate(-50%,-50%)` while the deck is open, which beat the
+`.tablet-tool-host>.tablet-embedded` reset. The end of `command-tablet.css` now
+resets every embedded staff tool with higher specificity. Keep it.
