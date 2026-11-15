@@ -63,7 +63,7 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
   function parkTool(){toolObserver?.disconnect();toolObserver=null;if(parkedTool){document.body.append(parkedTool);parkedTool.style.display='none';parkedTool=null;}}
   function show(key,html){voice?.close();closeLegend();lockChoices.close(false);parkTool();releaseDownloads();refreshScreen=null;screen=key;page.dataset.screen=key;nav(key==='reports'?'more':key);page.innerHTML=html;boardZoom.refresh();page.scrollTop=0;page.querySelector('h1')?.focus({preventScroll:true});}
   async function login(){if(window.__swCheckLogin?.()&&app?.state.editMode)return true;if(!app||!window.__swLoginGate)return false;try{await window.__swLoginGate(app);return !!window.__swCheckLogin?.();}catch(e){toast(e.message||'Staff sign-in could not connect.');return false;}}
-  async function openTablet(next='locks'){
+  async function openTablet(next){
     if(!await login())return false;
     priorFocus=document.activeElement;tablet.hidden=false;window.__swDeckVisible=true;document.body.classList.add('storewell-deck-open');
     if(propertyPlan){propertyPlan.inert=true;propertyPlan.setAttribute('aria-hidden','true');}
@@ -72,8 +72,14 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
     app.setState({showSearch:false,showInv:false,pickUnit:null,chatOpen:false,helpClosed:true});
     document.getElementById('sw-dashboard')?.remove();document.getElementById('sw-drop-menu')?.remove();
     for(const id of ['sw-sens-panel','sw-sens-ctrl']){const el=document.getElementById(id);if(el)el.style.display='none';}
-    navigate(typeof next==='string'?next:'locks');hands?.open();watchHistory();refresh();return true;
+    navigate(typeof next==='string'?next:firstScreen());hands?.open();watchHistory();refresh();return true;
   }
+  // Nov 15 2026 (Kevin): Kevin and Mike do the lock work, so their tablet opens on Action required when anything needs doing.
+  // Brad sets the actions, so he (and everyone else) still opens on All locks.
+  function firstScreen(){let who='';try{who=(localStorage.getItem('sw_staff_name')||localStorage.getItem('sw_user')||'').trim().toLowerCase();}catch(e){}
+    const doer=/^(kevin|mike|michael)\b/.test(who);if(!doer)return 'locks';
+    try{if(!units().some(u=>['flashred','flashgreen'].includes(u.status)))return 'locks';}catch(e){}
+    filter='action';query='';lockView='board';return 'action';}
   function closeTablet(unit){
     voice?.close();closeLegend();tablet.querySelector('.tablet-navigation').open=false;lockChoices.close(false);
     parkTool();hands?.close();tablet.hidden=true;window.__swDeckVisible=false;document.body.classList.remove('storewell-deck-open');releaseDownloads();

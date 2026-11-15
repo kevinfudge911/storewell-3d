@@ -188,3 +188,12 @@ The phone audit found Menu > Team shifted half off the left edge with a stray
 `transform:translate(-50%,-50%)` while the deck is open, which beat the
 `.tablet-tool-host>.tablet-embedded` reset. The end of `command-tablet.css` now
 resets every embedded staff tool with higher specificity. Keep it.
+
+## November 15 action-first screen for Kevin and Mike
+
+Kevin and Mike do the lock work, so when the signed-in staff name starts with
+Kevin, Mike or Michael, Command Center opens on Action required (Lock It / Lock
+Off, the flashing red/green statuses). If nothing needs action it opens on All
+locks. Brad and everyone else still open on All locks. `openTablet()` has no
+default screen anymore; `firstScreen()` picks it. Explicit callers (Find,
+unit menus) still pass 'locks'.
