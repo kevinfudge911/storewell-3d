@@ -86,13 +86,13 @@
       anchor?.setAttribute('aria-expanded','false');anchor?.removeAttribute('aria-controls');
       if(restoreFocus&&anchor?.isConnected)anchor.focus({preventScroll:true});
     }
-    function open({unit,anchor,onChange,onSaved,actions=[]}){
+    function open({unit,anchor,onChange,onSaved,actions=[],quick=[]}){
       if(active?.busy)return;
       if(active?.unit.id===unit.id){close();return;}
       close(false);
       const menu=document.createElement('section');menu.className='lock-status-menu';menu.id='sw-lock-status-choices';
       menu.setAttribute('role','group');menu.setAttribute('aria-label',`Unit ${unit.label} status choices`);
-      menu.innerHTML=`<header><strong tabindex="-1">Unit ${escape(unit.label)} <span>· ${escape(stateName(unit.status))}</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header><div class="lock-status-choices" tabindex="0" aria-label="Status choices, scroll for more">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.id==='unit-history'?'History':a.id==='locate'?'Outside':a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
+      menu.innerHTML=`<header><strong tabindex="-1">Unit ${escape(unit.label)} <span>· ${escape(stateName(unit.status))}</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header>${quick.length?`<div class="lock-quick" role="group" aria-label="Quick change">${quick.map(q=>`<button type="button" data-quick-status="${escape(q.status)}" aria-label="${escape(q.label)} · ${escape(stateName(q.status))}" title="${escape(q.label)} · ${escape(stateName(q.status))}" style="--status:${color(q.status)}">${disc('',q.status)}<span>${escape(q.label)}</span></button>`).join('')}</div>`:''}<div class="lock-status-choices" tabindex="0" aria-label="Status choices, scroll for more">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.id==='unit-history'?'History':a.id==='locate'?'Outside':a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
       // A narrow anchored dropdown overlays the board without reserving a blank row.
       root.append(menu);
       sizeChoices(menu,anchor);
@@ -106,7 +106,7 @@
         e.stopPropagation();const b=e.target.closest('button');if(!b||b.disabled||state.busy)return;
         if(b.hasAttribute('data-choice-close')){close();return;}
         if(b.dataset.choiceAction!==undefined){close(false);actions[Number(b.dataset.choiceAction)].run();return;}
-        const next=b.dataset.status;if(!next)return;
+        const next=b.dataset.status||b.dataset.quickStatus;if(!next)return;
         if(next===unit.status){close();return;}
         state.busy=true;menu.setAttribute('aria-busy','true');
         const buttons=[...menu.querySelectorAll('button')],feedback=menu.querySelector('.save-result');

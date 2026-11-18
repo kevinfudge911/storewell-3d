@@ -137,3 +137,14 @@
  #sw-tablet .lock-status-choices {max-height:160px}
  #sw-tablet .tablet-key-panel {max-height:45dvh}
 }
+
+/* Nov 18 2026 (Kevin): quick red/green lock changes. Small flat pills; all nine choices stay right below. */
+#sw-tablet .lock-status-menu .lock-quick {display:flex;flex-wrap:wrap;gap:8px;padding:2px 4px 8px}
+#sw-tablet .lock-quick button,#sw-tablet .red-run-start,#sw-tablet .red-run-done-button {display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:4px 14px 4px 5px;border:1px solid color-mix(in srgb,var(--status,#73cef1) 70%,transparent)!important;border-radius:22px!important;background:#11425812;color:#e6f8ff;font:600 16px 'StoreWell Display',sans-serif!important;box-shadow:none}
+#sw-tablet .lock-quick .lock-disc,#sw-tablet .red-run-done-button .lock-disc {width:30px!important;max-width:30px!important;flex:none}
+#sw-tablet .red-run-start {--status:#ff526f;margin-left:auto}
+#sw-tablet .red-run-start .lock-disc {width:34px!important;max-width:34px!important;flex:none}
+#sw-tablet .red-run-start .lock-disc>strong {font-size:13px}
+#sw-tablet .red-run-done-button {--status:#ff7994}
+#sw-tablet .red-run-controls button:disabled {opacity:.55}
+#sw-tablet .tablet-toast .toast-undo {margin-left:10px;padding:2px 10px;min-height:30px;border:1px solid #a4e9ff;border-radius:15px;background:none;color:inherit;font:inherit;font-weight:700;cursor:pointer}

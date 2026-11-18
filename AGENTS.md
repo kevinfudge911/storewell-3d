@@ -197,3 +197,21 @@ Off, the flashing red/green statuses). If nothing needs action it opens on All
 locks. Brad and everyone else still open on All locks. `openTablet()` has no
 default screen anymore; `firstScreen()` picks it. Explicit callers (Find,
 unit menus) still pass 'locks'.
+
+## November 18 red lock run, Paid and Undo
+
+Kevin's normal day: Brad hands out 15 to 20 Lock It (flashred) units at once,
+then later one or two at a time go back to Rented when the tenant pays.
+
+- **Run** pill on the lock screen (only when something is Lock It) opens the
+  Red lock run: every Lock It unit in gate order, one at a time. Done saves
+  Late (red lock on) and moves to the next. Skip and Stop are there too. Tap
+  the big lock to get all nine choices, so move-outs, cleaning and every other
+  color are still one tap away. The run ends with Send and Back; Send only
+  sends the report when someone presses it.
+- **Quick button** on top of the normal nine choices: Lock It shows Done
+  (Late), Late and Lock Off show Paid (Rented). Other statuses show none. It
+  uses `data-quick-status`, so the nine `[data-status]` buttons are unchanged.
+- **Undo** in the save toast (stays 9 seconds) puts the lock back to what it
+  was through the same `app.setStatus`, so history keeps both changes.
+- Every save still goes through `app.setStatus`; nothing was removed.

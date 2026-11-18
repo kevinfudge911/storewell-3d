@@ -46,7 +46,7 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
   let parkedTool=null,toolObserver;
   let app,screen='home',live=false,appLoginStarted=false,propertyPlan,selectedPropertyUnit,toastTimer;
   let filter='all',query='',lockView='board',selectedUnit=null,routeCursor=0,historyRecords={},historyState='Connecting to saved history…',unsubscribe,historyDownloadUrl,inventoryDownloadUrl,installPrompt,refreshScreen,priorFocus;
-  let lastLockSnapshot='';
+  let lastLockSnapshot='';let run=null;
   window.__swDeckVisible=false;
   const norm=s=>String(s??'').replace(/[-\s]/g,'').toUpperCase();
   const units=()=>Object.entries(app?._locks||{}).map(([id,r])=>({id,label:r.label,size:app._sizeOf(r.label),status:app._statusOf(r.label),pos:r.pos,face:r.face}));
@@ -55,13 +55,17 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
   const match=u=>(filter==='all'||filter==='action'&&['flashred','flashgreen'].includes(u.status)||u.status===filter)&&(!query||norm(u.label).includes(norm(query)));
   const status=s=>STATUS[s]?.[0]||s||'Unknown';
   const button=(label,action,sym='units',color='blue')=>`<button class="tablet-button ${color}" data-action="${action}">${icon(sym)}<span>${label}</span></button>`;
-  function toast(message){const el=tablet.querySelector('.tablet-toast');el.textContent=message;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,6000);}
+  function toast(message,undo){const el=tablet.querySelector('.tablet-toast');el.textContent=message;if(typeof undo==='function'){const b=document.createElement('button');b.type='button';b.className='toast-undo';b.textContent='Undo';b.onclick=e=>{e.stopPropagation();el.hidden=true;clearTimeout(toastTimer);undo();};el.append(' ',b);}el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,undo?9000:6000);}
+  // Nov 18 2026 (Kevin): Undo puts a lock back the same way it was saved, so lock history keeps both changes.
+  function undoChange(label,prev){return async()=>{try{if(!await login())throw new Error('Sign in to undo this change.');const ok=await app.setStatus(label,prev);if(ok===false)throw new Error('Undo did not save. Please try again.');if(run){const i=run.ids.findIndex(id=>norm(id)===norm(label));if(i>=0&&i<run.i)run.i=i;}refreshScreen?.();toast(`${label} · ${status(prev)} — back the way it was.`);}catch(error){toast(error.message||'Undo could not connect.');}};}
+  // Nov 18 2026 (Kevin): quick buttons sit on top of all nine choices. Lock It: Done puts the red lock on (Late). Late or Lock Off: Paid takes it off (Rented).
+  function quickChoices(st){return st==='flashred'?[{status:'red',label:'Done'}]:(st==='red'||st==='flashgreen')?[{status:'green',label:'Paid'}]:[];}
   function releaseDownloads(){for(const url of [historyDownloadUrl,inventoryDownloadUrl])if(url)setTimeout(()=>URL.revokeObjectURL(url),60000);historyDownloadUrl=inventoryDownloadUrl=null;}
   function title(eyebrow,heading,subtitle=''){return `<header class="page-heading"><div><p>${eyebrow}</p><h1 tabindex="-1">${heading}</h1>${subtitle?`<span>${subtitle}</span>`:''}</div></header>`;}
   function syncCaseSound(){tablet.querySelector('[data-action="case-sounds"]').setAttribute('aria-pressed',String(window._swSoundOn!==false));}
-  function nav(key){syncCaseSound();tablet.querySelector('[data-screen-name]').textContent=({home:'Overview',action:'Action required',locks:'All locks',route:'Route',history:'Lock history',team:'Team',more:'Control',reports:'Reports'})[key]||'StoreWell';tablet.querySelector('.tablet-navigation').open=false;tablet.querySelectorAll('[data-nav]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.nav===key));b.classList.toggle('active',b.dataset.nav===key);});}
+  function nav(key){syncCaseSound();tablet.querySelector('[data-screen-name]').textContent=({home:'Overview',action:'Action required',locks:'All locks',route:'Route',history:'Lock history',team:'Team',more:'Control',reports:'Reports',run:'Red lock run'})[key]||'StoreWell';tablet.querySelector('.tablet-navigation').open=false;tablet.querySelectorAll('[data-nav]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.nav===key));b.classList.toggle('active',b.dataset.nav===key);});}
   function parkTool(){toolObserver?.disconnect();toolObserver=null;if(parkedTool){document.body.append(parkedTool);parkedTool.style.display='none';parkedTool=null;}}
-  function show(key,html){voice?.close();closeLegend();lockChoices.close(false);parkTool();releaseDownloads();refreshScreen=null;screen=key;page.dataset.screen=key;nav(key==='reports'?'more':key);page.innerHTML=html;boardZoom.refresh();page.scrollTop=0;page.querySelector('h1')?.focus({preventScroll:true});}
+  function show(key,html){voice?.close();closeLegend();lockChoices.close(false);parkTool();releaseDownloads();refreshScreen=null;screen=key;page.dataset.screen=key;nav(key==='reports'?'more':key);if(key==='run')tablet.querySelector('[data-screen-name]').textContent='Red lock run';page.innerHTML=html;boardZoom.refresh();page.scrollTop=0;page.querySelector('h1')?.focus({preventScroll:true});}
   async function login(){if(window.__swCheckLogin?.()&&app?.state.editMode)return true;if(!app||!window.__swLoginGate)return false;try{await window.__swLoginGate(app);return !!window.__swCheckLogin?.();}catch(e){toast(e.message||'Staff sign-in could not connect.');return false;}}
   async function openTablet(next){
     if(!await login())return false;
@@ -112,7 +116,7 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
     return `<div class="lock-board"><div class="board-caption"><span>${icon('units')}BUILDING LOCKS</span><span>IN WALKING ORDER ${icon('route')}</span></div>${groups.map(g=>`<section class="lock-bank" aria-label="${escape(g.name)}"><header><div><h2>${escape(g.name)}</h2><p>${[...new Set(g.stops.map(s=>s.location.side))].map(escape).join(' → ')}</p></div><span>Stops ${g.stops[0].index+1}${g.stops.length>1?'–'+(g.stops.at(-1).index+1):''}</span></header><div class="lock-tile-grid">${g.stops.map(({u,index,location})=>lockTile(u,index,location)).join('')}</div></section>`).join('')||'<div class="empty-state"><strong>No locks match this view.</strong><p>Try another unit or status.</p><button class="tablet-button" data-action="all-locks">Show all locks</button></div>'}</div>`;
   }
   function showLocks(){page.dataset.lockView=lockView;
-    show('locks',title('PROPERTY LOCK CONTROL',filter==='action'?'Action required':'All locks')+`<div class="board-route-start"><span>${icon('route')}</span><div><strong>Open main gate → C2 → C3</strong><small>Enter at the front-right gate. Start on the right side of the front building.</small></div><button data-action="route">Walk route ${icon('back')}</button></div>`+lockToolbar()+`<div class="view-switch"><div role="group" aria-label="Lock layout"><button data-layout="board" aria-pressed="${lockView==='board'}">${icon('lock')}Lock board</button><button data-layout="map" aria-pressed="${lockView==='map'}">${icon('units')}Property map</button><button data-layout="list" aria-pressed="${lockView==='list'}">${icon('route')}Route list</button></div><span data-match-count></span></div>${window.StoreWellLockUI.zoomButtons()}<div id="tablet-locks"></div>`);
+    show('locks',title('PROPERTY LOCK CONTROL',filter==='action'?'Action required':'All locks')+`<div class="board-route-start"><span>${icon('route')}</span><div><strong>Open main gate → C2 → C3</strong><small>Enter at the front-right gate. Start on the right side of the front building.</small></div><button data-action="route">Walk route ${icon('back')}</button></div>`+lockToolbar()+`<div class="view-switch"><div role="group" aria-label="Lock layout"><button data-layout="board" aria-pressed="${lockView==='board'}">${icon('lock')}Lock board</button><button data-layout="map" aria-pressed="${lockView==='map'}">${icon('units')}Property map</button><button data-layout="list" aria-pressed="${lockView==='list'}">${icon('route')}Route list</button></div>${runButton()}<span data-match-count></span></div>${window.StoreWellLockUI.zoomButtons()}<div id="tablet-locks"></div>`);
     page.querySelectorAll('[data-layout]').forEach(b=>b.onclick=()=>{lockView=b.dataset.layout;showLocks();});
     bindFilters(drawLocks);drawLocks();refreshScreen=refreshLocks;
   }
@@ -157,12 +161,39 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
       if(u){page.querySelector('[data-action="route-unit"]').onclick=e=>{e.stopPropagation();showUnit(u,e.currentTarget);};page.querySelector('[data-action="route-outside"]').onclick=e=>{e.stopPropagation();closeTablet(u);};}
     };bindFilters(()=>{routeCursor=0;draw();});draw();refreshScreen=draw;
   }
+  // Nov 18 2026 (Kevin): Brad hands out 15 to 20 red locks at once. The run walks every Lock It unit in gate order, one at a time.
+  function runButton(){const n=units().filter(u=>u.status==='flashred').length;return n?`<button type="button" class="red-run-start" data-action="red-run" aria-label="Red lock run · ${n} to do">${window.StoreWellLockUI.disc(n,'flashred')}<span>Run</span></button>`:'';}
+  function showRun(){
+    if(!run){const ids=ordered().filter(u=>u.status==='flashred').map(u=>u.id);run={ids,i:0,done:0,busy:false};}
+    show('run',title('RED LOCK RUN','Red lock run')+`<div id="red-run"></div>${window.StoreWellLockUI.zoomButtons()}<div class="route-steps lock-tile-grid lock-board red-run-list"></div>`);
+    const pending=i=>{const u=units().find(x=>x.id===run.ids[i]);return u&&u.status==='flashred';};
+    const draw=()=>{
+      if(!run||run.busy||lockChoices.isOpen)return;
+      while(run.i<run.ids.length&&!pending(run.i))run.i++;
+      const slot=page.querySelector('#red-run'),list=page.querySelector('.red-run-list');if(!slot)return;
+      const total=run.ids.length,left=run.ids.filter((_,i)=>pending(i)).length;
+      list.innerHTML=run.ids.map((id,i)=>{const r=units().find(x=>x.id===id);return r?`<button class="route-step lock-tile ${i===run.i?'current':''}" data-unit="${r.id}" aria-label="Unit ${escape(r.label)} · ${escape(status(r.status))}">${window.StoreWellLockUI.disc(r.label,r.status)}</button>`:'';}).join('');
+      if(run.i>=total){slot.innerHTML=`<div class="current-stop red-run-done"><div><p>${total-left} OF ${total}</p><h2>All done</h2></div><div>${button('Send','send-report','save','teal')}${button('Back','action','back')}</div></div>`;return;}
+      const u=units().find(x=>x.id===run.ids[run.i]);
+      slot.innerHTML=`<div class="current-stop"><button class="route-current-lock" data-unit="${u.id}" aria-label="Unit ${escape(u.label)} · ${escape(status(u.status))} · All choices">${window.StoreWellLockUI.disc(u.label,u.status)}</button><div><p>${total-left+1} OF ${total}</p><h2>${escape(window.__swPropertyRoute.sectionFor(app,u).name)}</h2><span>${escape(u.size)}</span></div></div><div class="route-step-controls red-run-controls"><button data-run="skip">Skip</button><button data-run="stop">Stop</button><button data-run="done" class="red-run-done-button">${window.StoreWellLockUI.disc('','red')}Done</button></div>`;
+      slot.querySelector('[data-run=skip]').onclick=()=>{run.i++;draw();};
+      slot.querySelector('[data-run=stop]').onclick=()=>{run=null;navigate('action');};
+      slot.querySelector('[data-run=done]').onclick=async e=>{
+        const b=e.currentTarget;run.busy=true;slot.querySelectorAll('button').forEach(x=>x.disabled=true);b.lastChild.textContent='Saving…';
+        let ok=false;try{ok=await login()&&await app.setStatus(u.label,'red');}catch(error){ok=false;}
+        run.busy=false;
+        if(ok){run.i++;toast(`${u.label} · ${status('red')} — red lock on.`,undoChange(u.label,'flashred'));}else toast('That change did not save. The lock is still Lock It.');
+        draw();
+      };
+    };
+    refreshScreen=draw;draw();
+  }
   function showUnit(unit,anchor){
-    selectedUnit=unit.id;const current=units().find(u=>u.id===unit.id)||unit;
+    selectedUnit=unit.id;const current=units().find(u=>u.id===unit.id)||unit;const before=current.status;
     anchor=anchor||page.querySelector(`[data-unit="${current.id}"],[data-map-unit="${current.id}"],[data-round-unit="${current.id}"]`);
     lockChoices.open({unit:current,anchor,
       onChange:async next=>{if(!await login())throw new Error('Sign in to save this change.');return app.setStatus(current.label,next);},
-      onSaved:next=>{if(anchor?.hasAttribute('data-round-unit'))action('rounds').catch(error=>toast(error.message));else refreshScreen?.();page.querySelector(`[data-unit="${current.id}"],[data-map-unit="${current.id}"],[data-round-unit="${current.id}"]`)?.focus({preventScroll:true});toast(`${current.label} · ${status(next)} — saved to inventory and lock history.`);},
+      onSaved:next=>{if(anchor?.hasAttribute('data-round-unit'))action('rounds').catch(error=>toast(error.message));else refreshScreen?.();page.querySelector(`[data-unit="${current.id}"],[data-map-unit="${current.id}"],[data-round-unit="${current.id}"]`)?.focus({preventScroll:true});toast(`${current.label} · ${status(next)} — saved to inventory and lock history.`,undoChange(current.label,before));},quick:quickChoices(current.status),
       actions:[{id:'unit-history',label:'Lock history',run:()=>showHistory(current.label)},{id:'locate',label:'Find outside',run:()=>closeTablet(current)}]
     });
   }
@@ -214,6 +245,7 @@ const boardZoom=window.StoreWellLockUI.zoomBoard(page,{reflow:lockChoices.reflow
     if(['home','locks','route','history','team','more','reports'].includes(a)){if(a==='locks'||a==='route'){query='';filter='all';routeCursor=0;}return navigate(a);}
     if(a==='exit')return closeTablet();
     if(a==='action')return navigate('action');
+    if(a==='red-run'){run=null;return showRun();}
     if(a==='all-locks'){filter='all';query='';lockView='board';return showLocks();}
     if(a==='property-map'){filter='all';query='';lockView='map';return showLocks();}
     if(a==='unit-history')return showHistory(selectedUnit);

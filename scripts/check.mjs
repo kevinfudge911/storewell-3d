@@ -151,6 +151,22 @@ click('[data-nav="more"]');assert(w.document.querySelector('img[src="/img/limo.j
 const savedStatusFn=app.setStatus;let attempts=0;
 app.setStatus=async()=>{attempts++;return false;};await w.__swOpenUnitMenu('G2');await new Promise(r=>setTimeout(r,0));click('[data-status="black"]');click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert.equal(attempts,1,'A repeated tap cannot submit twice');assert(!w.document.querySelector('[data-status="black"]').disabled);assert(w.document.querySelector('.save-result').textContent.includes('did not save'));
 app.setStatus=async(label,st)=>{app._overrides.G2=st;return true;};click('[data-status="black"]');await new Promise(r=>setTimeout(r,0));assert(!w.document.querySelector('.lock-status-menu'),'Successful save closes the choices');assert(w.document.querySelector('.tablet-toast').textContent.includes('saved to inventory and lock history'));assert.equal(app._statusOf('G2'),'black');delete app._overrides.G2;app.setStatus=savedStatusFn;
+// Nov 18 red lock run: walks Lock It units in gate order, Done saves Late, Undo puts it back, Paid saves Rented. Fake saves only.
+{const realSet=app.setStatus,saves=[],tick=()=>new Promise(r=>setTimeout(r,0));const prior={...app._overrides};
+for(const l of Object.keys(app._locks))if(app._statusOf(l)==='flashred')app._overrides[l]='green';
+app._overrides.C3='flashred';app._overrides.C2='flashred';
+app.setStatus=async(label,st)=>{saves.push(label+':'+st);app._overrides[label]=st;return true;};
+click('[data-nav="locks"]');click('#tablet-filter');click('[data-filter-status="all"]');assert(w.document.querySelector('[data-action="red-run"]'),'Run shows when red locks need to go on');
+click('[data-action="red-run"]');assert.equal(w.document.querySelector('main').dataset.screen,'run');
+assert.equal(w.document.querySelector('#red-run .route-current-lock').dataset.unit,'C2','Run starts at the first gate-order unit');
+click('[data-run="done"]');await tick();await tick();assert.deepEqual(saves,['C2:red']);assert.equal(w.document.querySelector('#red-run .route-current-lock').dataset.unit,'C3','Done moves to the next lock');
+click('.tablet-toast .toast-undo');await tick();await tick();assert.deepEqual(saves,['C2:red','C2:flashred'],'Undo puts the lock back');assert.equal(w.document.querySelector('#red-run .route-current-lock').dataset.unit,'C2','Undo returns to that lock');
+click('[data-run="skip"]');assert.equal(w.document.querySelector('#red-run .route-current-lock').dataset.unit,'C3');
+click('#red-run .route-current-lock');assert.equal(w.document.querySelectorAll('.lock-status-menu [data-status]').length,9,'Every color stays one tap away in the run');assert(w.document.querySelector('[data-quick-status="red"]'),'Done sits on top of the choices');click('[data-choice-close]');
+click('[data-run="done"]');await tick();await tick();assert(w.document.querySelector('.red-run-done'),'Run ends with a summary');assert(w.document.querySelector('.red-run-done [data-action="send-report"]'),'Send waits for a press');assert(!saves.some(x=>x.startsWith('send')));
+click('[data-nav="locks"]');await w.__swOpenUnitMenu('C3');await tick();assert(w.document.querySelector('[data-quick-status="green"]'),'Late locks offer one-tap Paid');click('[data-quick-status="green"]');await tick();await tick();assert.equal(saves.at(-1),'C3:green','Paid saves Rented');
+await w.__swOpenUnitMenu('C3');await tick();assert(!w.document.querySelector('[data-quick-status]'),'Rented locks show no quick button');click('[data-choice-close]');
+app.setStatus=realSet;for(const k of Object.keys(app._overrides))delete app._overrides[k];Object.assign(app._overrides,prior);}
 // The retained team, report, character and movement tools must mount inside the tablet.
 const staff=fs.readFileSync(path.join(root,'src/staff.js'),'utf8');
 w._loadStaffConfig=async()=>({Kevin:{email:'kevin@example.test',pref:'email'},Mike:{email:'mike@example.test',pref:'text'},Brad:{email:'brad@example.test',pref:'both'},_delivery:{}});
