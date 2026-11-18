@@ -7,9 +7,10 @@ const unitKey=s=>String(s||'').replace(/[-\s]/g,'').toUpperCase();
 const validEmail=s=>typeof s==='string'&&s.length<=254&&/^\S+@\S+\.\S+$/.test(s);
 const escape=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Who should get an email for this event. pushByStaff[name] = {eligible, sent}.
-export function emailRecipients(config,pushByStaff){
+export function emailRecipients(config,pushByStaff,only){
   const out=[];
   for(const name of STAFF){
+    if(only&&!only.has(name.toLowerCase()))continue;
     const c=config?.[name]||{},pref=c.pref||'email';
     if(pref==='none'||!validEmail(c.email))continue;
     const p=pushByStaff[name]||{devices:0,eligible:0,sent:0};
@@ -20,7 +21,7 @@ export function emailRecipients(config,pushByStaff){
   }
   return out;
 }
-export async function sendLockEmails(d,request,env,pushByStaff){
+export async function sendLockEmails(d,request,env,pushByStaff,only){
   if(!EMAIL_TYPES[d.type]||!env.BREVO_API_KEY)return {emailed:[]};
   // Only a signed-in staff save of a real, recent history record can email anyone.
   const session=await staffSession(request,env);
@@ -30,7 +31,7 @@ export async function sendLockEmails(d,request,env,pushByStaff){
   // One email per event, even if the saving device retries.
   const mark='lockEmails/'+encodeURIComponent(d.eventId);
   try{const old=await readData(mark,env);if(old&&old.at)return {emailed:old.to||[],repeat:true};}catch{return {emailed:[],emailError:'history'};}
-  const list=emailRecipients(session.config,pushByStaff);
+  const list=emailRecipients(session.config,pushByStaff,only);
   const when=new Date(record.notificationCommittedAt??record.t).toLocaleString('en-US',{timeZone:'America/Chicago',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' CT';
   const label=EMAIL_TYPES[d.type],unit=String(record.label).slice(0,20),who=String(record.who||'Staff').slice(0,40);
   const subject=label+' - Unit '+unit;

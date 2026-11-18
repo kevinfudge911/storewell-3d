@@ -20,6 +20,9 @@ assert.deepEqual(names,[],'No notifications means none');
 names=emailRecipients({Brad:{pref:'email'}},{}).map(r=>r.name);
 assert.deepEqual(names,[],'No saved email address, no email');
 
+names=emailRecipients(cfg,{},new Set(['brad'])).map(r=>r.name);
+assert.deepEqual(names,['Brad'],'A send aimed at one person emails only that person');
+
 // Full /notify path: Brad saves E16 Lock Off from a phone with no push device.
 const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
 const receiver=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);

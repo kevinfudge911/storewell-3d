@@ -84,7 +84,7 @@ export async function onRequestPost({request,env}){
     }));
   }
   let mail={emailed:[]};
-  try{mail=await sendLockEmails(d,request,env,pushByStaff);}catch{mail={emailed:[],emailError:'unavailable'};}
+  try{mail=await sendLockEmails(d,request,env,pushByStaff,recipients);}catch{mail={emailed:[],emailError:'unavailable'};}
   const pushedTo=Object.entries(pushByStaff).filter(([,p])=>p.sent>0).map(([name])=>name);
   const noDevice=['Kevin','Mike','Brad'].filter(name=>!pushByStaff[name]?.devices);
   return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,pushedTo,noDevice,...mail,...(failures.length?{failures,error:failureMessage(failures)}:{})},failed&&sent===0&&!mail.emailed?.length?502:200);
