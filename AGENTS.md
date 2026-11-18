@@ -215,3 +215,19 @@ then later one or two at a time go back to Rented when the tenant pays.
 - **Undo** in the save toast (stays 9 seconds) puts the lock back to what it
   was through the same `app.setStatus`, so history keeps both changes.
 - Every save still goes through `app.setStatus`; nothing was removed.
+
+## November 18 lock alerts reach every staff member
+
+Brad set E16 to Lock Off and got no alert while Kevin's phone did. Lock alerts
+were push-only, but Team > Notify Via (Email only is the default) was used only
+for reports, so a staff member without a working push device got nothing.
+
+- `/notify` still pushes to every device exactly as before (sender included).
+- For Lock It and Lock Off it now also emails, through `server/lock-email.js`:
+  Email only and Email + push always get the email; Push choosers get it when
+  none of their devices received the push (no device or failed delivery), but
+  not when they switched that alert off on every device. No notifications = none.
+- Emails need a verified staff session and a matching, recent lockLog record,
+  and are sent once per event (`lockEmails/<eventId>`), so retries never repeat.
+- The saving phone shows a short note when it has no alert device at all.
+- Check: `scripts/check-lock-email.mjs` (offline only).
