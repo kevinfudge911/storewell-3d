@@ -1,7 +1,7 @@
 import { buildPushPayload } from '@block65/webcrypto-web-push';
 import {makeReceipt} from './push-receipt.js';
 import {notificationTag,notificationActivity} from '../server/notification-tag.js';
-import {sendLockEmails} from '../server/lock-email.js';
+import {sendLockEmails,sendDeviceDroppedEmails} from '../server/lock-email.js';
 const FB='https://storewell-3d-default-rtdb.firebaseio.com';
 const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
 const TYPES=new Set(['flashred','flashgreen','red','green','blue','yellow','purple','white','black','report']);
@@ -82,6 +82,7 @@ export async function onRequestPost({request,env}){
   const message={title:title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationTag(d,notificationId),activity,url:'/'};
   let sent=0,failed=0,expired=0,skipped=0;
   const failures=[];
+  const droppedStaff=new Set();
   const recordFailure=(stage,reason,status)=>{let item=failures.find(x=>x.stage===stage&&x.reason===reason&&x.status===status);if(item)item.count++;else failures.push({stage,reason,...(status?{status}:{}),count:1});};
   // Per-staff push tally, so anyone whose push did not land is emailed instead.
   const pushByStaff={};const tally=name=>pushByStaff[name]||(pushByStaff[name]={devices:0,eligible:0,sent:0});
@@ -95,13 +96,16 @@ export async function onRequestPost({request,env}){
       let stage='receipt';
       // workerd accepts manual/follow only. Manual also prevents credentials from following a redirect.
       try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);stage='encryption';const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:{ttl:3600}},sub,keys);stage='delivery';const response=await fetch(sub.endpoint,{...payload,redirect:'manual',signal:AbortSignal.timeout(12000)});
-        if(response.ok){sent++;if(sub.staff)tally(sub.staff).sent++;}else{failed++;recordFailure(stage,await providerReason(response),response.status);if(response.status===404||response.status===410){expired++;try{await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}catch{/* A cleanup failure must not count the same delivery twice. */}}}
+        if(response.ok){sent++;if(sub.staff)tally(sub.staff).sent++;}else{failed++;recordFailure(stage,await providerReason(response),response.status);if(response.status===404||response.status===410){expired++;if(sub.staff)droppedStaff.add(sub.staff);try{await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}catch{/* A cleanup failure must not count the same delivery twice. */}}}
       }catch(error){failed++;recordFailure(stage,failureReason(error));}
     }));
   }
   let mail={emailed:[]};
   try{mail=await sendLockEmails(d,request,env,pushByStaff,recipients,done);}catch{mail={emailed:[],emailError:'unavailable'};}
+  // Nov 19 2026: Brad's phone signup was dropped by the push service and removed with no
+  // word to anyone. Now the owner is emailed once so they can turn alerts back on.
+  let dropped=[];if(droppedStaff.size){try{dropped=await sendDeviceDroppedEmails([...droppedStaff],env);}catch{}}
   const pushedTo=Object.entries(pushByStaff).filter(([,p])=>p.sent>0).map(([name])=>name);
   const noDevice=['Kevin','Mike','Brad'].filter(name=>!pushByStaff[name]?.devices);
-  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,pushedTo,noDevice,...(done?{done:done.label}:{}),...mail,...(failures.length?{failures,error:failureMessage(failures)}:{})},failed&&sent===0&&!mail.emailed?.length?502:200);
+  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,pushedTo,noDevice,...(done?{done:done.label}:{}),...(dropped.length?{droppedNotified:dropped}:{}),...mail,...(failures.length?{failures,error:failureMessage(failures)}:{})},failed&&sent===0&&!mail.emailed?.length?502:200);
 }

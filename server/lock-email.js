@@ -50,3 +50,17 @@ export async function sendLockEmails(d,request,env,pushByStaff,only,done){
   if(emailed.length){try{await dbRequest(mark,env,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({at:Date.now(),to:emailed})});}catch{/* the emails already went */}}
   return {emailed,...(failedTo.length?{emailFailed:failedTo}:{})};
 }
+
+// A phone's push signup was refused as gone (404/410) and removed. Tell its owner once.
+export async function sendDeviceDroppedEmails(names,env){
+  if(!env.BREVO_API_KEY||!names.length)return [];
+  const config=await readData('staffConfig',env);const sent=[];
+  await Promise.all(names.filter(n=>STAFF.includes(n)).map(async name=>{
+    const c=config?.[name]||{};if(c.pref==='none'||!validEmail(c.email))return;
+    const text='Your phone stopped getting StoreWell alerts (the phone dropped its alert signup).\n\nTo turn them back on: open StoreWell on your phone, sign in, tap Alerts, tap Allow, and keep Lock It, Lock Off and Reports checked.\n\nOpen StoreWell: https://storewell-3d.pages.dev';
+    try{const res=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',signal:AbortSignal.timeout(15000),headers:{'api-key':env.BREVO_API_KEY,'Content-Type':'application/json',accept:'application/json'},
+      body:JSON.stringify({sender:{name:'StoreWell Storage',email:'kevin.fudge911@gmail.com'},to:[{email:c.email,name}],subject:'StoreWell alerts are off on your phone',textContent:text,htmlContent:'<p style="font:16px Arial">'+escape(text).replace(/\n/g,'<br>')+'</p>'})});
+      if(res.ok)sent.push(name);}catch{}
+  }));
+  return sent;
+}

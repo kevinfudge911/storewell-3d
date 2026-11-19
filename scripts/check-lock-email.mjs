@@ -94,3 +94,21 @@ console.log('PASS: Lock It and Lock Off reach every staff member by push or emai
   globalThis.fetch=prev;
   console.log('PASS lock job done alerts reach Brad');
 }
+
+// Nov 19 2026: a dropped phone signup (410) is removed AND its owner is emailed once.
+{
+  let mailsTo=[],deleted=[];const prev=globalThis.fetch;
+  globalThis.fetch=async(url,init={})=>{
+    const u=String(url);
+    if(u.includes('/staffConfig.json'))return Response.json({Kevin:{email:'k@example.test',pref:'text'},Mike:{email:'m@example.test',pref:'none'},Brad:{email:'b@example.test',pref:'text'}});
+    if(u.includes('/pushSubs.json'))return Response.json({b:{staff:'Brad',prefs:{report:true},endpoint:'https://fcm.googleapis.com/gone',keys:{p256dh:pub,auth:Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url')}}});
+    if(u.includes('/pushSubs/b.json')&&init.method==='DELETE'){deleted.push('b');return Response.json(null);}
+    if(u.startsWith('https://fcm.googleapis.com/gone'))return new Response('',{status:410});
+    if(u==='https://api.brevo.com/v3/smtp/email'){mailsTo.push(JSON.parse(init.body).to[0].email);return Response.json({messageId:'offline'},{status:201});}
+    return prev(url,init);
+  };
+  const r=await (await push.onRequestPost({env,request:new Request('https://storewell.test/notify',{method:'POST',body:JSON.stringify({type:'report',title:'Report',body:'x',recipients:['Brad']})})})).json();
+  assert.deepEqual(deleted,['b'],'The dead signup is removed');
+  assert.deepEqual(r.droppedNotified,['Brad']);assert.deepEqual(mailsTo,['b@example.test'],'Brad is told his phone alerts stopped');
+  globalThis.fetch=prev;console.log('PASS dropped phone signups email their owner');
+}
