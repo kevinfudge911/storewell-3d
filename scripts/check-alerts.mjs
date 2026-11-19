@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
 import * as push from '../functions/notify.js';
 import * as email from '../functions/email.js';
+import {sessionCookie} from '../server/staff-access.js';
 const originalFetch=globalThis.fetch;
 const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
 const vapid=await crypto.subtle.exportKey('jwk',pair.privateKey);
@@ -30,11 +31,21 @@ globalThis.fetch=async(url)=>{if(String(url).includes('/pushSubs.json'))return R
 d=await (await push.onRequestPost({env,request:request({type:'report',title:'Expired device'})})).json();assert.equal(d.failed,1,'Cleanup failure does not count a delivery twice');
 globalThis.fetch=async(url)=>{if(String(url).includes('/pushSubs.json'))return Response.json({a:subscription('Brad','https://fcm.googleapis.com/timeout')});throw new DOMException('Endpoint timed out','TimeoutError');};
 d=await (await push.onRequestPost({env,request:request({type:'report',title:'Timeout'})})).json();assert.equal(d.failures[0].reason,'timeout');assert.equal(d.failures[0].stage,'delivery');
-globalThis.fetch=async()=>Response.json({code:'unauthorized'},{status:401});
-r=await email.onRequestPost({env,request:request({to:'staff@example.test',body:'Report'})});assert.equal(r.status,502);assert.equal((await r.json()).success,false,'Provider rejection is an HTTP failure');
+// /email needs a signed-in staff session from the StoreWell page (Nov 19 2026).
+const emailStaff={Kevin:{email:'kevin@example.test',pref:'email'}};
+const staffCookie=(await sessionCookie('Kevin',emailStaff.Kevin,env)).split(';')[0];
+const emailRequest=(d,headers={Origin:'https://storewell.test',Cookie:staffCookie})=>new Request('https://storewell.test/email',{method:'POST',headers,body:JSON.stringify(d)});
+let providerCalls=0;
+globalThis.fetch=async(url)=>{if(String(url).includes('/staffConfig.json'))return Response.json(emailStaff);providerCalls++;return Response.json({messageId:'should-not-send'},{status:201});};
+r=await email.onRequestPost({env,request:emailRequest({to:'anyone@example.test',body:'Spam'},{Origin:'https://storewell.test'})});assert.equal(r.status,401,'No staff sign-in, no email');
+r=await email.onRequestPost({env,request:emailRequest({to:'anyone@example.test',body:'Spam'},{Origin:'https://evil.test',Cookie:staffCookie})});assert.equal(r.status,403,'Other sites cannot send through StoreWell');
+r=await email.onRequestPost({env,request:emailRequest({to:'anyone@example.test',body:'Spam'},{Origin:'https://storewell.test',Cookie:staffCookie.slice(0,-3)+'abc'})});assert.equal(r.status,401,'A forged staff cookie cannot send');
+assert.equal(providerCalls,0,'Rejected sends never reach the email provider');
+globalThis.fetch=async(url)=>String(url).includes('/staffConfig.json')?Response.json(emailStaff):Response.json({code:'unauthorized'},{status:401});
+r=await email.onRequestPost({env,request:emailRequest({to:'staff@example.test',body:'Report'})});assert.equal(r.status,502);assert.equal((await r.json()).success,false,'Provider rejection is an HTTP failure');
 let payload;
-globalThis.fetch=async(url,init)=>{payload=JSON.parse(init.body);return Response.json({messageId:'offline-message-id'},{status:201});};
-r=await email.onRequestPost({env,request:request({to:'staff@example.test',body:'<script>unsafe</script>'})});assert.equal((await r.json()).messageId,'offline-message-id');assert(!payload.htmlContent.includes('<script>'),'Plain text HTML fallback is escaped');
+globalThis.fetch=async(url,init)=>{if(String(url).includes('/staffConfig.json'))return Response.json(emailStaff);payload=JSON.parse(init.body);return Response.json({messageId:'offline-message-id'},{status:201});};
+r=await email.onRequestPost({env,request:emailRequest({to:'staff@example.test',body:'<script>unsafe</script>'})});assert.equal((await r.json()).messageId,'offline-message-id');assert(!payload.htmlContent.includes('<script>'),'Plain text HTML fallback is escaped');
 // Exercise the real report modal: partial failures retain data and retry only pending recipients.
 const dom=new JSDOM('<body></body>',{url:'https://storewell.test',runScripts:'outside-only'}),w=dom.window;
 w.__swCheckLogin=()=>'Offline test';w.AbortSignal.timeout=()=>undefined;

@@ -151,7 +151,7 @@ window.__swHistoryPanel=function(){
   const app=window.__swApp;
   const wrap=document.createElement('div'); wrap.id='sw-hist-panel';
   wrap.style.cssText='position:fixed;top:3vh;left:50%;transform:translateX(-50%);width:min(520px,96vw);height:94vh;background:#0a1120;border-radius:20px;z-index:9100;display:flex;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,.55);overflow:hidden;font-family:Segoe UI,Arial;';
-  wrap.innerHTML='<div style="background:linear-gradient(135deg,#1e3a8a,#0ea5e9);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;"><div style="color:#fff;font-weight:900;font-size:16px;">🖥 Lock History — All Activity</div><button onclick="document.getElementById(\'sw-hist-panel\').remove()" style="border:none;background:rgba(255,255,255,.25);color:#fff;width:36px;height:36px;border-radius:9px;font-size:18px;cursor:pointer;">×</button></div><div id="sw-hist-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;">'+'<div style="color:#7f9bc0;text-align:center;padding:24px;">Loading…</div></div>';
+  wrap.innerHTML='<div style="background:linear-gradient(135deg,#1e3a8a,#0ea5e9);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;"><div style="color:#fff;font-weight:900;font-size:16px;">🖥 History — All Activity</div><button onclick="document.getElementById(\'sw-hist-panel\').remove()" style="border:none;background:rgba(255,255,255,.25);color:#fff;width:36px;height:36px;border-radius:9px;font-size:18px;cursor:pointer;">×</button></div><div id="sw-hist-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;">'+'<div style="color:#7f9bc0;text-align:center;padding:24px;">Loading…</div></div>';
   document.body.appendChild(wrap);
   const COL={green:'#37d67a',red:'#ff5a5a',blue:'#4aa3ff',white:'#c9d3df',black:'#9aa6b2',yellow:'#ffd23f',flashred:'#ff3b3b',flashgreen:'#3dff8a',purple:'#c07bff'};
   function render(list){ const el=document.getElementById('sw-hist-list'); if(!el) return;
@@ -299,7 +299,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
         ${tile(c.flashgreen||0,'Lock Off','#0e9f45','#e3fbe9','flashgreen')}
         ${tile(c.red||0,'Locked Out','#cc2b2b','#fdeaea','red')}
         ${tile(c.blue||0,'Reserved','#2a6fdb','#eaf0fd','blue')}
-        ${tile(c.yellow||0,'No Lock','#15803d','#fefce8','yellow')}
+        ${tile(c.yellow||0,'No Lock','#a16207','#fefce8','yellow')}
         ${tile(c.purple||0,'Ready','#8b3fd1','#f3eafd','purple')}
         ${tile(c.green||0,'Rented','#1f9d4d','#e9f9ef','green')}
         ${tile(c.white||0,'Available','#475569','#eef1f4','white')}
@@ -684,7 +684,7 @@ window.__swDashboard=function(){
         +'<div style="position:relative;font:800 14px \'Segoe UI\',Arial;color:#e8ddff;letter-spacing:1px;margin-top:4px;">TOTAL UNITS</div></div>'
       +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;">'
         +statCard('⭐','linear-gradient(180deg,#5aa0ea,#2f74c8)',g('blue'),'Reserved','#1f6fd6','#e8effc','#c5d8f5')
-        +statCard('🔓','linear-gradient(180deg,#5fce5a,#2fa02f)',g('yellow'),'No Lock','#15803d','#fefce8','#fde68a')
+        +statCard('🔓','linear-gradient(180deg,#ffe58f,#e0b43a)',g('yellow'),'No Lock','#a16207','#fefce8','#fde68a')
         +statCard('✅','linear-gradient(180deg,#b45ee0,#8a2fc0)',g('purple'),'Ready','#8a2fc0','#f2e6fb','#e0c8f2')
         +statCard('🏬','linear-gradient(180deg,#5fce5a,#2fa02f)',g('green'),'Rented','#128a3f','#e4f6ea','#bfe6cc')
         +statCard('✖️','linear-gradient(180deg,#9aa6b2,#6b7280)',g('black'),'Out of Svc','#64748b','#eef1f4','#d7dee6')
@@ -971,8 +971,8 @@ window.__swLockPicker=function(label){
     {st:'flashred', col:'#ff4400', label:'Lock It'},
     {st:'flashgreen',col:'#00cc44',label:'Lock Off'},
     {st:'blue',   col:'#2a6fdb', label:'Reserved'},
-    {st:'yellow', col:'#22c55e', label:'Rented · No Lock'},
-    {st:'black',  col:'#333333', label:'N/A'},
+    {st:'yellow', col:'#ffdc77', label:'Rented · No Lock'},
+    {st:'black',  col:'#333333', label:'Not rentable'},
   ];
   const cur=app&&app._statusOf?app._statusOf(label):'green';
 
@@ -1019,7 +1019,7 @@ window.__swAskReason=function(label){
   ov.id='sw-reason-modal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10001;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,Arial;padding:16px;';
   ov.innerHTML=`<div style="background:#fff;border-radius:18px;max-width:360px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;">
-    <div style="background:linear-gradient(135deg,#8893a0,#5b6b7d);padding:16px 18px;"><div style="color:#fff;font-weight:800;font-size:16px;">⚪ Unit ${label} — Out of Service</div><div style="color:#fff;opacity:.92;font-size:12px;margin-top:2px;">Add a reason (why it's not rentable)</div></div>
+    <div style="background:linear-gradient(135deg,#8893a0,#5b6b7d);padding:16px 18px;"><div style="color:#fff;font-weight:800;font-size:16px;">⚪ Unit ${label} — Not rentable</div><div style="color:#fff;opacity:.92;font-size:12px;margin-top:2px;">Add a reason (why it's not rentable)</div></div>
     <div style="padding:16px 18px;">
       <textarea id="sw-reason-txt" placeholder="e.g. broken latch, water damage, held for repair..." style="width:100%;box-sizing:border-box;min-height:84px;border:1.5px solid #dbe4ef;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;color:#1f2a37;outline:none;resize:vertical;"></textarea>
       <div style="display:flex;gap:8px;margin-top:12px;">
@@ -1050,8 +1050,8 @@ window.__swApplyLock=function(label,st){
     try{ const _k=(label||'').replace(/[-\s]/g,'').toUpperCase(); if(window._swRemove&&window._swRef&&window._swDB){ window._swRemove(window._swRef(window._swDB,'lockNotes/'+_k)).catch(()=>{}); } else { fetch('https://storewell-3d-default-rtdb.firebaseio.com/lockNotes/'+_k+'.json',{method:'DELETE'}).catch(()=>{}); } }catch(e){}
   }
   // Flash confirmation
-  const colors={green:'#1f9d4d',red:'#cc2b2b',flashred:'#ff4400',flashgreen:'#00cc44',purple:'#9b30d1',blue:'#2a6fdb',yellow:'#e6c01f',black:'#333'};
-  const names={green:'Rented ✓',red:'Late ✓',flashred:'Lock It ✓',flashgreen:'Lock Off ✓',blue:'Reserved ✓',yellow:'Rented · No Lock ✓',black:'N/A ✓'};
+  const colors={green:'#1f9d4d',red:'#cc2b2b',flashred:'#ff4400',flashgreen:'#00cc44',purple:'#9b30d1',blue:'#2a6fdb',yellow:'#ffdc77',black:'#333'};
+  const names={green:'Rented ✓',red:'Late ✓',flashred:'Lock It ✓',flashgreen:'Lock Off ✓',blue:'Reserved ✓',yellow:'Rented · No Lock ✓',black:'Not rentable ✓'};
   const col=colors[st]||'#1f9d4d';
   const f=document.createElement('div');
   f.style.cssText=`position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(1);background:${col};color:#fff;font:800 18px Segoe UI;padding:12px 28px;border-radius:30px;z-index:10000;pointer-events:none;box-shadow:0 8px 32px ${col}88;transition:all .5s;`;
@@ -1072,8 +1072,8 @@ window.__swCycleNext=function(label,srcEvent){
   document.getElementById('sw-drop-menu')?.remove();
   const app=window.__swApp; if(!app) return;
   if(!app.state||!app.state.staffName){ var _nt=document.createElement('div');_nt.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1f2a37;color:#fff;font-size:14px;font-weight:900;padding:12px 24px;border-radius:32px;box-shadow:0 6px 28px rgba(0,0,0,.45);z-index:999999;pointer-events:none;white-space:nowrap;';_nt.textContent='🔒 Log in first to change lock status';document.body.appendChild(_nt);setTimeout(()=>_nt.remove(),2500);if(app.setState)app.setState({showLogin:true});return; }
-  const cols={green:'#22c55e',red:'#ef4444',flashred:'#ff0000',flashgreen:'#00ff44',purple:'#9b30d1',blue:'#3b82f6',yellow:'#22c55e',black:'#6b7280'};
-  const lbls={green:'Rented',red:'Late',flashred:'Lock It',flashgreen:'Lock Off',purple:'Ready to Rent',blue:'Reserved',yellow:'Rented · No Lock',black:'N/A'};
+  const cols={green:'#22c55e',red:'#ef4444',flashred:'#ff0000',flashgreen:'#00ff44',purple:'#9b30d1',blue:'#3b82f6',yellow:'#ffdc77',black:'#6b7280'};
+  const lbls={green:'Rented',red:'Late',flashred:'Lock It',flashgreen:'Lock Off',purple:'Ready to Rent',blue:'Reserved',yellow:'Rented · No Lock',black:'Not rentable'};
   const cur=app._statusOf?app._statusOf(label):'green';
   const cid='swc-'+label.replace(/[^a-z0-9]/gi,'');
   const circleEl=document.getElementById(cid);
@@ -1097,7 +1097,7 @@ window.__swCycleNext=function(label,srcEvent){
     const fa=st==='flashred'?'animation:sw-flash-red .5s infinite;':st==='flashgreen'?'animation:sw-flash-green .5s infinite;':'';
     const dot=document.createElement('div');
     dot.style.cssText = (st==='yellow')
-      ? 'width:16px;height:16px;border-radius:4px;background:#22c55e;flex-shrink:0;box-shadow:0 0 0 3px #eab308, 0 2px 6px rgba(0,0,0,.25);'
+      ? 'width:16px;height:16px;border-radius:50%;background:#ffdc77;flex-shrink:0;box-shadow:0 2px 6px #ffdc7788;'
       : 'width:16px;height:16px;border-radius:50%;background:'+cols[st]+';flex-shrink:0;box-shadow:0 2px 6px '+cols[st]+'88;'+fa;
     const span=document.createElement('span');
     span.style.cssText='font-size:13px;font-weight:900;color:#222;flex:1;';

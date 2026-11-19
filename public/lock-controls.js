@@ -86,13 +86,13 @@
       anchor?.setAttribute('aria-expanded','false');anchor?.removeAttribute('aria-controls');
       if(restoreFocus&&anchor?.isConnected)anchor.focus({preventScroll:true});
     }
-    function open({unit,anchor,onChange,onSaved,actions=[],quick=[]}){
+    function open({unit,anchor,onChange,onSaved,actions=[],quick=[],ready=null,note=null}){
       if(active?.busy)return;
       if(active?.unit.id===unit.id){close();return;}
       close(false);
       const menu=document.createElement('section');menu.className='lock-status-menu';menu.id='sw-lock-status-choices';
       menu.setAttribute('role','group');menu.setAttribute('aria-label',`Unit ${unit.label} status choices`);
-      menu.innerHTML=`<header><strong tabindex="-1">Unit ${escape(unit.label)} <span>· ${escape(stateName(unit.status))}</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header>${quick.length?`<div class="lock-quick" role="group" aria-label="Quick change">${quick.map(q=>`<button type="button" data-quick-status="${escape(q.status)}" aria-label="${escape(q.label)} · ${escape(stateName(q.status))}" title="${escape(q.label)} · ${escape(stateName(q.status))}" style="--status:${color(q.status)}">${disc('',q.status)}<span>${escape(q.label)}</span></button>`).join('')}</div>`:''}<div class="lock-status-choices" tabindex="0" aria-label="Status choices, scroll for more">${statusButtons(unit.status)}</div>${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.id==='unit-history'?'History':a.id==='locate'?'Outside':a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
+      menu.innerHTML=`<header><strong tabindex="-1">Unit ${escape(unit.label)} <span>· ${escape(stateName(unit.status))}</span></strong><button type="button" data-choice-close aria-label="Close status choices">×</button></header>${quick.length?`<div class="lock-quick" role="group" aria-label="Quick change">${quick.map(q=>`<button type="button" data-quick-status="${escape(q.status)}" aria-label="${escape(q.label)} · ${escape(stateName(q.status))}" title="${escape(q.label)} · ${escape(stateName(q.status))}" style="--status:${color(q.status)}">${disc('',q.status)}<span>${escape(q.label)}</span></button>`).join('')}</div>`:''}<div class="lock-status-choices" tabindex="0" aria-label="Status choices, scroll for more">${statusButtons(unit.status)}</div>${ready||note?`<div class="lock-choice-notes">${ready?`<label class="lock-ready"><input type="checkbox" data-ready> Application inside</label>`:''}${note?`<button type="button" class="lock-note" data-note-edit aria-label="Not rentable reason">✎ Reason</button>`:''}</div>`:''}${actions.length?`<div class="lock-choice-links">${actions.map((a,i)=>`<button type="button" data-choice-action="${i}" data-action="${escape(a.id)}">${escape(a.id==='unit-history'?'History':a.id==='locate'?'Find':a.label)}</button>`).join('')}</div>`:''}<p class="save-result" role="status" aria-live="polite"></p>`;
       // A narrow anchored dropdown overlays the board without reserving a blank row.
       root.append(menu);
       sizeChoices(menu,anchor);
@@ -102,9 +102,29 @@
       const selected=menu.querySelector('[aria-pressed=true]');if(selected)menu.querySelector('.lock-status-choices').scrollTop=Math.max(0,selected.offsetTop-menu.querySelector('.lock-status-choices').offsetTop-5);
       suppressGestureClicks(menu);
       reveal();
+      // Nov 19 2026: the old door menu's "Application inside" check and Not rentable
+      // reason, back in the same chooser. The caller loads and saves them.
+      const feedbackLine=menu.querySelector('.save-result');
+      let noteText='';
+      const noteButton=menu.querySelector('[data-note-edit]'),readyBox=menu.querySelector('[data-ready]');
+      const paintNote=()=>{if(noteButton)noteButton.textContent='✎ '+(noteText||'Reason');};
+      if(readyBox){Promise.resolve().then(()=>ready.load()).then(v=>{if(readyBox.isConnected)readyBox.checked=!!v;}).catch(()=>{});
+        readyBox.addEventListener('change',async()=>{const want=readyBox.checked;readyBox.disabled=true;try{await ready.save(want);feedbackLine.textContent=want?'Application inside · saved.':'Application check cleared.';}catch(error){readyBox.checked=!want;feedbackLine.textContent=error.message||'Could not save. Please try again.';}readyBox.disabled=false;});}
+      function editNote(){
+        if(!noteButton?.isConnected)return;
+        const input=document.createElement('input');input.type='text';input.className='lock-note-input';input.maxLength=200;input.placeholder='Reason';input.value=noteText;input.setAttribute('aria-label','Not rentable reason');input.dataset.noteInput='';
+        noteButton.replaceWith(input);input.focus({preventScroll:true});let done=false;
+        const finish=async keep=>{if(done)return;done=true;const value=input.value.trim().slice(0,200);
+          if(keep&&value!==noteText){input.disabled=true;try{await note.save(value);noteText=value;feedbackLine.textContent=value?'Reason saved.':'Reason cleared.';}catch(error){feedbackLine.textContent=error.message||'Could not save. Please try again.';}}
+          if(input.isConnected){input.replaceWith(noteButton);paintNote();}};
+        input.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}else if(e.key==='Escape'){e.preventDefault();finish(false);}});
+        input.addEventListener('blur',()=>finish(true));
+      }
+      if(noteButton){Promise.resolve().then(()=>note.load()).then(v=>{if(typeof v==='string'&&v&&!menu.querySelector('[data-note-input]')){noteText=v;paintNote();}}).catch(()=>{});if(note.edit)editNote();}
       menu.addEventListener('click',async e=>{
         e.stopPropagation();const b=e.target.closest('button');if(!b||b.disabled||state.busy)return;
         if(b.hasAttribute('data-choice-close')){close();return;}
+        if(b.hasAttribute('data-note-edit')){editNote();return;}
         if(b.dataset.choiceAction!==undefined){close(false);actions[Number(b.dataset.choiceAction)].run();return;}
         const next=b.dataset.status||b.dataset.quickStatus;if(!next)return;
         if(next===unit.status){close();return;}

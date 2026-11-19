@@ -1170,6 +1170,7 @@ class Component extends DCLogic {
     if(!this._locks[k] || !Object.hasOwn(this._LC(),st))return false;
     const prev=this._statusOf(label);
     if(prev===st)return true;
+    this._lastSaveError=null;
     const who=this.state.staffName||'Staff';
     const entry={label,from:this._statusLabel(prev),to:this._statusLabel(st),who,t:Date.now(),type:'lock'};
     let historyId;
@@ -1179,7 +1180,10 @@ class Component extends DCLogic {
       historyId=await window.__swCommitLockChange(k,st,entry);
     }catch(e){
       console.warn('Shared status save failed',e.code||'connection-unavailable');
-      alert(/permission.?denied/i.test(String(e.code||e.message))?'StoreWell rejected this save. The unit has not changed. Please reload the app and try again.':'StoreWell could not connect to save this change. Your unit has not changed. Reconnect and try again; your staff login is still remembered.');
+      // Nov 19 2026: one message per failed save. The tablet shows this text in its own
+      // error line, so the browser pop-up is only used when the tablet is put away.
+      this._lastSaveError=/permission.?denied/i.test(String(e.code||e.message))?'StoreWell rejected this save. The unit has not changed. Please reload the app and try again.':'StoreWell could not connect to save this change. Your unit has not changed. Reconnect and try again; your staff login is still remembered.';
+      if(!window.__swDeckVisible)alert(this._lastSaveError);
       return false;
     }
     this._overrides[k]=st;

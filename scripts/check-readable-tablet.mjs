@@ -25,8 +25,23 @@ choice.querySelector('svg use').dispatchEvent(new w.MouseEvent('click',{bubbles:
 picker.close();let quickSaved=[];picker.open({unit:{id:'F7',label:'F7',status:'red'},anchor,quick:[{status:'green',label:'Paid'}],onChange:async next=>{quickSaved.push(next);return true;}});
 assert.equal(root.querySelectorAll('[data-status]').length,9,'All nine choices stay beside the quick button');assert.equal(root.querySelectorAll('[data-quick-status]').length,1);assert(root.querySelector('[data-quick-status=green]').textContent.includes('Paid'));
 root.querySelector('[data-quick-status=green]').dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));await Promise.resolve();await Promise.resolve();assert.deepEqual(quickSaved,['green'],'Paid saves Rented once through the normal save');
+// Nov 19 2026: Application inside check and Not rentable reason are back in the chooser. Fake callbacks only.
+picker.close();const side=[];let readyNow=true;
+picker.open({unit:{id:'F7',label:'F7',status:'black'},anchor,onChange:async()=>true,ready:{load:async()=>readyNow,save:async on=>{side.push('ready:'+on);}},note:{load:async()=>'Broken latch',save:async text=>{side.push('note:'+text);}}});
+await new Promise(r=>setTimeout(r,0));
+const readyBox=root.querySelector('[data-ready]');assert(readyBox&&readyBox.checked,'Application inside check shows the saved value');
+assert.equal(root.querySelector('[data-note-edit]').textContent,'✎ Broken latch','Saved Not rentable reason shows in the chooser');
+readyBox.checked=false;readyBox.dispatchEvent(new w.Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,0));
+root.querySelector('[data-note-edit]').dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));
+const noteInput=root.querySelector('[data-note-input]');assert(noteInput,'Pencil opens the reason in place');noteInput.value='Water damage';noteInput.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await new Promise(r=>setTimeout(r,0));
+assert.deepEqual(side,['ready:false','note:Water damage'],'Check and reason save once each through the caller');assert.equal(root.querySelector('[data-note-edit]').textContent,'✎ Water damage');
+assert.equal(root.querySelectorAll('[data-status]').length,9,'All nine choices stay with the notes');
+picker.close();picker.open({unit:{id:'F7',label:'F7',status:'green'},anchor,onChange:async()=>true,ready:{load:async()=>false,save:async()=>{}},note:null});assert(!root.querySelector('[data-note-edit]'),'Reason only shows for Not rentable');assert(root.querySelector('[data-ready]'));
+picker.close();picker.open({unit:{id:'F7',label:'F7',status:'green'},anchor,onChange:async()=>false,actions:[{id:'unit-history',label:'History',run(){}},{id:'locate',label:'Find',run(){}}]});
+assert.deepEqual([...root.querySelectorAll('[data-choice-action]')].map(b=>b.textContent),['History','Find'],'Chooser links say History and Find; Outside only means put the tablet away');
+picker.close();
 const markup=read('command-tablet.js');assert(markup.includes('class="tablet-navigation"'));assert(markup.includes('id="tablet-color-key" hidden'));assert(markup.includes('Unit not recorded'));assert(markup.includes("timeZone:'America/Chicago'"));assert(markup.includes("data-action=\"red-run\"")||markup.includes("'red-run'"));assert(markup.includes('toast-undo'));assert(markup.includes("button('Send','send-report'"),'Run ends with a Send button Kevin presses');
 assert(!read('text-size.js').includes('data-print-size'));assert(!read('text-size.js').includes('sw_text_size'),'No old text-size override is read or written');
 const html=read('index.html');assert(html.includes('width=device-width, initial-scale=1'));assert(!/user-scalable=no|maximum-scale=1/.test(html));assert(html.includes('/tablet-readable.css'));assert(html.includes('/voice-commands.js'));
 await transform(read('tablet-readable.css'),{loader:'css'});dom.window.close();
-console.log('PASS: red lock run, one-tap Paid and Undo, compact labeled choices, safe scrolling, readable human-name history, original archive unchanged, on-demand key, Menu navigation, native viewport zoom and no A controls.');
+console.log('PASS: application check and Not rentable reason in the chooser, red lock run, one-tap Paid and Undo, compact labeled choices, safe scrolling, readable human-name history, original archive unchanged, on-demand key, Menu navigation, native viewport zoom and no A controls.');

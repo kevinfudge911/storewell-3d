@@ -122,7 +122,7 @@ assert.equal(app._locks.C2.face,'E','First door is on the right/east side of the
 console.log('Property walking route starts:',order.slice(0,14).join(' → '));
 const initialLocation=app.walker.g.position.clone();click('[data-action="exit"]');assert(!w.__swDeckVisible);assert(app.walker.g.position.equals(initialLocation));
 await enter();click('[data-nav="locks"]');
-assert.equal(w.document.querySelector('[data-nav="history"]').textContent,'Lock History','History has its own clearly named tab');
+assert.equal(w.document.querySelector('[data-nav="history"]').textContent,'History','History has its own clearly named tab');
 assert.deepEqual([...w.document.querySelectorAll('.lock-tile')].map(el=>el.dataset.unit),[...order],'Lock tiles follow the physical route and include every door');
 assert.equal(w.document.querySelector('.lock-bank h2').textContent,'Front building · C');
 assert(w.document.querySelector('.lock-tile').getAttribute('aria-label').includes('Right side · East'));
@@ -191,6 +191,9 @@ app.setState({staffName:'Offline test'});await new Promise(r=>setTimeout(r,0));
 const played=[];w._swPlaySound=st=>played.push(st);const original=app._statusOf('G2');w.fetch=async()=>({ok:false});assert.equal(await app.setStatus('G2','black'),false);assert.equal(app._statusOf('G2'),original);assert.equal(played.length,0,'Failed save stays silent');
 let writes=0,alerts=0,savedEventAt;w.__swCommitLockChange=async(key,state,entry)=>{assert.equal(key,'G2');assert.equal(state,'black');assert.equal(entry.type,'lock');savedEventAt=entry.t;writes++;return 'saved-history-id';};w.__swNotifyStatus=async(type,unit,who,eventId,eventAt)=>{assert.equal(eventId,'saved-history-id','Alert identity comes from the confirmed history record');assert.equal(eventAt,savedEventAt,'Alert ordering carries the persisted history time');alerts++;};
 await app.setStatus('G2','black');assert.equal(writes,1);assert.equal(alerts,1);assert.deepEqual(played,['black'],'A successful change uses its original sound key once');await app.setStatus('G2','black');assert.equal(writes,1,'Current status creates no duplicate history');assert.deepEqual(played,['black'],'Current status does not replay its sound');w.__swCommitLockChange=async()=>{throw new Error('offline failure');};await app.setStatus('G2','green');assert.equal(writes,1);assert.equal(alerts,1,'Failed saves never alert');assert.deepEqual(played,['black'],'Failed retries do not play a sound');
+{let popups=0;const priorAlert=w.alert,priorDeck=w.__swDeckVisible;w.alert=()=>popups++;
+w.__swDeckVisible=true;assert.equal(await app.setStatus('G2','green'),false);assert.equal(popups,0,'Tablet open: a failed save shows only the tablet message, no pop-up');assert(/could not connect/.test(app._lastSaveError));
+w.__swDeckVisible=false;await app.setStatus('G2','green');assert.equal(popups,1,'Tablet put away: the failed save still says so once');w.__swDeckVisible=priorDeck;w.alert=priorAlert;}
 const pending=JSON.parse(w.localStorage.getItem('sw_pending_report:'+app.state.staffName));
 assert.equal(pending.at(-1).eventId,'saved-history-id','Pending reports contain only confirmed history entries');
 const priorUser=w.localStorage.getItem('sw_user');w.localStorage.setItem('sw_user',app.state.staffName);

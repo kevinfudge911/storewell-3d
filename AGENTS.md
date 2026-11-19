@@ -231,3 +231,21 @@ for reports, so a staff member without a working push device got nothing.
   and are sent once per event (`lockEmails/<eventId>`), so retries never repeat.
 - The saving phone shows a short note when it has no alert device at all.
 - Check: `scripts/check-lock-email.mjs` (offline only).
+
+## November 19 email sign-in check and tablet mismatches
+
+- `/email` now needs a signed-in staff session (same HTTP-only staff cookie as
+  Alerts and Staff chat) and a same-origin request. No session = 401, nothing sent.
+  Reports and the Team email test still use it. Lock It / Lock Off emails do not:
+  they go from `/notify` through `server/lock-email.js` (unchanged).
+- One name for history: **History** (Menu, screen title, Overview, Reports, chooser,
+  bottom bar). **Outside** only means put the tablet away (header and case key);
+  the chooser's find-this-unit link is **Find**.
+- Old menus say **Not rentable** (never N/A) and show Rented · No Lock in the
+  tablet yellow `#ffdc77`.
+- A failed save shows one message: `app.setStatus` keeps the text in
+  `app._lastSaveError` and only uses the browser pop-up when the tablet is put away.
+- The chooser has the old door menu's small **Application inside** check
+  (`lockReady/<unit>`) and, for Not rentable, the **✎ Reason** note
+  (`lockNotes/<unit>`), edited in place. Saving Not rentable reopens the chooser
+  with the reason open. Status still saves only through `app.setStatus`.

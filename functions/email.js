@@ -1,4 +1,8 @@
 // Existing Cloudflare secrets remain the source of provider credentials.
+// Nov 19 2026: sends need a signed-in staff session (the same HTTP-only staff
+// cookie as Alerts and Staff chat). Lock It / Lock Off emails do not use this
+// endpoint; they go from /notify through server/lock-email.js.
+import {staffSession,sameOrigin} from '../server/staff-access.js';
 const API='https://api.brevo.com/v3';
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const headers=env=>({'api-key':env.BREVO_API_KEY,'Content-Type':'application/json',accept:'application/json'});
@@ -10,6 +14,9 @@ export async function onRequestGet({env}){
   }catch{return json({configured:true,ready:false,error:'Email provider is unavailable'},503);}
 }
 export async function onRequestPost({request,env}){
+  if(!sameOrigin(request))return json({success:false,error:'Open StoreWell to send email.'},403);
+  let session=null;try{session=await staffSession(request,env);}catch{}
+  if(!session)return json({success:false,error:'Staff sign-in is required to send email.'},401);
   let d;try{d=await request.json();}catch{return json({success:false,error:'Invalid email request'},400);}
   if(typeof d.to!=='string'||!/^\S+@\S+\.\S+$/.test(d.to)||d.to.length>254)return json({success:false,error:'A valid recipient is required'},400);
   if(!env.BREVO_API_KEY)return json({success:false,error:'Email service is not configured'},503);
