@@ -1,6 +1,6 @@
 // StoreWell service worker v2 (safe) - GET-only caching + push notifications.
 // Never touches POST/PUT requests, so it can never break lock saves or reports.
-const CACHE = 'storewell-lock-done-alerts-v55';
+const CACHE = 'storewell-alerts-stay-on-v56';
 // Device-local presentation state. Keep it across shell-cache upgrades and
 // notification dismissal so delayed pushes cannot roll back newer activity.
 const NOTIFICATION_STATE = 'storewell-notification-state-v1';
@@ -75,6 +75,21 @@ self.addEventListener('push', e => {
     });
     notificationQueue=pending.catch(()=>{});
     e.waitUntil(pending);
+});
+// Nov 19 2026: when the phone's push service rotates or expires this device's signup,
+// sign up again right away and move the saved registration (owner and choices kept).
+self.addEventListener('pushsubscriptionchange', e => {
+    e.waitUntil((async () => {
+          const old = e.oldSubscription ? e.oldSubscription.toJSON() : null;
+          let sub = e.newSubscription;
+          if (!sub) {
+                let key = e.oldSubscription && e.oldSubscription.options && e.oldSubscription.options.applicationServerKey;
+                if (!key) { const c = await fetch('/notify', {cache:'no-store'}).then(r => r.json()); key = Uint8Array.from(atob(c.publicKey.replace(/-/g,'+').replace(/_/g,'/')), x => x.charCodeAt(0)); }
+                sub = await self.registration.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:key});
+          }
+          await fetch('/push-subscription', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+                body: JSON.stringify({subscription: sub.toJSON(), ...(old ? {previousSubscription: old} : {})})});
+    })().catch(() => {}));
 });
 self.addEventListener('notificationclick', e => {
     e.notification.close();

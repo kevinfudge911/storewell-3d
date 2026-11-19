@@ -1,4 +1,4 @@
-import {json,staffSession,sameOrigin,readData,dbRequest} from '../server/staff-access.js';
+import {STAFF,json,staffSession,sameOrigin,readData,dbRequest} from '../server/staff-access.js';
 export function endpointAllowed(endpoint){
   try{const u=new URL(endpoint);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&(/(^|\.)push\.apple\.com$/.test(u.hostname)||/(^|\.)notify\.windows\.com$/.test(u.hostname)||/(^|\.)push\.services\.mozilla\.com$/.test(u.hostname)||['fcm.googleapis.com','android.googleapis.com','web.push.apple.com'].includes(u.hostname));}catch{return false;}
 }
@@ -6,8 +6,19 @@ const DEFAULT={flashred:true,flashgreen:true,report:true};
 const TYPES=['flashred','flashgreen','red','green','blue','yellow','purple','white','black','report'];
 export async function onRequestPost({request,env}){
   if(!sameOrigin(request))return json({error:'Open StoreWell to enable alerts.'},403);
-  const session=await staffSession(request,env);if(!session)return json({error:'Sign in before enabling alerts.'},401);
+  let session=await staffSession(request,env);
   let input;try{input=await request.json();}catch{return json({error:'Invalid device subscription.'},400);}
+  // Nov 19 2026: keep alerts alive without a fresh sign-in. A device that proves it holds a
+  // saved registration (same endpoint and keys) may refresh it, or move it to a new endpoint
+  // when the phone's push service rotates it, keeping the same staff owner and choices.
+  if(!session){
+    try{
+      const proves=async s=>{if(!s?.endpoint)return null;const pid=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s.endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');const rec=await readData('pushSubs/'+pid,env);return rec&&rec.endpoint===s.endpoint&&rec.keys?.auth===s.keys?.auth&&rec.keys?.p256dh===s.keys?.p256dh&&STAFF.includes(rec.staff)?rec:null;};
+      const owner=(await proves(input?.previousSubscription))||(await proves(input?.subscription));
+      if(owner)session={name:owner.staff};
+    }catch{return json({error:'Could not save this device’s alert settings.'},503);}
+  }
+  if(!session)return json({error:'Sign in before enabling alerts.'},401);
   const sub=input.subscription;
   if(!sub||!endpointAllowed(sub.endpoint)||sub.endpoint.length>2048||!/^[A-Za-z0-9_-]{80,100}={0,2}$/.test(sub.keys?.p256dh||'')||!/^[A-Za-z0-9_-]{20,30}={0,2}$/.test(sub.keys?.auth||''))return json({error:'This device did not provide a valid push subscription.'},400);
   const id=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(sub.endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');

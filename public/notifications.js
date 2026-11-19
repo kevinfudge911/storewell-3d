@@ -18,7 +18,9 @@
     if(syncing)return syncing;
     syncing=(async()=>{
       if(!supported())throw new Error('Push notifications are not supported in this browser');
-      if(!staffName())throw new Error('Staff sign in is needed to enable alerts');
+      let existing=null;if(!staffName()){try{existing=await (await navigator.serviceWorker.getRegistration?.('/'))?.pushManager.getSubscription();}catch{}}
+      // A device that already holds its saved signup can refresh it without a fresh sign-in.
+      if(!staffName()&&!existing)throw new Error('Staff sign in is needed to enable alerts');
       const config=await api('/notify',{cache:'no-store',signal:AbortSignal.timeout(12000)});
       if(!config.configured||!config.publicKey)throw new Error('The push service is not ready');
       const reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
@@ -28,6 +30,7 @@
       if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(config.publicKey)});
       const saved=await saveNode(null,sub.toJSON(),previousSubscription);
       const node={...sub.toJSON(),prefs:saved.prefs,staff:saved.staff};
+      try{localStorage.setItem('sw_alerts_wanted','1');}catch{}offBanner(false);
       setBell(true);return {id:saved.id,node};
     })().catch(e=>{setBell(false);throw e;}).finally(()=>syncing=null);
     return syncing;
@@ -71,8 +74,25 @@
       }
     }catch(e){notice(e.message);}
   };
-  function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));}
+  const wanted=()=>{if(staffName())return true;try{return localStorage.getItem('sw_alerts_wanted')==='1';}catch{return false;}};
+  function offBanner(show){
+    document.getElementById('sw-alerts-off')?.remove();if(!show)return;
+    const b=document.createElement('button');b.id='sw-alerts-off';b.type='button';
+    b.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:100002;padding:7px 12px;border:1px solid #b9a057;border-radius:8px;background:#7a1d12;color:#fff;font:600 13px Arial;max-width:92vw;';
+    b.textContent='🔕 Alerts are off on this device. Tap to turn back on.';
+    b.onclick=()=>window.__swBellTap();document.body.append(b);
+  }
+  // Nov 19 2026: alerts must never stop silently. If this device had alerts and lost them
+  // (permission removed, signup dropped), show a one-tap banner until they are back on.
+  async function checkAlive(){
+    if(!supported()||!wanted())return;
+    let sub=null;try{const reg=await navigator.serviceWorker.getRegistration?.('/');sub=await reg?.pushManager.getSubscription();}catch{}
+    if(Notification.permission!=='granted'||!sub){offBanner(true);return;}
+    syncSubscription().then(()=>offBanner(false)).catch(()=>{});
+  }
+  window.__swAlertsCheck=checkAlive;
+  function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else checkAlive();}
   if(document.readyState==='complete')start();else window.addEventListener('load',start);
   window.addEventListener('sw-staff-signed-in',()=>window.__swBellRefresh());
-  document.addEventListener('visibilitychange',()=>{if(staffName()&&document.visibilityState==='visible'&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else checkAlive();});
 })();

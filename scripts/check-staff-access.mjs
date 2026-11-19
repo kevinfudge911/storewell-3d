@@ -42,6 +42,13 @@ assert.equal((await call(contacts.onRequestGet,req('/staff-contacts','GET',null,
 const sub={endpoint:'https://fcm.googleapis.com/new-device',keys:{p256dh:'A'.repeat(87),auth:'B'.repeat(22)}};
 assert.equal((await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:sub}))).status,401);
 response=await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:sub,staff:'Brad'},cookie));assert.equal(response.status,200);const saved=await response.json();assert.equal(db.pushSubs[saved.id].staff,'Kevin','The server owns staff attribution');assert.equal(saved.prefs.report,true);
+// Nov 19 2026: a device holding its saved signup refreshes or rotates it without a sign-in; strangers cannot.
+{const rotated={endpoint:'https://fcm.googleapis.com/rotated-device',keys:{p256dh:'C'.repeat(87),auth:'D'.repeat(22)}};
+assert.equal((await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:sub}))).status,200,'Same endpoint and keys refresh without sign-in');
+assert.equal((await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:rotated,previousSubscription:{...sub,keys:{...sub.keys,auth:'Z'.repeat(22)}}}))).status,401,'Wrong keys cannot take over a device');
+const moved=await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:rotated,previousSubscription:sub}));assert.equal(moved.status,200);const m=await moved.json();
+assert.equal(db.pushSubs[m.id].staff,'Kevin','A rotated signup keeps its owner');assert.equal(db.pushSubs[saved.id],undefined,'The old endpoint is replaced');
+const back=await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:sub,previousSubscription:rotated},cookie));assert.equal(back.status,200);}
 const receipt=await receipts.makeReceipt(crypto.randomUUID(),saved.id,'Kevin',env);
 assert.equal((await call(receipts.onRequestPost,req('/push-receipt','POST',{...receipt,token:'forged'}))).status,403);
 assert.equal((await call(receipts.onRequestPost,req('/push-receipt','POST',receipt))).status,200);
