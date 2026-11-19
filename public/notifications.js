@@ -50,7 +50,7 @@
   window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else setBell(false);};
   window.__swNotifyStatus=async(type,unit,who,eventId,eventAt)=>{
     if(!LABELS[type]||type==='report')return;
-    try{const result=await post('/notify',{type,unit,eventId,eventAt,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});const me=staffName();if(!result.sent&&!result.emailed?.length)notice('Status saved. No registered device has '+LABELS[type]+' alerts enabled. Check Alerts on the receiving device.');else if(me&&result.noDevice?.includes(me)&&!result.emailed?.includes(me))notice('Saved. This phone is not set up for alerts yet. Tap Alerts to turn them on.');return result;}
+    try{const result=await post('/notify',{type,unit,eventId,eventAt,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});const me=staffName();if(!result.sent&&!result.emailed?.length){if(result.done||type==='flashred'||type==='flashgreen')notice('Status saved. Nobody has '+(result.done||LABELS[type])+' alerts turned on yet. Open Alerts on their phone.');}else if(result.done&&result.pushedTo&&!result.pushedTo.includes('Brad')&&!result.emailed?.includes('Brad'))notice('Saved. '+result.done+' sent, but Brad has no alerts set up on his phone yet.');else if(me&&result.noDevice?.includes(me)&&!result.emailed?.includes(me))notice('Saved. This phone is not set up for alerts yet. Tap Alerts to turn them on.');return result;}
     catch(e){notice('Status saved. Push alerts could not be sent: '+e.message);throw e;}
   };
   window.__swNotifyReport=(body,recipients)=>post('/notify',{type:'report',title:'StoreWell report',body, ...(recipients?{recipients}:{})});

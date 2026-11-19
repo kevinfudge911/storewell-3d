@@ -5,6 +5,15 @@ import {sendLockEmails} from '../server/lock-email.js';
 const FB='https://storewell-3d-default-rtdb.firebaseio.com';
 const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
 const TYPES=new Set(['flashred','flashgreen','red','green','blue','yellow','purple','white','black','report']);
+const STATUS_LABEL={blue:'Reserved',red:'Late',white:'Empty',black:'Not rentable',green:'Rented',yellow:'Rented · No Lock',flashred:'Lock It',flashgreen:'Lock Off',purple:'Ready to Rent'};
+const DONE_TO=new Set(['red','green','blue','yellow','purple','white','black']);
+// A saved change away from Lock It / Lock Off to a settled status is that lock job finished.
+export function lockJobDone(d,record){
+  if(!DONE_TO.has(d.type)||record?.to!==STATUS_LABEL[d.type])return null;
+  if(record.from==='Lock It')return {flash:'flashred',label:'Lock It done'};
+  if(record.from==='Lock Off')return {flash:'flashgreen',label:'Lock Off done'};
+  return null;
+}
 const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const decode=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
 const encode=a=>btoa(String.fromCharCode(...a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
@@ -52,25 +61,32 @@ export async function onRequestPost({request,env}){
   catch{return json({success:false,error:'Notification service is not ready',sent:0,failed:0},503);}
   const recipients=Array.isArray(d.recipients)?new Set(d.recipients.filter(x=>typeof x==='string').map(x=>x.toLowerCase())):null;
   const notificationId=crypto.randomUUID();
-  let activity;
+  let activity,done=null;
   // Read notification ordering metadata, never update history from this endpoint.
   // Older records without the optional marker retain exact-event fallback tags.
-  if(notificationActivity(d,0)){
+  const wantsRecord=notificationActivity(d,0)||(DONE_TO.has(d.type)&&typeof d.eventId==='string'&&/^[A-Za-z0-9_-]{1,150}$/.test(d.eventId));
+  if(wantsRecord){
     try{
       const response=await fetch(db('lockLog/'+encodeURIComponent(d.eventId),env),{signal:AbortSignal.timeout(12000)});
       if(!response.ok)throw new Error();
       const record=await response.json();
-      if(record?.type==='lock' && String(record.label||'').replace(/[-\s]/g,'').toUpperCase()===String(d.unit).replace(/[-\s]/g,'').toUpperCase())activity=notificationActivity(d,record.notificationCommittedAt);
+      if(record?.type==='lock' && String(record.label||'').replace(/[-\s]/g,'').toUpperCase()===String(d.unit).replace(/[-\s]/g,'').toUpperCase()){
+        if(notificationActivity(d,0))activity=notificationActivity(d,record.notificationCommittedAt);
+        done=lockJobDone(d,record);
+      }
     }catch{return json({success:false,error:'Notification ordering could not be confirmed. The saved lock status is unchanged.',sent:0,failed:0},503);}
   }
-  const message={title:d.title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationTag(d,notificationId),activity,url:'/'};
+  // Nov 19 2026: finishing a Lock It or Lock Off job (Kevin or Mike sets the unit to its
+  // next status) alerts everyone who gets that lock action, so Brad knows it is done.
+  const title=done?(done.label+' — Unit '+String(d.unit).slice(0,20)):d.title;
+  const message={title:title.slice(0,150),body:String(d.body||'').slice(0,1600),type:d.type,tag:notificationTag(d,notificationId),activity,url:'/'};
   let sent=0,failed=0,expired=0,skipped=0;
   const failures=[];
   const recordFailure=(stage,reason,status)=>{let item=failures.find(x=>x.stage===stage&&x.reason===reason&&x.status===status);if(item)item.count++;else failures.push({stage,reason,...(status?{status}:{}),count:1});};
   // Per-staff push tally, so anyone whose push did not land is emailed instead.
   const pushByStaff={};const tally=name=>pushByStaff[name]||(pushByStaff[name]={devices:0,eligible:0,sent:0});
   for(const sub of Object.values(subs)){if(sub?.staff)tally(sub.staff).devices++;}
-  const selected=Object.entries(subs).filter(([,sub])=>{const prefs=sub?.prefs||DEFAULT_PREFS;if(prefs[d.type]!==true||(recipients&&!recipients.has(String(sub.staff||'').toLowerCase()))){skipped++;return false;}return true;});
+  const selected=Object.entries(subs).filter(([,sub])=>{const prefs=sub?.prefs||DEFAULT_PREFS;if((prefs[d.type]!==true&&!(done&&prefs[done.flash]===true))||(recipients&&!recipients.has(String(sub.staff||'').toLowerCase()))){skipped++;return false;}return true;});
   // Every encrypted message carries its own contents, avoiding shared-lastAlert races.
   for(let start=0;start<selected.length;start+=8){
     await Promise.all(selected.slice(start,start+8).map(async([id,sub])=>{
@@ -84,8 +100,8 @@ export async function onRequestPost({request,env}){
     }));
   }
   let mail={emailed:[]};
-  try{mail=await sendLockEmails(d,request,env,pushByStaff,recipients);}catch{mail={emailed:[],emailError:'unavailable'};}
+  try{mail=await sendLockEmails(d,request,env,pushByStaff,recipients,done);}catch{mail={emailed:[],emailError:'unavailable'};}
   const pushedTo=Object.entries(pushByStaff).filter(([,p])=>p.sent>0).map(([name])=>name);
   const noDevice=['Kevin','Mike','Brad'].filter(name=>!pushByStaff[name]?.devices);
-  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,pushedTo,noDevice,...mail,...(failures.length?{failures,error:failureMessage(failures)}:{})},failed&&sent===0&&!mail.emailed?.length?502:200);
+  return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,pushedTo,noDevice,...(done?{done:done.label}:{}),...mail,...(failures.length?{failures,error:failureMessage(failures)}:{})},failed&&sent===0&&!mail.emailed?.length?502:200);
 }

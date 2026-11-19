@@ -138,7 +138,7 @@ await w.__swTestNotif();
 assert.deepEqual([...testRequests[0].recipients],['Offline test'],'Testing alerts never broadcasts to the whole team');
 assert(w.document.querySelector('#sw-alert-notice').textContent.startsWith('No device'),'Zero recipients are not presented as successful delivery');
 await w.__swNotifyStatus('flashred','C2','Offline test','saved-history-id',123);
-assert(w.document.querySelector('#sw-alert-notice').textContent.includes('No registered device has Lock It alerts enabled'),'Zero eligible devices are visible after a saved lock');
+assert(w.document.querySelector('#sw-alert-notice').textContent.includes('Nobody has Lock It alerts turned on yet'),'Zero eligible devices are visible after a saved lock');
 assert.equal(testRequests[1].unit,'C2');assert.equal(testRequests[1].eventId,'saved-history-id','The client forwards the saved activity identity');assert.equal(testRequests[1].eventAt,123,'Ordering uses the saved entry timestamp');
 w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.length,2,'An unsigned visitor cannot send a staff test');
 // The new tablet shortcut uses the real device subscription path and retains preferences.

@@ -59,3 +59,38 @@ assert.equal(mails.length,0,'Old history records cannot be replayed into emails'
 d=await (await push.onRequestPost({env,request:req({...body,type:'green',title:'Rented — Unit E16'})})).json();
 assert.equal(mails.length,0,'Routine colors stay push only');
 console.log('PASS: Lock It and Lock Off reach every staff member by push or email as they chose; offline only.');
+
+// Nov 19 2026: Kevin finishes a Lock Off job (E16 Lock Off -> Rented). Brad must hear it is done.
+{
+  const {lockJobDone}=push;
+  assert.deepEqual(lockJobDone({type:'green'},{from:'Lock Off',to:'Rented'}),{flash:'flashgreen',label:'Lock Off done'});
+  assert.deepEqual(lockJobDone({type:'red'},{from:'Lock It',to:'Late'}),{flash:'flashred',label:'Lock It done'});
+  assert.equal(lockJobDone({type:'green'},{from:'Reserved',to:'Rented'}),null,'Routine changes are not lock jobs');
+  assert.equal(lockJobDone({type:'flashgreen'},{from:'Lock It',to:'Lock Off'}),null,'A new action is not a finished job');
+  assert.equal(lockJobDone({type:'green'},{from:'Lock Off',to:'Late'}),null,'History must match the saved status');
+  const bradPub=pub;
+  const kevinCookie=(await sessionCookie('Kevin',staffConfig.Kevin,env)).split(';')[0];
+  let done=[];mails=[];pushes=0;
+  staffConfig.Mike.pref='email';
+  const prev=globalThis.fetch;
+  globalThis.fetch=async(url,init={})=>{
+    const u=String(url);
+    if(u.includes('/pushSubs.json'))return Response.json({b:{staff:'Brad',prefs:{flashred:true,flashgreen:true,report:true},endpoint:'https://fcm.googleapis.com/brad',keys:{p256dh:bradPub,auth:Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url')}},k:{staff:'Kevin',prefs:{flashred:false,flashgreen:false,report:true},endpoint:'https://fcm.googleapis.com/kevin2',keys:{p256dh:bradPub,auth:Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url')}}});
+    if(u.includes('/lockLog/evDone.json'))return Response.json({type:'lock',label:'E16',from:'Lock Off',to:'Rented',who:'Kevin',t:Date.now(),notificationCommittedAt:Date.now()});
+    if(u.includes('/lockLog/evRoutine.json'))return Response.json({type:'lock',label:'E16',from:'Reserved',to:'Rented',who:'Kevin',t:Date.now(),notificationCommittedAt:Date.now()});
+    if(u.startsWith('https://fcm.googleapis.com/')){done.push(u);pushes++;return new Response('',{status:201});}
+    return prev(url,init);
+  };
+  const kreq=d=>new Request('https://storewell.test/notify',{method:'POST',headers:{Cookie:kevinCookie},body:JSON.stringify(d)});
+  let r=await (await push.onRequestPost({env,request:kreq({type:'green',unit:'E16',eventId:'evDone',title:'Rented — Unit E16',body:'Unit E16 · Kevin'})})).json();
+  assert.equal(r.done,'Lock Off done');assert.deepEqual(done,['https://fcm.googleapis.com/brad'],'Brad\'s Lock Off device gets the done push; Kevin\'s (Lock Off off) does not');
+  assert.deepEqual(r.pushedTo,['Brad']);
+  assert(mails.length===1&&mails[0].to[0].email==='m@example.test'&&mails.every(m=>/Lock Off done - Unit E16/.test(m.subject)),'Email choosers get "Lock Off done"');
+  assert(mails.some(m=>/Now Rented\. Done by Kevin/.test(m.textContent)));
+  done=[];mails=[];
+  r=await (await push.onRequestPost({env,request:kreq({type:'green',unit:'E16',eventId:'evRoutine',title:'Rented — Unit E16',body:'Unit E16 · Kevin'})})).json();
+  assert.equal(r.done,undefined);assert.deepEqual(done,[],'A plain Rented change stays quiet unless someone turned Rented on');assert.equal(mails.length,0);
+  staffConfig.Mike.pref='none';
+  globalThis.fetch=prev;
+  console.log('PASS lock job done alerts reach Brad');
+}
