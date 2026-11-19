@@ -9,7 +9,7 @@
   const bytes=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
   let syncing=null;
   function notice(message){window.dispatchEvent(new CustomEvent('sw-notification-notice',{detail:message}));const old=document.getElementById('sw-alert-notice');old?.remove();const el=document.createElement('div');el.id='sw-alert-notice';el.setAttribute('role','status');el.style.cssText='position:fixed;bottom:145px;left:50%;transform:translateX(-50%);z-index:100001;padding:14px 18px;border:1px solid #b9a057;border-radius:9px;background:#122b3c;color:#edf6ff;font:14px Arial;width:max-content;max-width:90vw;';el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),8500);}
-  async function api(url,init){const r=await fetch(url,init);const d=await r.json().catch(()=>({}));if(!r.ok||d.success===false)throw new Error(d.error||'The request could not be completed');return d;}
+  async function api(url,init){const r=await fetch(url,init);const d=await r.json().catch(()=>({}));if(!r.ok||d.success===false){const e=new Error(d.error||'The request could not be completed');e.renew=d.renew===true;throw e;}return d;}
   async function post(url,data){return api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),keepalive:true,signal:AbortSignal.timeout(45000)});}
   function setBell(on){window._swBellOn=!!on;for(const id of ['sw-bell','sw-cc-bell','sw-tablet-notifications']){const el=document.getElementById(id);if(!el)continue;el.dataset.subscribed=String(on);el.title=on?'Choose alerts for this device':'Enable push notifications';const spans=el.querySelectorAll('span');if(spans[0])spans[0].textContent=on?'🔔':'🔕';if(spans[1])spans[1].textContent=on?'ALERTS ON':'ALERTS';}}
   async function subId(endpoint){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');}
@@ -28,7 +28,15 @@
       // Reuse every valid subscription; migrate a mismatched old key while preserving preferences.
       if(sub&&sub.options?.applicationServerKey&&b64(sub.options.applicationServerKey)!==config.publicKey){previousSubscription=sub.toJSON();await sub.unsubscribe();sub=null;}
       if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(config.publicKey)});
-      const saved=await saveNode(null,sub.toJSON(),previousSubscription);
+      let saved;
+      try{saved=await saveNode(null,sub.toJSON(),previousSubscription);}
+      catch(e){
+        // The push service killed this signup. Make a fresh one and carry the old owner over.
+        if(!e.renew)throw e;
+        previousSubscription=sub.toJSON();try{await sub.unsubscribe();}catch{}
+        sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(config.publicKey)});
+        saved=await saveNode(null,sub.toJSON(),previousSubscription);
+      }
       const node={...sub.toJSON(),prefs:saved.prefs,staff:saved.staff};
       try{localStorage.setItem('sw_alerts_wanted','1');}catch{}offBanner(false);
       setBell(true);return {id:saved.id,node};
@@ -88,11 +96,11 @@
     if(!supported()||!wanted())return;
     let sub=null;try{const reg=await navigator.serviceWorker.getRegistration?.('/');sub=await reg?.pushManager.getSubscription();}catch{}
     if(Notification.permission!=='granted'||!sub){offBanner(true);return;}
-    syncSubscription().then(()=>offBanner(false)).catch(()=>{});
+    syncSubscription().then(()=>offBanner(false)).catch(()=>offBanner(true));
   }
   window.__swAlertsCheck=checkAlive;
-  function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else checkAlive();}
+  function start(){if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});const b=document.getElementById('sw-bell');if(b)b.onclick=window.__swBellTap;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>{setBell(false);offBanner(true);});else checkAlive();}
   if(document.readyState==='complete')start();else window.addEventListener('load',start);
   window.addEventListener('sw-staff-signed-in',()=>window.__swBellRefresh());
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else checkAlive();});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;if(staffName()&&supported()&&Notification.permission==='granted')syncSubscription().catch(()=>{setBell(false);offBanner(true);});else checkAlive();});
 })();

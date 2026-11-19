@@ -13,7 +13,7 @@ export async function onRequestPost({request,env}){
   // when the phone's push service rotates it, keeping the same staff owner and choices.
   if(!session){
     try{
-      const proves=async s=>{if(!s?.endpoint)return null;const pid=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s.endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');const rec=await readData('pushSubs/'+pid,env);return rec&&rec.endpoint===s.endpoint&&rec.keys?.auth===s.keys?.auth&&rec.keys?.p256dh===s.keys?.p256dh&&STAFF.includes(rec.staff)?rec:null;};
+      const proves=async s=>{if(!s?.endpoint)return null;const pid=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s.endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');let rec=await readData('pushSubs/'+pid,env);if(!rec?.endpoint)rec=await readData('pushDead/'+pid,env);return rec&&rec.endpoint===s.endpoint&&rec.keys?.auth===s.keys?.auth&&rec.keys?.p256dh===s.keys?.p256dh&&STAFF.includes(rec.staff)?rec:null;};
       const owner=(await proves(input?.previousSubscription))||(await proves(input?.subscription));
       if(owner)session={name:owner.staff};
     }catch{return json({error:'Could not save this device’s alert settings.'},503);}
@@ -24,10 +24,16 @@ export async function onRequestPost({request,env}){
   const id=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(sub.endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');
   try{
     const existing=await readData('pushSubs/'+id,env);
+    // Nov 19 2026: never re-save a signup the push service already said is dead. Tell the
+    // phone to make a fresh one; it sends the dead one as previousSubscription so the owner
+    // and alert choices carry over with no sign-in. This is what stops the silent drop loop.
+    const dead=await readData('pushDead/'+id,env);
+    if(dead?.endpoint===sub.endpoint)return json({error:'This device needs a fresh alert signup.',renew:true},409);
     let previous,previousId;
     if(input.previousSubscription?.endpoint&&input.previousSubscription.endpoint!==sub.endpoint){
       previousId=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(input.previousSubscription.endpoint)))].slice(0,12).map(x=>x.toString(16).padStart(2,'0')).join('');
       previous=await readData('pushSubs/'+previousId,env);
+      if(!previous?.endpoint)previous=await readData('pushDead/'+previousId,env);
       if(previous.staff!==session.name||previous.endpoint!==input.previousSubscription.endpoint||previous.keys?.auth!==input.previousSubscription.keys?.auth||previous.keys?.p256dh!==input.previousSubscription.keys?.p256dh){previous=null;previousId=null;}
     }
     const prefs=input.prefs??existing.prefs??previous?.prefs??DEFAULT;
@@ -35,7 +41,7 @@ export async function onRequestPost({request,env}){
     const node={endpoint:sub.endpoint,keys:{p256dh:sub.keys.p256dh,auth:sub.keys.auth},expirationTime:sub.expirationTime??null,prefs,staff:session.name,updatedAt:Date.now()};
     const response=await dbRequest('pushSubs/'+id,env,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(node)});
     if(!response.ok)throw new Error();
-    if(previousId)await dbRequest('pushSubs/'+previousId,env,{method:'DELETE'});
+    if(previousId){await dbRequest('pushSubs/'+previousId,env,{method:'DELETE'});await dbRequest('pushDead/'+previousId,env,{method:'DELETE'});}
     return json({success:true,id,prefs,staff:session.name});
   }catch{return json({error:'Could not save this device’s alert settings.'},503);}
 }
