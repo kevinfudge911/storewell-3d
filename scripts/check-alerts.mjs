@@ -1,5 +1,6 @@
 // Delivery regression checks use only generated keys and intercepted provider requests.
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
@@ -144,12 +145,13 @@ w.__swCheckLogin=()=>false;await w.__swTestNotif();assert.equal(testRequests.len
 // The new tablet shortcut uses the real device subscription path and retains preferences.
 w.document.body.insertAdjacentHTML('beforeend','<button id="sw-tablet-notifications">Notifications</button>');
 w.__swCheckLogin=()=>'Offline test';
+Object.defineProperty(w.crypto,'subtle',{value:globalThis.crypto.subtle});w.TextEncoder=TextEncoder;
 let permissionPrompts=0,subscriptions=0,currentSubscription=null;const subscriptionSaves=[];
 w.Notification={permission:'default',requestPermission:async()=>{permissionPrompts++;w.Notification.permission='granted';return 'granted';}};
 w.PushManager=function(){};
-const registration={pushManager:{getSubscription:async()=>currentSubscription,subscribe:async()=>{subscriptions++;currentSubscription={toJSON:()=>({endpoint:'https://push.example.test/device',keys:{p256dh:'fixture-key',auth:'fixture-auth'}})};return currentSubscription;}}};
+const registration={pushManager:{getSubscription:async()=>currentSubscription,subscribe:async()=>{subscriptions++;currentSubscription={endpoint:'https://push.example.test/device',toJSON:()=>({endpoint:'https://push.example.test/device',keys:{p256dh:'fixture-key',auth:'fixture-auth'}})};return currentSubscription;}}};
 Object.defineProperty(w.navigator,'serviceWorker',{value:{register:async()=>registration,ready:Promise.resolve(registration)},configurable:true});
-w.fetch=async(url,init)=>{if(url==='/notify')return {ok:true,json:async()=>({configured:true,publicKey:'cHVibGlj'})};assert.equal(url,'/push-subscription');subscriptionSaves.push(JSON.parse(init.body));return {ok:true,json:async()=>({success:true,id:'fixture-device',staff:'Offline test',prefs:{flashred:true,flashgreen:false,report:true}})};};
+w.fetch=async(url,init)=>{if(url==='/notify')return {ok:true,json:async()=>({configured:true,publicKey:'cHVibGlj'})};assert.equal(url,'/push-subscription');subscriptionSaves.push(JSON.parse(init.body));return {ok:true,json:async()=>({success:true,id:createHash('sha256').update(subscriptionSaves.at(-1).subscription.endpoint).digest('hex').slice(0,24),staff:'Offline test',prefs:{flashred:true,flashgreen:false,report:true}})};};
 await w.__swBellTap({embedded:true});
 assert.equal(permissionPrompts,1);assert.equal(subscriptions,1);assert.equal(w.document.querySelector('#sw-tablet-notifications').dataset.subscribed,'true');
 assert(w.document.querySelector('#sw-pref-panel'),'A successful subscription opens device preferences');
@@ -157,7 +159,7 @@ assert.equal(w.document.querySelectorAll('#sw-pref-panel input[type=checkbox]').
 assert(!('prefs' in subscriptionSaves[0]),'Subscribing does not replace saved device preferences with defaults');
 await w.__swBellTap({embedded:true});assert.equal(subscriptions,1,'Reopening Notifications reuses the existing device subscription');
 w.Notification.permission='denied';w.Notification.requestPermission=async()=>'denied';
-await assert.rejects(w.__swBellTap({embedded:true}),/Allow StoreWell notifications/,'The tablet receives the real permission error instead of an empty tool window');
+await assert.rejects(w.__swBellTap({embedded:true}),/StoreWell notifications are blocked/,'The tablet receives the real permission error instead of an empty tool window');
 assert.equal(w.document.querySelector('#sw-tablet-notifications').dataset.subscribed,'false');
 w.document.querySelector('#sw-pref-panel')?.remove();
 // Editing one contact field cannot replace the team configuration or erase keys.

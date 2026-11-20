@@ -1,13 +1,15 @@
 import {JSDOM} from 'jsdom';import fs from 'node:fs';import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 const src=fs.readFileSync('public/notifications.js','utf8');
 async function run(perm,hasSub,signedIn){
   const dom=new JSDOM('<!doctype html><body></body>',{runScripts:'outside-only',url:'https://storewell.test/'});const w=dom.window;
+  Object.defineProperty(w.crypto,'subtle',{value:globalThis.crypto.subtle});w.TextEncoder=TextEncoder;
   w.Notification={permission:perm,requestPermission:async()=>perm};w.PushManager=function(){};
-  const sub=hasSub?{toJSON:()=>({endpoint:'https://fcm.googleapis.com/x',keys:{p256dh:'a',auth:'b'}}),options:{}}:null;
-  const fresh={toJSON:()=>({endpoint:'https://fcm.googleapis.com/y',keys:{p256dh:'a',auth:'b'}}),options:{}};const reg={pushManager:{getSubscription:async()=>sub,subscribe:async()=>sub||fresh}};
+  const sub=hasSub?{endpoint:'https://fcm.googleapis.com/x',toJSON:()=>({endpoint:'https://fcm.googleapis.com/x',keys:{p256dh:'a',auth:'b'}}),options:{}}:null;
+  const fresh={endpoint:'https://fcm.googleapis.com/y',toJSON:()=>({endpoint:'https://fcm.googleapis.com/y',keys:{p256dh:'a',auth:'b'}}),options:{}};const reg={pushManager:{getSubscription:async()=>sub,subscribe:async()=>sub||fresh}};
   Object.defineProperty(w.navigator,'serviceWorker',{value:{register:async()=>reg,ready:Promise.resolve(reg),getRegistration:async()=>reg}});
   w.__swCheckLogin=()=>signedIn?'Kevin':'';
-  w.fetch=async(u)=>({ok:true,json:async()=>u==='/notify'?{configured:true,publicKey:'cHVi'}:{success:true,id:'d',staff:'Kevin',prefs:{}}});
+  w.fetch=async(u,init)=>({ok:true,json:async()=>u==='/notify'?{configured:true,publicKey:'cHVi'}:{success:true,id:createHash('sha256').update(JSON.parse(init.body).subscription.endpoint).digest('hex').slice(0,24),staff:'Kevin',prefs:{}}});
   w.eval(src);await new Promise(r=>setTimeout(r,50));
   return !!w.document.getElementById('sw-alerts-off');
 }

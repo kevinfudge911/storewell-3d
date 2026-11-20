@@ -7,7 +7,8 @@
   const supported=()=>('serviceWorker' in navigator)&&('PushManager' in window)&&('Notification' in window);
   const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const bytes=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
-  let syncing=null;
+  let syncing=null,reconnecting=false;
+  async function bounded(p,message){let timer;try{return await Promise.race([p,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(message)),12000);})]);}finally{clearTimeout(timer);}}
   function notice(message){window.dispatchEvent(new CustomEvent('sw-notification-notice',{detail:message}));const old=document.getElementById('sw-alert-notice');old?.remove();const el=document.createElement('div');el.id='sw-alert-notice';el.setAttribute('role','status');el.style.cssText='position:fixed;bottom:145px;left:50%;transform:translateX(-50%);z-index:100001;padding:14px 18px;border:1px solid #b9a057;border-radius:9px;background:#122b3c;color:#edf6ff;font:14px Arial;width:max-content;max-width:90vw;';el.textContent=message;document.body.append(el);setTimeout(()=>el.remove(),8500);}
   async function api(url,init){const r=await fetch(url,init);const d=await r.json().catch(()=>({}));if(!r.ok||d.success===false){const e=new Error(d.error||'The request could not be completed');e.renew=d.renew===true;throw e;}return d;}
   async function post(url,data){return api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),keepalive:true,signal:AbortSignal.timeout(45000)});}
@@ -23,7 +24,8 @@
       if(!staffName()&&!existing)throw new Error('Staff sign in is needed to enable alerts');
       const config=await api('/notify',{cache:'no-store',signal:AbortSignal.timeout(12000)});
       if(!config.configured||!config.publicKey)throw new Error('The push service is not ready');
-      const reg=await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;
+      await bounded(navigator.serviceWorker.register('/sw.js'),'StoreWell could not start the alerts service. Reopen the installed StoreWell app, then retry.');
+      const reg=await bounded(navigator.serviceWorker.ready,'The alerts service did not start. Reopen the installed StoreWell app, then retry.');
       let sub=await reg.pushManager.getSubscription(),previousSubscription;
       // Reuse every valid subscription; migrate a mismatched old key while preserving preferences.
       if(sub&&sub.options?.applicationServerKey&&b64(sub.options.applicationServerKey)!==config.publicKey){previousSubscription=sub.toJSON();await sub.unsubscribe();sub=null;}
@@ -36,6 +38,10 @@
         previousSubscription=sub.toJSON();try{await sub.unsubscribe();}catch{}
         sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(config.publicKey)});
         saved=await saveNode(null,sub.toJSON(),previousSubscription);
+      }
+      const expectedId=await subId(sub.endpoint);
+      if(saved?.success!==true||saved.id!==expectedId||typeof saved.staff!=='string'||!saved.staff.trim()||!saved.prefs||typeof saved.prefs!=='object'||Array.isArray(saved.prefs)||Object.entries(saved.prefs).some(([key,value])=>!Object.hasOwn(LABELS,key)||typeof value!=='boolean')){
+        throw new Error('StoreWell did not confirm this device’s alert signup. Retry reconnecting alerts.');
       }
       const node={...sub.toJSON(),prefs:saved.prefs,staff:saved.staff};
       try{localStorage.setItem('sw_alerts_wanted','1');}catch{}offBanner(false);
@@ -50,13 +56,29 @@
     for(const [type,label]of Object.entries(LABELS)){const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid #31546a;';const cb=document.createElement('input');cb.type='checkbox';cb.checked=node.prefs[type]===true;cb.style.cssText='width:21px;height:21px;accent-color:#21a8e0';cb.onchange=async()=>{const previous=!cb.checked;node.prefs[type]=cb.checked;cb.disabled=true;try{await saveNode(id,node);}catch(e){node.prefs[type]=previous;cb.checked=previous;notice(e.message);}finally{cb.disabled=false;}};row.append(cb,document.createTextNode(label));panel.append(row);}
     const done=document.createElement('button');done.textContent='Done';done.style.cssText='margin-top:14px;width:100%;padding:12px;background:#155b80;border:1px solid #5fadc6;color:white;border-radius:7px;font:700 14px Arial';done.onclick=()=>panel.remove();panel.append(done);document.body.append(panel);
   }
-  window.__swBellTap=async({embedded=false}={})=>{
+  window.__swBellTap=async({embedded=false,reconnect=false}={})=>{
+    if(reconnecting){if(embedded)throw new Error('StoreWell is already reconnecting alerts.');return;}
+    reconnecting=true;
+    if(reconnect)offBanner(true,'Reconnecting alerts…');
     try{
-      if(!staffName())throw new Error('Staff sign in is needed to enable alerts');
-      if(!supported())throw new Error('This browser cannot receive push alerts. On iPhone, install StoreWell on the Home Screen first.');
-      const permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('Allow StoreWell notifications in your browser settings to receive alerts');
-      const {id,node}=await syncSubscription();openPanel(id,node);
-    }catch(e){if(!supported()||Notification.permission!=='granted')setBell(false);if(embedded)throw e;notice(e.message);}
+      if(!supported())throw new Error('This browser cannot receive push alerts. On iPhone, open StoreWell from its Home Screen icon.');
+      if(!staffName())throw new Error('Sign in to StoreWell on this device, then retry.');
+      if(Notification.permission==='denied')throw new Error('StoreWell notifications are blocked. Allow them in your device or browser settings, then retry.');
+      if(Notification.permission!=='granted'){
+        const permission=await Notification.requestPermission();
+        if(permission!=='granted')throw new Error('StoreWell notifications were not allowed. Allow them in your device or browser settings, then retry.');
+      }
+      const {id,node}=await syncSubscription();
+      reconnecting=false;
+      offBanner(false);
+      openPanel(id,node);
+    }catch(e){
+      reconnecting=false;
+      if(!supported()||Notification.permission!=='granted')setBell(false);
+      if(reconnect)offBanner(true,'Retry reconnecting alerts',e.message);
+      else if(embedded)throw e;
+      else notice(e.message);
+    }finally{reconnecting=false;}
   };
   window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else setBell(false);};
   window.__swNotifyStatus=async(type,unit,who,eventId,eventAt)=>{
@@ -83,12 +105,23 @@
     }catch(e){notice(e.message);}
   };
   const wanted=()=>{if(staffName())return true;try{return localStorage.getItem('sw_alerts_wanted')==='1';}catch{return false;}};
-  function offBanner(show){
-    document.getElementById('sw-alerts-off')?.remove();if(!show)return;
-    const b=document.createElement('button');b.id='sw-alerts-off';b.type='button';
-    b.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:100002;padding:7px 12px;border:1px solid #b9a057;border-radius:8px;background:#7a1d12;color:#fff;font:600 13px Arial;max-width:92vw;';
-    b.textContent='🔕 Alerts are off on this device. Tap to turn back on.';
-    b.onclick=()=>window.__swBellTap();document.body.append(b);
+  function offBanner(show,label='Alerts are off on this device. Reconnect alerts.',message=''){
+    let wrap=document.getElementById('sw-alerts-off');
+    if(!show){wrap?.remove();return;}
+    if(reconnecting&&label!=='Reconnecting alerts…')return;
+    if(wrap&&wrap.dataset.feedback==='true'&&!message&&label!=='Reconnecting alerts…')return;
+    if(!wrap){
+      wrap=document.createElement('div');wrap.id='sw-alerts-off';
+      wrap.style.cssText='position:fixed;top:max(8px,env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:100002;padding:7px 12px;border:1px solid #b9a057;border-radius:8px;background:#7a1d12;color:#fff;font:600 13px Arial;width:max-content;max-width:92vw;text-align:center;';
+      const b=document.createElement('button');b.id='sw-alerts-reconnect';b.type='button';
+      b.style.cssText='min-height:44px;padding:6px;color:inherit;background:transparent;border:0;font:inherit;cursor:pointer;';
+      b.onclick=()=>window.__swBellTap({reconnect:true});
+      const p=document.createElement('div');p.id='sw-alerts-feedback';p.setAttribute('role','status');p.setAttribute('aria-live','polite');
+      wrap.append(b,p);document.body.append(wrap);
+    }
+    wrap.dataset.feedback=String(!!message);
+    const b=document.getElementById('sw-alerts-reconnect'),p=document.getElementById('sw-alerts-feedback');
+    b.textContent=label;b.disabled=reconnecting;p.textContent=message||(reconnecting?'Checking this device’s notification signup.':'');
   }
   // Nov 19 2026: alerts must never stop silently. If this device had alerts and lost them
   // (permission removed, signup dropped), show a one-tap banner until they are back on.

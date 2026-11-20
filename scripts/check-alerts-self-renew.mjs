@@ -1,11 +1,13 @@
 // Nov 19 2026: a signup the push service killed must renew itself on the next app open.
+import {createHash} from 'node:crypto';
 import {JSDOM} from 'jsdom';import fs from 'node:fs';import assert from 'node:assert/strict';
 // Page side: server says renew -> phone makes a fresh signup and sends the old one along.
 {
   const src=fs.readFileSync('public/notifications.js','utf8');
   const dom=new JSDOM('<!doctype html><body></body>',{runScripts:'outside-only',url:'https://storewell.test/'});const w=dom.window;
+  Object.defineProperty(w.crypto,'subtle',{value:globalThis.crypto.subtle});w.TextEncoder=TextEncoder;
   w.Notification={permission:'granted',requestPermission:async()=>'granted'};w.PushManager=function(){};
-  let unsub=0,subs=0;const mk=n=>({toJSON:()=>({endpoint:'https://fcm.googleapis.com/'+n,keys:{p256dh:'p'+n,auth:'a'+n}}),options:{},unsubscribe:async()=>{unsub++;return true;}});
+  let unsub=0,subs=0;const mk=n=>({endpoint:'https://fcm.googleapis.com/'+n,toJSON:()=>({endpoint:'https://fcm.googleapis.com/'+n,keys:{p256dh:'p'+n,auth:'a'+n}}),options:{},unsubscribe:async()=>{unsub++;return true;}});
   const reg={pushManager:{getSubscription:async()=>mk('old'),subscribe:async()=>{subs++;return mk('new');}}};
   Object.defineProperty(w.navigator,'serviceWorker',{value:{register:async()=>reg,ready:Promise.resolve(reg),getRegistration:async()=>reg}});
   w.__swCheckLogin=()=>'';try{w.localStorage.setItem('sw_alerts_wanted','1');}catch{}
@@ -13,11 +15,15 @@ import {JSDOM} from 'jsdom';import fs from 'node:fs';import assert from 'node:as
   w.fetch=async(u,init)=>{if(u==='/notify')return {ok:true,json:async()=>({configured:true,publicKey:'cHVi'})};
     const body=JSON.parse(init.body);posts.push(body);
     if(body.subscription.endpoint.endsWith('/old'))return {ok:false,status:409,json:async()=>({error:'renew',renew:true})};
-    return {ok:true,json:async()=>({success:true,id:'n',staff:'Brad',prefs:{report:true}})};};
-  w.eval(src);await new Promise(r=>setTimeout(r,80));
+    return {ok:true,json:async()=>({success:true,id:createHash('sha256').update(body.subscription.endpoint).digest('hex').slice(0,24),staff:'Brad',prefs:{report:true}})};};
+  w.eval(src);
+  const waitUntil=Date.now()+1500;
+  while(w._swBellOn!==true&&Date.now()<waitUntil)await new Promise(r=>setTimeout(r,10));
+  assert.equal(w._swBellOn,true,'the replacement subscription is acknowledged for this device');
   assert.equal(unsub,1,'dead signup is dropped on the phone');assert.equal(subs,1,'fresh signup is made');
   assert.equal(posts.at(-1).previousSubscription.endpoint,'https://fcm.googleapis.com/old','old signup is sent so the owner carries over');
   assert.equal(!!w.document.getElementById('sw-alerts-off'),false,'no banner once renewed');
+  dom.window.close();
 }
 // Server side: dead copy proves the owner with no sign-in and gets cleaned up.
 {
