@@ -5,6 +5,15 @@
   const LABELS={flashred:'Lock It',flashgreen:'Lock Off',red:'Late',green:'Rented',blue:'Reserved',yellow:'Rented · No Lock',purple:'Ready to Rent',white:'Empty',black:'Not rentable',report:'Reports'};
   const staffName=()=>window.__swCheckLogin?.()||'';
   const supported=()=>('serviceWorker' in navigator)&&('PushManager' in window)&&('Notification' in window);
+  // Nov 26 2026: say exactly why this device can't get alerts, never stay silent.
+  const isIOS=()=>/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const standalone=()=>window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true;
+  function cantHereHelp(){
+    if(isIOS()&&!standalone())return 'On iPhone, alerts only work from the Home Screen app. Tap Share, then Add to Home Screen, then open StoreWell from that icon.';
+    if(isIOS())return 'Update this iPhone to iOS 16.4 or newer, then open StoreWell from its Home Screen icon.';
+    if(/FBAN|FBAV|Instagram|Messenger|; wv\)/.test(navigator.userAgent))return 'This in-app browser can\'t get alerts. Open StoreWell in Chrome, then tap Alerts.';
+    return 'This browser can\'t get alerts. Open StoreWell in Chrome on your phone, then tap Alerts.';
+  }
   const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const bytes=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
   let syncing=null,reconnecting=false;
@@ -61,7 +70,7 @@
     reconnecting=true;
     if(reconnect)offBanner(true,'Reconnecting alerts…');
     try{
-      if(!supported())throw new Error('This browser cannot receive push alerts. On iPhone, open StoreWell from its Home Screen icon.');
+      if(!supported())throw new Error(cantHereHelp());
       if(!staffName())throw new Error('Sign in to StoreWell on this device, then retry.');
       if(Notification.permission==='denied')throw new Error('StoreWell notifications are blocked. Allow them in your device or browser settings, then retry.');
       if(Notification.permission!=='granted'){
@@ -80,7 +89,9 @@
       else notice(e.message);
     }finally{reconnecting=false;}
   };
-  window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().catch(()=>setBell(false));else setBell(false);};
+  // Nov 26 2026: after sign-in, a phone without alerts always shows the red bar. Before this,
+  // a sign-in that finished after page load just turned the bell off with no word.
+  window.__swBellRefresh=()=>{if(supported()&&Notification.permission==='granted')syncSubscription().then(()=>offBanner(false)).catch(()=>{setBell(false);offBanner(true);});else{setBell(false);checkAlive();}};
   window.__swNotifyStatus=async(type,unit,who,eventId,eventAt)=>{
     if(!LABELS[type]||type==='report')return;
     try{const result=await post('/notify',{type,unit,eventId,eventAt,title:LABELS[type]+' — Unit '+unit,body:'Unit '+unit+' · '+(who||'Staff')});const me=staffName();if(!result.sent&&!result.emailed?.length){if(result.done||type==='flashred'||type==='flashgreen')notice('Status saved. Nobody has '+(result.done||LABELS[type])+' alerts turned on yet. Open Alerts on their phone.');}else if(result.done&&result.pushedTo&&!result.pushedTo.includes('Brad')&&!result.emailed?.includes('Brad'))notice('Saved. '+result.done+' sent, but Brad has no alerts set up on his phone yet.');else if(me&&result.noDevice?.includes(me)&&!result.emailed?.includes(me))notice('Saved. This phone is not set up for alerts yet. Tap Alerts to turn them on.');return result;}
@@ -126,7 +137,8 @@
   // Nov 19 2026: alerts must never stop silently. If this device had alerts and lost them
   // (permission removed, signup dropped), show a one-tap banner until they are back on.
   async function checkAlive(){
-    if(!supported()||!wanted())return;
+    if(!wanted())return;
+    if(!supported()){setBell(false);offBanner(true,'Alerts can\u2019t reach this device.',cantHereHelp());return;}
     let sub=null;try{const reg=await navigator.serviceWorker.getRegistration?.('/');sub=await reg?.pushManager.getSubscription();}catch{}
     if(Notification.permission!=='granted'||!sub){offBanner(true);return;}
     syncSubscription().then(()=>offBanner(false)).catch(()=>offBanner(true));

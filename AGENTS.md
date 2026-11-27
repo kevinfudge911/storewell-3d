@@ -249,3 +249,8 @@ for reports, so a staff member without a working push device got nothing.
   (`lockReady/<unit>`) and, for Not rentable, the **✎ Reason** note
   (`lockNotes/<unit>`), edited in place. Saving Not rentable reopens the chooser
   with the reason open. Status still saves only through `app.setStatus`.
+
+## November 26 2026 alerts reach every phone (Brad had 0 devices for a week)
+- functions/notify.js sends like Ohana Home: PUSH_OPTIONS {ttl:86400, urgency:'high'} and one retry on no answer, 429 or 5xx. Before: 1 hour, normal priority, no retry.
+- public/notifications.js never stays silent: a signed-in device that can't get push (iPhone in Safari, in-app browser) shows the red bar with the exact fix; a sign-in that finishes after page load now runs the same check (it used to just turn the bell off).
+- Test: scripts/check-alerts-reach-brad.mjs. Problem doc + plan: AI HQ "AI CREW - StoreWell: Brad gets no alerts".

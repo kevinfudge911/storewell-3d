@@ -49,6 +49,18 @@ function failureMessage(failures){
   if(reasons.has('timeout')||reasons.has('provider_unavailable')||reasons.has('provider_rate_limited'))return 'The push provider is temporarily unavailable. Please retry.';
   return 'Push delivery could not be completed. Please retry.';
 }
+// Nov 26 2026: send like Ohana Home, the family app whose alerts land: high urgency so a
+// sleeping Android phone gets it now (FCM high priority), kept 24 hours instead of 1 hour
+// so a phone that is off or out of signal still gets it later, and one retry when the
+// push service does not answer or is busy.
+export const PUSH_OPTIONS={ttl:86400,urgency:'high'};
+async function deliver(endpoint,payload){
+  const send=()=>fetch(endpoint,{...payload,redirect:'manual',signal:AbortSignal.timeout(12000)});
+  let response;
+  try{response=await send();}catch(error){if(error?.name!=='TimeoutError'&&error?.name!=='AbortError'&&error?.name!=='TypeError')throw error;return send();}
+  if(response.status===429||response.status>=500)return send();
+  return response;
+}
 export async function onRequestGet({env}){
   try{const keys=vapid(env);return json({configured:!!env.FIREBASE_DB_SECRET,publicKey:keys.publicKey});}
   catch{return json({configured:false,error:'Push signing key is unavailable'},503);}
@@ -95,7 +107,7 @@ export async function onRequestPost({request,env}){
       if(!endpointAllowed(sub?.endpoint)||!sub.keys?.p256dh||!sub.keys?.auth){failed++;recordFailure('subscription','invalid_subscription');return;}
       let stage='receipt';
       // workerd accepts manual/follow only. Manual also prevents credentials from following a redirect.
-      try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);stage='encryption';const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:{ttl:3600}},sub,keys);stage='delivery';const response=await fetch(sub.endpoint,{...payload,redirect:'manual',signal:AbortSignal.timeout(12000)});
+      try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);stage='encryption';const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:PUSH_OPTIONS},sub,keys);stage='delivery';const response=await deliver(sub.endpoint,payload);
         if(response.ok){sent++;if(sub.staff)tally(sub.staff).sent++;}else{failed++;recordFailure(stage,await providerReason(response),response.status);if(response.status===404||response.status===410){expired++;if(sub.staff)droppedStaff.add(sub.staff);/* Keep a dead copy so the phone can prove it and sign up again on its own next open. */try{await fetch(db('pushDead/'+encodeURIComponent(id),env),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:sub.keys,staff:sub.staff||null,prefs:sub.prefs||DEFAULT_PREFS,droppedAt:Date.now()}),signal:AbortSignal.timeout(8000)});}catch{}try{await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}catch{/* A cleanup failure must not count the same delivery twice. */}}}
       }catch(error){failed++;recordFailure(stage,failureReason(error));}
     }));
