@@ -44,6 +44,6 @@ import {JSDOM} from 'jsdom';import fs from 'node:fs';import assert from 'node:as
   r=await onRequestPost({request:req({subscription:{endpoint:newE,keys:k},previousSubscription:{endpoint:oldE,keys:k}}),env});
   assert.equal(r.status,200,'fresh signup saved with no sign-in');
   const saved=db['pushSubs/'+await id(newE)];assert.equal(saved.staff,'Brad');assert.equal(saved.prefs.flashred,true,'choices carried over');
-  assert.ok(deleted.includes('pushDead/'+await id(oldE)),'dead copy cleaned up');
+  assert.ok(!deleted.includes('pushDead/'+await id(oldE)),'Nov 26 2026: the dead copy is kept as a record');
 }
 console.log('self-renew ok');

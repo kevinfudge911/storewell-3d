@@ -2,6 +2,7 @@ import { buildPushPayload } from '@block65/webcrypto-web-push';
 import {makeReceipt} from './push-receipt.js';
 import {notificationTag,notificationActivity} from '../server/notification-tag.js';
 import {sendLockEmails,sendDeviceDroppedEmails} from '../server/lock-email.js';
+import {logPush} from '../server/push-log.js';
 const FB='https://storewell-3d-default-rtdb.firebaseio.com';
 const DEFAULT_PREFS={flashred:true,flashgreen:true,report:true};
 const TYPES=new Set(['flashred','flashgreen','red','green','blue','yellow','purple','white','black','report']);
@@ -108,7 +109,7 @@ export async function onRequestPost({request,env}){
       let stage='receipt';
       // workerd accepts manual/follow only. Manual also prevents credentials from following a redirect.
       try{const receipt=await makeReceipt(notificationId,id,sub.staff,env);stage='encryption';const payload=await buildPushPayload({data:JSON.stringify({...message,receipt}),options:PUSH_OPTIONS},sub,keys);stage='delivery';const response=await deliver(sub.endpoint,payload);
-        if(response.ok){sent++;if(sub.staff)tally(sub.staff).sent++;}else{failed++;recordFailure(stage,await providerReason(response),response.status);if(response.status===404||response.status===410){expired++;if(sub.staff)droppedStaff.add(sub.staff);/* Keep a dead copy so the phone can prove it and sign up again on its own next open. */try{await fetch(db('pushDead/'+encodeURIComponent(id),env),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:sub.keys,staff:sub.staff||null,prefs:sub.prefs||DEFAULT_PREFS,droppedAt:Date.now()}),signal:AbortSignal.timeout(8000)});}catch{}try{await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}catch{/* A cleanup failure must not count the same delivery twice. */}}}
+        if(response.ok){sent++;if(sub.staff)tally(sub.staff).sent++;}else{failed++;recordFailure(stage,await providerReason(response),response.status);if(response.status===410){/* Nov 26 2026: only a real 410 (gone) retires a signup, and only after its dead copy is confirmed saved. A 404 or any other error keeps it. */expired++;if(sub.staff){droppedStaff.add(sub.staff);tally(sub.staff).gone=(tally(sub.staff).gone||0)+1;}let kept=false;try{const r=await fetch(db('pushDead/'+encodeURIComponent(id),env),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,keys:sub.keys,staff:sub.staff||null,prefs:sub.prefs||DEFAULT_PREFS,droppedAt:Date.now()}),signal:AbortSignal.timeout(8000)});kept=r.ok;}catch{}if(kept){try{await fetch(db('pushSubs/'+encodeURIComponent(id),env),{method:'DELETE',signal:AbortSignal.timeout(8000)});}catch{/* A cleanup failure must not count the same delivery twice. */}await logPush(env,{event:'dropped',staff:sub.staff,id,endpoint:sub.endpoint,status:410});}}}
       }catch(error){failed++;recordFailure(stage,failureReason(error));}
     }));
   }
@@ -116,7 +117,9 @@ export async function onRequestPost({request,env}){
   try{mail=await sendLockEmails(d,request,env,pushByStaff,recipients,done);}catch{mail={emailed:[],emailError:'unavailable'};}
   // Nov 19 2026: Brad's phone signup was dropped by the push service and removed with no
   // word to anyone. Now the owner is emailed once so they can turn alerts back on.
-  let dropped=[];if(droppedStaff.size){try{dropped=await sendDeviceDroppedEmails([...droppedStaff],env);}catch{}}
+  // Only tell someone their phone stopped when no other phone of theirs still works.
+  const reallyOff=[...droppedStaff].filter(name=>{const p=pushByStaff[name]||{};return !p.sent&&(p.devices||0)-(p.gone||0)<=0;});
+  let dropped=[];if(reallyOff.length){try{dropped=await sendDeviceDroppedEmails(reallyOff,env);}catch{}}
   const pushedTo=Object.entries(pushByStaff).filter(([,p])=>p.sent>0).map(([name])=>name);
   const noDevice=['Kevin','Mike','Brad'].filter(name=>!pushByStaff[name]?.devices);
   return json({success:failed===0,sent,failed,expired,skipped,eligible:selected.length,notificationId,pushedTo,noDevice,...(done?{done:done.label}:{}),...(dropped.length?{droppedNotified:dropped}:{}),...mail,...(failures.length?{failures,error:failureMessage(failures)}:{})},failed&&sent===0&&!mail.emailed?.length?502:200);

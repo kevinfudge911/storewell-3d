@@ -13,6 +13,8 @@ window._swDB=_db; window._swAuth=_auth;
 // Expose Firebase DB fns so code in the (non-module) React/babel scripts can use realtime sync too.
 window._swRef=ref; window._swOnValue=onValue; window._swUpdate=update; window._swSet=set; window._swPush=push; window._swRemove=remove; window._swGet=get; window._swOnDisconnect=onDisconnect;
 let _verifiedStaff='',_staffSessionRequest=null;
+// Nov 26 2026: show when each person's alert signup was last saved or dropped (from the signup history).
+window.__swPushWhen=d=>{const f=t=>new Date(t).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' CT';let o='';if(d?.lastSaved)o+=' Last saved '+f(d.lastSaved)+'.';if(d?.lastDropped)o+=' Last dropped '+f(d.lastDropped)+'.';return o;};
 async function _checkStaffSession(){
   if(_verifiedStaff)return _verifiedStaff;
   if(!_staffSessionRequest)_staffSessionRequest=(async()=>{
@@ -359,7 +361,7 @@ window.__swOperationsOpen=async function(initialTab='overview'){
               <div style="color:#1f2a37;font-weight:800;font-size:14px;">${c.name}</div>
             </div>
             <div style="display:grid;gap:7px;">
-              <p data-delivery-name="${c.name}" style="grid-column:1/-1;margin:0 0 8px;color:#355d76;font-size:13px;line-height:1.4;">${cfg._delivery?.[c.name]?.devices ? 'Push: '+cfg._delivery[c.name].devices+' registered device(s) · '+cfg._delivery[c.name].reportDevices+' with Reports enabled.' : 'Push is not set up on a device. Sign in on your phone and open Alerts to enable it.'}</p>
+              <p data-delivery-name="${c.name}" style="grid-column:1/-1;margin:0 0 8px;color:#355d76;font-size:13px;line-height:1.4;">${cfg._delivery?.[c.name]?.devices ? 'Push: '+cfg._delivery[c.name].devices+' registered device(s) · '+cfg._delivery[c.name].reportDevices+' with Reports enabled.' : 'Push is not set up on a device. Sign in on your phone and open Alerts to enable it.'}${window.__swPushWhen?.(cfg._delivery?.[c.name])||''}</p>
               <div><div style="color:#7a8aa0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Email</div><input class="sw-input" data-name="${c.name}" data-field="email" value="${c.email}" placeholder="email@example.com"/></div>
               <div><div style="color:#7a8aa0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Phone</div><input class="sw-input" data-name="${c.name}" data-field="phone" value="${c.phone}" placeholder="10-digit"/></div>
               <div><div style="color:#7a8aa0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">Notify Via</div><select class="sw-select" data-name="${c.name}" data-field="pref">${prefOpts(c.pref)}</select></div>

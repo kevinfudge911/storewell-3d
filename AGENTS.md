@@ -254,3 +254,10 @@ for reports, so a staff member without a working push device got nothing.
 - functions/notify.js sends like Ohana Home: PUSH_OPTIONS {ttl:86400, urgency:'high'} and one retry on no answer, 429 or 5xx. Before: 1 hour, normal priority, no retry.
 - public/notifications.js never stays silent: a signed-in device that can't get push (iPhone in Safari, in-app browser) shows the red bar with the exact fix; a sign-in that finishes after page load now runs the same check (it used to just turn the bell off).
 - Test: scripts/check-alerts-reach-brad.mjs. Problem doc + plan: AI HQ "AI CREW - StoreWell: Brad gets no alerts".
+
+## November 26 2026 alert signups stay saved (Brad kept signing up and losing it)
+- What was stored: Brad 0 signups, Kevin 2, Mike 1, and no dropped (pushDead) copies at all, and no history to show when or how Brad's were lost.
+- Now: only a real 410 retires a signup, and only after its dead copy is confirmed saved (a 404, 5xx or failed copy keeps it). A phone moving to a new signup no longer deletes the old one or its dead copy.
+- "Alerts off on your phone" email only goes out when none of that person's phones still works.
+- Every real signup change (new, moved, reassigned to another person, dropped) is written to Firebase pushLog with who, device id, push host and time. Team shows each person's last saved / last dropped time.
+- Test: scripts/check-signups-stay-saved.mjs.

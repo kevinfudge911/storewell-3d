@@ -1,10 +1,12 @@
 import {STAFF,json,staffSession,safeContact,sameOrigin,dbRequest,readData,sessionCookie} from '../server/staff-access.js';
+import {lastPushEvents} from '../server/push-log.js';
 export async function onRequestGet({request,env}){
   const session=await staffSession(request,env);
   if(!session)return json({error:'Sign in to view staff contacts.'},401);
   try{
     const subs=await readData('pushSubs',env),delivery={};
-    for(const name of STAFF){const own=Object.values(subs).filter(s=>s?.staff?.toLowerCase()===name.toLowerCase());delivery[name]={devices:own.length,reportDevices:own.filter(s=>(s.prefs||{report:true}).report===true).length};}
+    const last=await lastPushEvents(env);
+    for(const name of STAFF){const own=Object.values(subs).filter(s=>s?.staff?.toLowerCase()===name.toLowerCase());delivery[name]={devices:own.length,reportDevices:own.filter(s=>(s.prefs||{report:true}).report===true).length,...(last[name]?.saved?{lastSaved:last[name].saved}:{}),...(last[name]?.dropped?{lastDropped:last[name].dropped}:{})};}
     return json({contacts:Object.fromEntries(STAFF.map(n=>[n,safeContact(session.config[n])])),delivery});
   }catch{return json({error:'Team information could not connect. Reopen Team to retry.'},503);}
 }

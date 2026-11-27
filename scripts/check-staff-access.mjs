@@ -47,7 +47,7 @@ response=await call(subscriptions.onRequestPost,req('/push-subscription','POST',
 assert.equal((await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:sub}))).status,200,'Same endpoint and keys refresh without sign-in');
 assert.equal((await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:rotated,previousSubscription:{...sub,keys:{...sub.keys,auth:'Z'.repeat(22)}}}))).status,401,'Wrong keys cannot take over a device');
 const moved=await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:rotated,previousSubscription:sub}));assert.equal(moved.status,200);const m=await moved.json();
-assert.equal(db.pushSubs[m.id].staff,'Kevin','A rotated signup keeps its owner');assert.equal(db.pushSubs[saved.id],undefined,'The old endpoint is replaced');
+assert.equal(db.pushSubs[m.id].staff,'Kevin','A rotated signup keeps its owner');assert.equal(db.pushSubs[saved.id].staff,'Kevin','Nov 26 2026: the old signup is kept until the push service really says 410');
 const back=await call(subscriptions.onRequestPost,req('/push-subscription','POST',{subscription:sub,previousSubscription:rotated},cookie));assert.equal(back.status,200);}
 const receipt=await receipts.makeReceipt(crypto.randomUUID(),saved.id,'Kevin',env);
 assert.equal((await call(receipts.onRequestPost,req('/push-receipt','POST',{...receipt,token:'forged'}))).status,403);

@@ -1,4 +1,5 @@
 import {STAFF,json,staffSession,sameOrigin,readData,dbRequest} from '../server/staff-access.js';
+import {logPush} from '../server/push-log.js';
 export function endpointAllowed(endpoint){
   try{const u=new URL(endpoint);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&(/(^|\.)push\.apple\.com$/.test(u.hostname)||/(^|\.)notify\.windows\.com$/.test(u.hostname)||/(^|\.)push\.services\.mozilla\.com$/.test(u.hostname)||['fcm.googleapis.com','android.googleapis.com','web.push.apple.com'].includes(u.hostname));}catch{return false;}
 }
@@ -41,7 +42,12 @@ export async function onRequestPost({request,env}){
     const node={endpoint:sub.endpoint,keys:{p256dh:sub.keys.p256dh,auth:sub.keys.auth},expirationTime:sub.expirationTime??null,prefs,staff:session.name,updatedAt:Date.now()};
     const response=await dbRequest('pushSubs/'+id,env,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(node)});
     if(!response.ok)throw new Error();
-    if(previousId){await dbRequest('pushSubs/'+previousId,env,{method:'DELETE'});await dbRequest('pushDead/'+previousId,env,{method:'DELETE'});}
+    // Nov 26 2026: never delete the old signup when a phone moves to a new one. If the old
+    // one really died, the push service says 410 on the next alert and it is retired then.
+    // Every real change is written to the signup history.
+    if(previousId)await logPush(env,{event:'moved',staff:session.name,id,endpoint:sub.endpoint,from:previousId});
+    else if(!existing.endpoint)await logPush(env,{event:'new',staff:session.name,id,endpoint:sub.endpoint});
+    else if(existing.staff&&existing.staff!==session.name)await logPush(env,{event:'reassigned',staff:session.name,id,endpoint:sub.endpoint,from:existing.staff});
     return json({success:true,id,prefs,staff:session.name});
   }catch{return json({error:'Could not save this device’s alert settings.'},503);}
 }
